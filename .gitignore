@@ -1,0 +1,13 @@
+/bin/
+/build_dir/
+/dl/
+/feeds/
+/staging_dir/
+/tmp/
+/.config
+/.config.old
+*.apk
+*.ipk
+*.o
+*.so
+*~

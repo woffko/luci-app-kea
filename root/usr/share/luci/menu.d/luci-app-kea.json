@@ -1,0 +1,38 @@
+{
+	"admin/services/kea": {
+		"title": "Kea DHCP",
+		"order": 61,
+		"action": {
+			"type": "view",
+			"path": "kea/overview"
+		},
+		"depends": {
+			"acl": [ "luci-app-kea" ]
+		}
+	},
+	"admin/services/kea/overview": {
+		"title": "Overview",
+		"order": 10,
+		"action": {
+			"type": "view",
+			"path": "kea/overview"
+		}
+	},
+	"admin/services/kea/services": {
+		"title": "Services",
+		"order": 20,
+		"action": {
+			"type": "view",
+			"path": "kea/services"
+		}
+	},
+	"admin/services/kea/import-dnsmasq": {
+		"title": "Import dnsmasq",
+		"order": 30,
+		"action": {
+			"type": "view",
+			"path": "kea/import-dnsmasq"
+		}
+	}
+}
+

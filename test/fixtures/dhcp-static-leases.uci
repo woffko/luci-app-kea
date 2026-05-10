@@ -1,0 +1,25 @@
+config host 'valid_ipv4'
+	option name 'printer'
+	option mac '12:00:78:59:29:8c'
+	option ip '10.0.77.118'
+
+config host 'missing_mac'
+	option name 'bad-ipv4'
+	option ip '10.0.77.119'
+
+config host 'dhcpv6_duid'
+	option name 'nut'
+	option duid '00:04:e6:f8:c8:8f:a8:5f:d8:18:25:59:60:2d:e4:b5:fc:2e'
+	option ip 'fd00:1234:abcd:1::ea4d'
+
+config host 'dhcpv6_truncated_duid'
+	option name 'bad-v6'
+	option duid '00'
+	option ip 'fd00:1234:abcd:1::e19f'
+
+config host 'tagged_dnsmasq_only'
+	option name 'tagged'
+	option mac '12:00:78:59:29:8d'
+	option ip '10.0.77.120'
+	option tag 'special'
+	option dns '1'

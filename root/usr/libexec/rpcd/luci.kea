@@ -1,0 +1,431 @@
+#!/bin/sh
+
+ROOT="${IPKG_INSTROOT:-}"
+JSHN="$ROOT/usr/share/libubox/jshn.sh"
+FUNCTIONS="$ROOT/lib/functions.sh"
+
+[ -r "$JSHN" ] || JSHN="/usr/share/libubox/jshn.sh"
+[ -r "$FUNCTIONS" ] || FUNCTIONS="/lib/functions.sh"
+
+. "$JSHN"
+. "$FUNCTIONS"
+
+KEA_INIT="$ROOT/etc/init.d/kea"
+KEA_CONF_DIR="$ROOT/etc/kea"
+KEA_STAGING_FILE="$ROOT/etc/kea/luci-reservations.json"
+
+bool_file_exists() {
+	[ -e "$1" ] && echo 1 || echo 0
+}
+
+bool_executable() {
+	[ -x "$1" ] && echo 1 || echo 0
+}
+
+service_running() {
+	local name="$1"
+	pgrep -f "/usr/sbin/kea-$name" >/dev/null 2>&1
+}
+
+service_enabled() {
+	[ -x "$KEA_INIT" ] && "$KEA_INIT" enabled >/dev/null 2>&1
+}
+
+config_service_disabled() {
+	local section="$1" disabled
+	config_get_bool disabled "$section" disabled 1
+	echo "$disabled"
+}
+
+add_package_status() {
+	local name="$1" path="$2"
+
+	json_add_object "$name"
+	json_add_boolean installed "$(bool_executable "$path")"
+	json_add_string path "$path"
+	json_close_object
+}
+
+add_config_status() {
+	local name="$1" path="$2"
+
+	json_add_object "$name"
+	json_add_boolean exists "$(bool_file_exists "$path")"
+	json_add_string path "$path"
+	json_close_object
+}
+
+get_status() {
+	json_init
+	json_add_object status
+
+	json_add_boolean init_installed "$(bool_executable "$KEA_INIT")"
+	json_add_boolean init_enabled "$(service_enabled && echo 1 || echo 0)"
+	json_add_boolean staging_exists "$(bool_file_exists "$KEA_STAGING_FILE")"
+
+	json_add_object binaries
+	add_package_status dhcp4 /usr/sbin/kea-dhcp4
+	add_package_status dhcp6 /usr/sbin/kea-dhcp6
+	add_package_status dhcp_ddns /usr/sbin/kea-dhcp-ddns
+	add_package_status ctrl_agent /usr/sbin/kea-ctrl-agent
+	add_package_status shell /usr/sbin/kea-shell
+	json_close_object
+
+	json_add_object hooks
+	json_add_boolean ha "$(bool_file_exists /usr/lib/kea/hooks/libdhcp_ha.so)"
+	json_add_boolean lease_cmds "$(bool_file_exists /usr/lib/kea/hooks/libdhcp_lease_cmds.so)"
+	json_close_object
+
+	json_add_object configs
+	add_config_status dhcp4 "$KEA_CONF_DIR/kea-dhcp4.conf"
+	add_config_status dhcp6 "$KEA_CONF_DIR/kea-dhcp6.conf"
+	add_config_status dhcp_ddns "$KEA_CONF_DIR/kea-dhcp-ddns.conf"
+	add_config_status ctrl_agent "$KEA_CONF_DIR/kea-ctrl-agent.conf"
+	add_config_status staging "$KEA_STAGING_FILE"
+	json_close_object
+
+	json_close_object
+	json_dump
+	json_cleanup
+}
+
+add_service() {
+	local section="$1" name disabled running
+
+	config_get name "$section" name "$section"
+	disabled="$(config_service_disabled "$section")"
+
+	case "$name" in
+		ctrl_agent) running_name="ctrl-agent" ;;
+		dhcp_ddns) running_name="dhcp-ddns" ;;
+		*) running_name="$name" ;;
+	esac
+
+	if service_running "$running_name"; then
+		running=1
+	else
+		running=0
+	fi
+
+	json_add_object "$name"
+	json_add_string section "$section"
+	json_add_boolean enabled "$([ "$disabled" = 0 ] && echo 1 || echo 0)"
+	json_add_boolean running "$running"
+	json_close_object
+}
+
+get_services() {
+	json_init
+	json_add_object services
+	config_load kea
+	config_foreach add_service service
+	json_close_object
+	json_dump
+	json_cleanup
+}
+
+set_service() {
+	local name="$1" enabled="$2" section
+
+	case "$name" in
+		ctrl_agent|dhcp4|dhcp6|dhcp_ddns) ;;
+		*)
+			json_init
+			json_add_boolean result 0
+			json_add_string error "invalid service name"
+			json_dump
+			json_cleanup
+			return
+			;;
+	esac
+
+	config_load kea
+	find_service() {
+		local cfg="$1" service_name
+		config_get service_name "$cfg" name "$cfg"
+		[ "$service_name" = "$name" ] && section="$cfg"
+	}
+	config_foreach find_service service
+
+	[ -n "$section" ] || section="$name"
+
+	if [ "$enabled" = 1 ] || [ "$enabled" = true ]; then
+		uci -q set "kea.$section.disabled=0"
+	else
+		uci -q set "kea.$section.disabled=1"
+	fi
+
+	json_init
+	if uci -q commit kea; then
+		json_add_boolean result 1
+	else
+		json_add_boolean result 0
+		json_add_string error "failed to commit UCI config"
+	fi
+	json_dump
+	json_cleanup
+}
+
+set_init_action() {
+	local action="$1"
+
+	json_init
+
+	if [ ! -x "$KEA_INIT" ]; then
+		json_add_boolean result 0
+		json_add_string error "Kea init script is not installed"
+		json_dump
+		json_cleanup
+		return
+	fi
+
+	case "$action" in
+		enable|disable|start|stop|restart|reload) ;;
+		*)
+			json_add_boolean result 0
+			json_add_string error "invalid init action"
+			json_dump
+			json_cleanup
+			return
+			;;
+	esac
+
+	if "$KEA_INIT" "$action" >/dev/null 2>&1; then
+		json_add_boolean result 1
+	else
+		json_add_boolean result 0
+		json_add_string error "init action failed"
+	fi
+
+	json_dump
+	json_cleanup
+}
+
+validate_one() {
+	local name="$1" bin="$2" conf="$3" output rc
+
+	json_add_object "$name"
+	json_add_string config "$conf"
+	json_add_boolean installed "$(bool_executable "$bin")"
+	json_add_boolean exists "$(bool_file_exists "$conf")"
+
+	if [ -x "$bin" ] && [ -f "$conf" ]; then
+		output="$("$bin" -t -c "$conf" 2>&1)"
+		rc=$?
+		json_add_boolean valid "$([ "$rc" -eq 0 ] && echo 1 || echo 0)"
+		json_add_string output "$output"
+	else
+		json_add_boolean valid 0
+		json_add_string output "binary or config file is missing"
+	fi
+
+	json_close_object
+}
+
+validate_configs() {
+	json_init
+	json_add_object validation
+	validate_one dhcp4 /usr/sbin/kea-dhcp4 "$KEA_CONF_DIR/kea-dhcp4.conf"
+	validate_one dhcp6 /usr/sbin/kea-dhcp6 "$KEA_CONF_DIR/kea-dhcp6.conf"
+	validate_one dhcp_ddns /usr/sbin/kea-dhcp-ddns "$KEA_CONF_DIR/kea-dhcp-ddns.conf"
+	json_close_object
+	json_dump
+	json_cleanup
+}
+
+append_warning() {
+	local value="$1"
+	warnings="${warnings}${warnings:+|}$value"
+	status="disabled"
+}
+
+warnings_to_json() {
+	local oldifs item
+
+	json_add_array warnings
+	oldifs="$IFS"
+	IFS="|"
+	for item in $warnings; do
+		[ -n "$item" ] && json_add_string "" "$item"
+	done
+	IFS="$oldifs"
+	json_close_array
+}
+
+valid_mac_list() {
+	local mac
+	for mac in $1; do
+		case "$mac" in
+			[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]) ;;
+			*) return 1 ;;
+		esac
+	done
+	return 0
+}
+
+valid_ipv4() {
+	local oldifs a b c d extra octet
+	oldifs="$IFS"
+	IFS=.
+	set -- $1
+	IFS="$oldifs"
+	a="$1"; b="$2"; c="$3"; d="$4"; extra="$5"
+	[ -z "$extra" ] || return 1
+	for octet in "$a" "$b" "$c" "$d"; do
+		case "$octet" in
+			''|*[!0-9]*) return 1 ;;
+		esac
+		[ "$octet" -ge 0 ] 2>/dev/null && [ "$octet" -le 255 ] 2>/dev/null || return 1
+	done
+	return 0
+}
+
+valid_duid() {
+	case "$1" in
+		''|'*'|'00') return 1 ;;
+		*:*:*) return 0 ;;
+		*) return 1 ;;
+	esac
+}
+
+add_import_entry() {
+	local cfg="$1" name mac ip duid hostid enable tag match_tag networkid dns
+	local status warnings family
+
+	status="ready"
+	warnings=""
+	family="dhcp4"
+
+	config_get_bool enable "$cfg" enable 1
+	config_get name "$cfg" name
+	config_get mac "$cfg" mac
+	config_get ip "$cfg" ip
+	config_get duid "$cfg" duid
+	config_get hostid "$cfg" hostid
+	config_get tag "$cfg" tag
+	config_get networkid "$cfg" networkid
+	config_get_bool dns "$cfg" dns 0
+	config_get match_tag "$cfg" match_tag
+
+	if [ "$enable" = 0 ]; then
+		append_warning "source dnsmasq host entry is disabled"
+	fi
+
+	if [ -n "$duid" ] || [ -n "$hostid" ]; then
+		family="dhcp6"
+	fi
+
+	if [ "$family" = "dhcp4" ]; then
+		[ -n "$mac" ] || append_warning "missing MAC address"
+		[ -n "$ip" ] || append_warning "missing IPv4 address"
+		[ -z "$ip" ] || valid_ipv4 "$ip" || append_warning "invalid IPv4 address"
+		[ -z "$mac" ] || valid_mac_list "$mac" || append_warning "invalid MAC address"
+		case "$mac" in
+			*" "*) append_warning "multiple MAC addresses need manual review" ;;
+		esac
+	else
+		valid_duid "$duid" || append_warning "missing, invalid, or truncated DHCPv6 DUID/client-id"
+		[ -n "$ip" ] || [ -n "$hostid" ] || append_warning "missing DHCPv6 address or hostid"
+		[ -z "$hostid" ] || append_warning "DHCPv6 hostid requires subnet prefix resolution before import"
+	fi
+
+	[ -z "$tag" ] || append_warning "dnsmasq tag import is not implemented yet"
+	[ -z "$match_tag" ] || append_warning "dnsmasq match_tag import is not implemented yet"
+	[ -z "$networkid" ] || append_warning "dnsmasq networkid import is not implemented yet"
+	[ "$dns" = 0 ] || append_warning "dns hostfile side effect is not represented in Kea reservation"
+
+	json_add_object
+	json_add_string source "$cfg"
+	json_add_string family "$family"
+	json_add_string status "$status"
+	json_add_boolean enabled "$([ "$status" = ready ] && echo 1 || echo 0)"
+	json_add_string name "$name"
+	json_add_string mac "$mac"
+	json_add_string ip "$ip"
+	json_add_string duid "$duid"
+	json_add_string hostid "$hostid"
+	json_add_string tag "$tag"
+	json_add_string networkid "$networkid"
+	warnings_to_json
+	json_close_object
+}
+
+import_dnsmasq_dry_run() {
+	json_init
+	json_add_object import
+	json_add_string mode "dry-run"
+	json_add_array entries
+	config_load dhcp
+	config_foreach add_import_entry host
+	json_close_array
+	json_close_object
+	json_dump
+	json_cleanup
+}
+
+import_dnsmasq_commit() {
+	json_init
+	json_add_boolean result 0
+	json_add_string error "commit is not implemented yet; use dry-run preview first"
+	json_dump
+	json_cleanup
+}
+
+case "$1" in
+	list)
+		json_init
+		json_add_object getStatus
+		json_close_object
+		json_add_object getServices
+		json_close_object
+		json_add_object validate
+		json_close_object
+		json_add_object importDnsmasqDryRun
+		json_close_object
+		json_add_object importDnsmasqCommit
+		json_close_object
+		json_add_object setService
+			json_add_string name name
+			json_add_boolean enabled 0
+		json_close_object
+		json_add_object setInitAction
+			json_add_string action action
+		json_close_object
+		json_dump
+		json_cleanup
+		;;
+	call)
+		case "$2" in
+			getStatus)
+				get_status
+				;;
+			getServices)
+				get_services
+				;;
+			validate)
+				validate_configs
+				;;
+			importDnsmasqDryRun)
+				import_dnsmasq_dry_run
+				;;
+			importDnsmasqCommit)
+				import_dnsmasq_commit
+				;;
+			setService)
+				read -r input
+				json_load "$input"
+				json_get_var name name
+				json_get_var enabled enabled
+				json_cleanup
+				set_service "$name" "$enabled"
+				;;
+			setInitAction)
+				read -r input
+				json_load "$input"
+				json_get_var action action
+				json_cleanup
+				set_init_action "$action"
+				;;
+		esac
+		;;
+esac

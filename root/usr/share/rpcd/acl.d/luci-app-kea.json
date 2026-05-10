@@ -1,0 +1,44 @@
+{
+	"luci-app-kea": {
+		"description": "Grant access to Kea DHCP LuCI application",
+		"read": {
+			"ubus": {
+				"luci.kea": [
+					"getStatus",
+					"getServices",
+					"validate",
+					"importDnsmasqDryRun"
+				],
+				"service": [ "list" ]
+			},
+			"uci": [
+				"kea",
+				"dhcp",
+				"network"
+			],
+			"file": {
+				"/etc/kea/kea-dhcp4.conf": [ "read" ],
+				"/etc/kea/kea-dhcp6.conf": [ "read" ],
+				"/etc/kea/kea-dhcp-ddns.conf": [ "read" ],
+				"/etc/kea/luci-reservations.json": [ "read" ]
+			}
+		},
+		"write": {
+			"ubus": {
+				"luci.kea": [
+					"setService",
+					"setInitAction",
+					"importDnsmasqCommit"
+				]
+			},
+			"uci": [
+				"kea"
+			],
+			"file": {
+				"/etc/kea/luci-reservations.json": [ "write" ],
+				"/etc/kea": [ "write" ]
+			}
+		}
+	}
+}
+
