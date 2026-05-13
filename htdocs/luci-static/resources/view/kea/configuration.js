@@ -24,7 +24,7 @@ var callSaveConfig = rpc.declare({
 });
 
 function configTitle(item) {
-	return "%s (%s)".format(item.title || item.name, item.name);
+	return (item.title || item.name) + " (" + item.name + ")";
 }
 
 function renderValidation(config) {

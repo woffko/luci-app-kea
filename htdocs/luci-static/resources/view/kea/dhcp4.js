@@ -142,7 +142,7 @@ function interfaceLabel(item) {
 		return _("Manual");
 
 	if (item.device && item.device !== item.name)
-		return "%s (%s)".format(item.name, item.device);
+		return item.name + " (" + item.device + ")";
 
 	return item.name || item.device || _("Interface");
 }
@@ -313,10 +313,10 @@ function buildTabs(config, interfaces) {
 
 		if (!tab) {
 			tab = makeBaseTab({
-				name: key || subnet.subnet || "subnet%d".format(i + 1),
+				name: key || subnet.subnet || "subnet" + (i + 1),
 				device: key || ""
 			});
-			tab.label = key || subnet.subnet || "subnet%d".format(i + 1);
+			tab.label = key || subnet.subnet || "subnet" + (i + 1);
 			tabs.push(tab);
 
 			if (key)
@@ -325,7 +325,7 @@ function buildTabs(config, interfaces) {
 
 		if (tab.subnet) {
 			tab = makeBaseTab({
-				name: "%s-%d".format(key || "subnet", i + 1),
+				name: (key || "subnet") + "-" + (i + 1),
 				device: key || ""
 			});
 			tabs.push(tab);
@@ -508,11 +508,11 @@ return view.extend({
 				continue;
 
 			if (!tab.device)
-				errors.push("%s: %s".format(tab.label, _("interface device is required")));
+				errors.push(tab.label + ": " + _("interface device is required"));
 			if (!tab.subnet)
-				errors.push("%s: %s".format(tab.label, _("subnet is required")));
+				errors.push(tab.label + ": " + _("subnet is required"));
 			if ((tab.poolStart && !tab.poolEnd) || (!tab.poolStart && tab.poolEnd))
-				errors.push("%s: %s".format(tab.label, _("pool start and end must be set together")));
+				errors.push(tab.label + ": " + _("pool start and end must be set together"));
 
 			if (tab.device && !arrayContains(enabledIfaces, tab.device))
 				enabledIfaces.push(tab.device);
@@ -524,7 +524,7 @@ return view.extend({
 			};
 
 			if (tab.poolStart && tab.poolEnd)
-				subnet.pools = [ { pool: "%s - %s".format(tab.poolStart, tab.poolEnd) } ];
+				subnet.pools = [ { pool: tab.poolStart + " - " + tab.poolEnd } ];
 
 			timer = cleanNumber(tab.renewTimer);
 			if (timer !== null)
@@ -550,7 +550,7 @@ return view.extend({
 					return;
 
 				if (!reservation.mac || !reservation.ip) {
-					errors.push("%s: %s".format(tab.label, _("reservation MAC and address are required")));
+					errors.push(tab.label + ": " + _("reservation MAC and address are required"));
 					return;
 				}
 

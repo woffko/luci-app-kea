@@ -32,28 +32,28 @@ var callInitAction = rpc.declare({
 var SERVICE_ORDER = [
 	{
 		name: "dhcp4",
-		title: _("DHCPv4 server"),
+		title: "DHCPv4 server",
 		binary: "dhcp4",
 		config: "dhcp4",
 		process: "kea-dhcp4"
 	},
 	{
 		name: "dhcp6",
-		title: _("DHCPv6 server"),
+		title: "DHCPv6 server",
 		binary: "dhcp6",
 		config: "dhcp6",
 		process: "kea-dhcp6"
 	},
 	{
 		name: "dhcp_ddns",
-		title: _("DHCP DDNS"),
+		title: "DHCP DDNS",
 		binary: "dhcp_ddns",
 		config: "dhcp_ddns",
 		process: "kea-dhcp-ddns"
 	},
 	{
 		name: "ctrl_agent",
-		title: _("Control Agent"),
+		title: "Control Agent",
 		binary: "ctrl_agent",
 		config: "ctrl_agent",
 		process: "kea-ctrl-agent"
@@ -65,7 +65,7 @@ function badge(active, text, mutedText) {
 	var background = active ? "#e8f6e8" : "#f8e8e8";
 
 	return E("span", {
-		"style": "display:inline-block; min-width:6.5em; text-align:center; padding:.15rem .45rem; border-radius:.35rem; color:%s; background:%s; font-weight:600".format(color, background)
+		"style": "display:inline-block; min-width:6.5em; text-align:center; padding:.15rem .45rem; border-radius:.35rem; color:" + color + "; background:" + background + "; font-weight:600"
 	}, active ? text : mutedText);
 }
 
@@ -123,7 +123,7 @@ function serviceRow(serviceDef, services, status, self) {
 
 	return E("tr", { "class": "tr" }, [
 		E("td", { "class": "td left" }, [
-			E("strong", {}, serviceDef.title),
+			E("strong", {}, _(serviceDef.title)),
 			E("br"),
 			E("small", {}, serviceDef.process)
 		]),
