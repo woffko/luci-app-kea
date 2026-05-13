@@ -147,10 +147,98 @@ function interfaceLabel(item) {
 	return item.name || item.device || _("Interface");
 }
 
+function ipv4ToInt(addr) {
+	var parts = String(addr || "").split(".");
+	var value = 0;
+	var i, octet;
+
+	if (parts.length !== 4)
+		return null;
+
+	for (i = 0; i < 4; i++) {
+		if (!/^\d+$/.test(parts[i]))
+			return null;
+
+		octet = Number(parts[i]);
+		if (octet < 0 || octet > 255)
+			return null;
+
+		value = ((value << 8) | octet) >>> 0;
+	}
+
+	return value >>> 0;
+}
+
+function maskFromPrefix(prefix) {
+	prefix = Number(prefix);
+
+	if (prefix < 0 || prefix > 32 || isNaN(prefix))
+		return null;
+
+	if (prefix === 0)
+		return 0;
+
+	return (0xffffffff << (32 - prefix)) >>> 0;
+}
+
+function parseCidr(value) {
+	var parts = String(value || "").trim().split("/");
+	var ip = ipv4ToInt(parts[0]);
+	var prefix = parts.length > 1 ? Number(parts[1]) : 32;
+	var mask = maskFromPrefix(prefix);
+
+	if (ip === null || mask === null)
+		return null;
+
+	return {
+		network: (ip & mask) >>> 0,
+		prefix: prefix
+	};
+}
+
+function interfaceNetworks(tab) {
+	var values = String(tab.ipaddr || "").trim().split(/\s+/);
+	var networks = [];
+	var i, cidr;
+
+	for (i = 0; i < values.length; i++) {
+		if (!values[i])
+			continue;
+
+		cidr = parseCidr(values[i]);
+		if (cidr)
+			networks.push(cidr);
+	}
+
+	return networks;
+}
+
+function findTabBySubnet(tabs, subnet) {
+	var target = parseCidr(subnet && subnet.subnet);
+	var i, j, networks;
+
+	if (!target)
+		return null;
+
+	for (i = 0; i < tabs.length; i++) {
+		if (tabs[i].subnet)
+			continue;
+
+		networks = interfaceNetworks(tabs[i]);
+		for (j = 0; j < networks.length; j++) {
+			if (networks[j].prefix === target.prefix && networks[j].network === target.network)
+				return tabs[i];
+		}
+	}
+
+	return null;
+}
+
 function makeBaseTab(item) {
 	return {
 		name: item && item.name || "",
 		device: item && item.device || "",
+		ipaddr: item && item.ipaddr || "",
 		label: interfaceLabel(item),
 		enabled: false,
 		subnetId: null,
@@ -221,13 +309,14 @@ function buildTabs(config, interfaces) {
 	for (i = 0; i < subnets.length; i++) {
 		subnet = subnets[i] || {};
 		key = subnet["interface"] || subnet["interface-id"] || "";
-		tab = key ? byDevice[key] : null;
+		tab = key ? byDevice[key] : findTabBySubnet(tabs, subnet);
 
 		if (!tab) {
 			tab = makeBaseTab({
-				name: key || "subnet%d".format(i + 1),
+				name: key || subnet.subnet || "subnet%d".format(i + 1),
 				device: key || ""
 			});
+			tab.label = key || subnet.subnet || "subnet%d".format(i + 1);
 			tabs.push(tab);
 
 			if (key)

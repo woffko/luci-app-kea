@@ -211,6 +211,16 @@ Current DHCPv4 page fields:
   - IPv4 address;
   - enabled flag.
 
+Follow-up fixes:
+
+- Kea subnets without an explicit `interface` field are now matched to an
+  OpenWrt interface tab by IPv4 network. Example: `192.168.1.0/24` is shown
+  under `lan (br-lan)` when OpenWrt has `192.168.1.1/24` on `br-lan`.
+- This avoids ambiguous generated tabs such as `subnet1` for the default LAN
+  subnet.
+- Unmatched Kea subnets still get their own tab, labeled by subnet CIDR instead
+  of a generic name where possible.
+
 Backend method added:
 
 ```text
@@ -266,6 +276,37 @@ Results:
 ```text
 /home/w0w/build/openwrt-mtk-25.12.2/clean-openwrt-25.12.3-x86_64/bin/packages/x86_64/base/luci-app-kea-0.1.0-r1.apk
 ```
+
+## 2026-05-13 Services Page Follow-Up
+
+Reworked the `Services` page from a rough diagnostic table into a startup-like
+service view.
+
+The page now has:
+
+- an `Init Service` table for `/etc/init.d/kea`:
+  - installed/missing;
+  - autostart enabled/disabled;
+  - aggregate runtime status;
+  - start, stop, restart, reload, enable autostart, disable autostart actions;
+- a `Kea Components` table for:
+  - `kea-dhcp4`;
+  - `kea-dhcp6`;
+  - `kea-dhcp-ddns`;
+  - `kea-ctrl-agent`;
+- per-component status columns:
+  - binary installed/missing;
+  - config present/missing;
+  - enabled/disabled in `/etc/config/kea`;
+  - running/stopped;
+  - UCI section name.
+
+Important behavior:
+
+- Component checkboxes edit `/etc/config/kea`.
+- Starting/stopping still happens through the single Kea init script, because
+  these components are not separate OpenWrt init services.
+- After toggling a component, restart Kea to apply the config change.
 
 ## Useful Verification Commands
 
