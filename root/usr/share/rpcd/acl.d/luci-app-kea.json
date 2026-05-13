@@ -6,7 +6,10 @@
 				"luci.kea": [
 					"getStatus",
 					"getServices",
+					"getNetworkInterfaces",
 					"validate",
+					"getConfigList",
+					"getConfig",
 					"importDnsmasqDryRun"
 				],
 				"service": [ "list" ]
@@ -28,6 +31,7 @@
 				"luci.kea": [
 					"setService",
 					"setInitAction",
+					"saveConfig",
 					"importDnsmasqCommit"
 				]
 			},
@@ -36,9 +40,12 @@
 			],
 			"file": {
 				"/etc/kea/luci-reservations.json": [ "write" ],
+				"/etc/kea/kea-dhcp4.conf": [ "write" ],
+				"/etc/kea/kea-dhcp6.conf": [ "write" ],
+				"/etc/kea/kea-dhcp-ddns.conf": [ "write" ],
+				"/etc/kea/kea-ctrl-agent.conf": [ "write" ],
 				"/etc/kea": [ "write" ]
 			}
 		}
 	}
 }
-

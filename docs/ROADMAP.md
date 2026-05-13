@@ -15,7 +15,7 @@ Initial package skeleton has been started under `package/luci-app-kea`:
 - OpenWrt package metadata: `package/luci-app-kea/Makefile`.
 - LuCI menu and rpcd ACL files.
 - rpcd backend skeleton `luci.kea` with status, service controls, config validation, and dnsmasq static lease dry-run import.
-- LuCI pages for overview, services, and dnsmasq static lease import preview.
+- LuCI pages for overview, services, DHCPv4 structured editing, raw config editing, and dnsmasq static lease import preview.
 - First import fixtures covering valid IPv4, invalid IPv4, valid DHCPv6 DUID, truncated DHCPv6 identity, and dnsmasq-only tag/DNS behavior.
 
 ## Current OpenWrt Kea Packages
@@ -185,6 +185,29 @@ Structured editor for common `Dhcp4` settings:
 - global and subnet options;
 - lease database settings;
 - optional raw JSON section for unsupported fields.
+
+Initial implementation status:
+
+- Added `admin/services/kea/dhcp4`.
+- The page follows the pfSense-style layout: one tab per OpenWrt interface.
+- The first editor reads `/etc/kea/kea-dhcp4.conf`, strips Kea JSON comments,
+  builds editable interface tabs, and saves through the existing validated
+  `saveConfig` backend path.
+- Supported fields in the first pass:
+  - enable DHCPv4 on an interface;
+  - Kea interface binding;
+  - subnet;
+  - primary pool start/end;
+  - gateway/router option;
+  - DNS servers;
+  - domain name;
+  - domain search;
+  - renew/rebind/valid timers;
+  - basic static reservations with hostname, MAC address, IPv4 address, and
+    enabled flag.
+- Unsupported/advanced Kea keys are preserved at the top-level `Dhcp4` object
+  where practical, but subnet-level unsupported details need a more explicit
+  model before this is upstream quality.
 
 Reservation editor must support:
 
@@ -395,8 +418,8 @@ Backend validation should include:
 
 - JSON parse check.
 - Kea binary config test:
-  - `kea-dhcp4 -t -c /etc/kea/kea-dhcp4.conf`
-  - `kea-dhcp6 -t -c /etc/kea/kea-dhcp6.conf`
+  - `kea-dhcp4 -t /etc/kea/kea-dhcp4.conf`
+  - `kea-dhcp6 -t /etc/kea/kea-dhcp6.conf`
   - equivalent checks for DDNS/control agent if available.
 - Subnet overlap checks.
 - Pool inside subnet checks.

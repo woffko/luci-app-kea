@@ -26,13 +26,28 @@
 			"path": "kea/services"
 		}
 	},
+	"admin/services/kea/dhcp4": {
+		"title": "DHCPv4",
+		"order": 30,
+		"action": {
+			"type": "view",
+			"path": "kea/dhcp4"
+		}
+	},
+	"admin/services/kea/configuration": {
+		"title": "Configuration",
+		"order": 80,
+		"action": {
+			"type": "view",
+			"path": "kea/configuration"
+		}
+	},
 	"admin/services/kea/import-dnsmasq": {
 		"title": "Import dnsmasq",
-		"order": 30,
+		"order": 90,
 		"action": {
 			"type": "view",
 			"path": "kea/import-dnsmasq"
 		}
 	}
 }
-

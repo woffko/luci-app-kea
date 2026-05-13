@@ -39,15 +39,19 @@ Implemented so far:
 - LuCI menu and rpcd ACL files;
 - rpcd backend skeleton for status, service control, validation, and import
   preview methods;
-- LuCI pages for overview, services, and dnsmasq static lease import preview;
-- first import fixtures for dnsmasq static lease conversion.
+- LuCI pages for overview, services, DHCPv4 structured editing, raw Kea JSON
+  configuration editing, and dnsmasq static lease import preview;
+- first DHCPv4 interface-tab editor with common subnet, pool, option, timer,
+  and static reservation fields;
+- first import fixtures and an OpenWrt-side regression test for dnsmasq static
+  lease conversion.
 
 Known missing pieces:
 
 - full `kea-uci` integration;
-- real DHCPv4/DHCPv6 structured editors;
+- DHCPv6 structured editor;
+- complete DHCPv4 coverage for advanced Kea options and conflict validation;
 - HA hook editor;
-- raw JSON editor;
 - backend unit test runner;
 - LuCI/browser regression tests;
 - complete validation and write/apply flow.
@@ -81,6 +85,16 @@ make package/luci-app-kea/compile V=s
 The package currently depends on `kea-uci`. Do not enable it in a full image
 until `kea-uci` is available in the selected package feeds and the backend is
 implemented enough to install and run cleanly.
+
+## Tests
+
+The import fixture test exercises the actual rpcd backend shell code and should
+be run on OpenWrt or inside an OpenWrt rootfs where `/sbin/uci`, `jshn`, and the
+standard `/lib/functions.sh` helpers are available:
+
+```sh
+./test/run-import-fixture.sh
+```
 
 ## License
 

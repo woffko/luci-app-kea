@@ -13,6 +13,27 @@ FUNCTIONS="$ROOT/lib/functions.sh"
 KEA_INIT="$ROOT/etc/init.d/kea"
 KEA_CONF_DIR="$ROOT/etc/kea"
 KEA_STAGING_FILE="$ROOT/etc/kea/luci-reservations.json"
+KEA_RUN_DIR="${KEA_RUN_DIR:-/var/run/kea}"
+
+config_path() {
+	case "$1" in
+		dhcp4) echo "$KEA_CONF_DIR/kea-dhcp4.conf" ;;
+		dhcp6) echo "$KEA_CONF_DIR/kea-dhcp6.conf" ;;
+		dhcp_ddns) echo "$KEA_CONF_DIR/kea-dhcp-ddns.conf" ;;
+		ctrl_agent) echo "$KEA_CONF_DIR/kea-ctrl-agent.conf" ;;
+		*) return 1 ;;
+	esac
+}
+
+config_binary() {
+	case "$1" in
+		dhcp4) echo /usr/sbin/kea-dhcp4 ;;
+		dhcp6) echo /usr/sbin/kea-dhcp6 ;;
+		dhcp_ddns) echo /usr/sbin/kea-dhcp-ddns ;;
+		ctrl_agent) echo /usr/sbin/kea-ctrl-agent ;;
+		*) return 1 ;;
+	esac
+}
 
 bool_file_exists() {
 	[ -e "$1" ] && echo 1 || echo 0
@@ -20,6 +41,11 @@ bool_file_exists() {
 
 bool_executable() {
 	[ -x "$1" ] && echo 1 || echo 0
+}
+
+ensure_kea_runtime_dir() {
+	[ -d "$KEA_RUN_DIR" ] || mkdir -p "$KEA_RUN_DIR" 2>/dev/null || true
+	chmod 750 "$KEA_RUN_DIR" 2>/dev/null || true
 }
 
 service_running() {
@@ -124,6 +150,38 @@ get_services() {
 	json_cleanup
 }
 
+add_network_interface() {
+	local section="$1" device ifname proto ipaddr ip6addr
+
+	config_get device "$section" device
+	config_get ifname "$section" ifname
+	config_get proto "$section" proto
+	config_get ipaddr "$section" ipaddr
+	config_get ip6addr "$section" ip6addr
+
+	[ -n "$device$ifname" ] || return
+
+	json_add_object
+	json_add_string name "$section"
+	json_add_string device "${device:-$ifname}"
+	json_add_string proto "$proto"
+	json_add_string ipaddr "$ipaddr"
+	json_add_string ip6addr "$ip6addr"
+	json_close_object
+}
+
+get_network_interfaces() {
+	json_init
+	json_add_object interfaces
+	json_add_array items
+	config_load network
+	config_foreach add_network_interface interface
+	json_close_array
+	json_close_object
+	json_dump
+	json_cleanup
+}
+
 set_service() {
 	local name="$1" enabled="$2" section
 
@@ -210,7 +268,8 @@ validate_one() {
 	json_add_boolean exists "$(bool_file_exists "$conf")"
 
 	if [ -x "$bin" ] && [ -f "$conf" ]; then
-		output="$("$bin" -t -c "$conf" 2>&1)"
+		ensure_kea_runtime_dir
+		output="$("$bin" -t "$conf" 2>&1)"
 		rc=$?
 		json_add_boolean valid "$([ "$rc" -eq 0 ] && echo 1 || echo 0)"
 		json_add_string output "$output"
@@ -222,6 +281,31 @@ validate_one() {
 	json_close_object
 }
 
+validate_config_file() {
+	local name="$1" conf="$2" bin output rc
+
+	bin="$(config_binary "$name")" || {
+		echo "unknown config name"
+		return 1
+	}
+
+	[ -x "$bin" ] || {
+		echo "binary is not installed: $bin"
+		return 1
+	}
+
+	[ -f "$conf" ] || {
+		echo "config file does not exist: $conf"
+		return 1
+	}
+
+	ensure_kea_runtime_dir
+	output="$("$bin" -t "$conf" 2>&1)"
+	rc=$?
+	printf '%s\n' "$output"
+	return "$rc"
+}
+
 validate_configs() {
 	json_init
 	json_add_object validation
@@ -229,6 +313,130 @@ validate_configs() {
 	validate_one dhcp6 /usr/sbin/kea-dhcp6 "$KEA_CONF_DIR/kea-dhcp6.conf"
 	validate_one dhcp_ddns /usr/sbin/kea-dhcp-ddns "$KEA_CONF_DIR/kea-dhcp-ddns.conf"
 	json_close_object
+	json_dump
+	json_cleanup
+}
+
+add_config_entry() {
+	local name="$1" title="$2" path size
+
+	path="$(config_path "$name")" || return
+	size="$(wc -c < "$path" 2>/dev/null)"
+	size="${size:-0}"
+
+	json_add_object
+	json_add_string name "$name"
+	json_add_string title "$title"
+	json_add_string path "$path"
+	json_add_boolean exists "$(bool_file_exists "$path")"
+	json_add_int size "$size"
+	json_close_object
+}
+
+get_config_list() {
+	json_init
+	json_add_object configs
+	json_add_array items
+	add_config_entry dhcp4 "DHCPv4 server"
+	add_config_entry dhcp6 "DHCPv6 server"
+	add_config_entry dhcp_ddns "DHCP DDNS"
+	add_config_entry ctrl_agent "Control Agent"
+	json_close_array
+	json_close_object
+	json_dump
+	json_cleanup
+}
+
+get_config() {
+	local name="$1" path content output rc
+
+	json_init
+
+	path="$(config_path "$name")" || {
+		json_add_boolean result 0
+		json_add_string error "invalid config name"
+		json_dump
+		json_cleanup
+		return
+	}
+
+	if [ ! -f "$path" ]; then
+		json_add_boolean result 0
+		json_add_string error "config file does not exist"
+		json_add_string path "$path"
+		json_dump
+		json_cleanup
+		return
+	fi
+
+	content="$(cat "$path" 2>/dev/null)"
+	output="$(validate_config_file "$name" "$path")"
+	rc=$?
+
+	json_add_boolean result 1
+	json_add_string name "$name"
+	json_add_string path "$path"
+	json_add_string content "$content"
+	json_add_boolean valid "$([ "$rc" -eq 0 ] && echo 1 || echo 0)"
+	json_add_string validation "$output"
+	json_dump
+	json_cleanup
+}
+
+save_config() {
+	local name="$1" content="$2" path tmp bak output rc
+
+	json_init
+
+	path="$(config_path "$name")" || {
+		json_add_boolean result 0
+		json_add_string error "invalid config name"
+		json_dump
+		json_cleanup
+		return
+	}
+
+	[ -d "$KEA_CONF_DIR" ] || mkdir -p "$KEA_CONF_DIR"
+
+	tmp="${path}.luci.$$"
+	bak="${path}.bak.luci"
+
+	umask 077
+	if ! printf '%s' "$content" > "$tmp"; then
+		rm -f "$tmp"
+		json_add_boolean result 0
+		json_add_string error "failed to write temporary config"
+		json_dump
+		json_cleanup
+		return
+	fi
+
+	output="$(validate_config_file "$name" "$tmp")"
+	rc=$?
+
+	if [ "$rc" -ne 0 ]; then
+		rm -f "$tmp"
+		json_add_boolean result 0
+		json_add_string error "validation failed"
+		json_add_string validation "$output"
+		json_dump
+		json_cleanup
+		return
+	fi
+
+	[ ! -f "$path" ] || cp "$path" "$bak" 2>/dev/null || true
+
+	if mv "$tmp" "$path"; then
+		json_add_boolean result 1
+		json_add_string path "$path"
+		json_add_string backup "$bak"
+		json_add_string validation "$output"
+	else
+		rm -f "$tmp"
+		json_add_boolean result 0
+		json_add_string error "failed to replace config"
+	fi
+
 	json_dump
 	json_cleanup
 }
@@ -378,7 +586,18 @@ case "$1" in
 		json_close_object
 		json_add_object getServices
 		json_close_object
+		json_add_object getNetworkInterfaces
+		json_close_object
 		json_add_object validate
+		json_close_object
+		json_add_object getConfigList
+		json_close_object
+		json_add_object getConfig
+			json_add_string name name
+		json_close_object
+		json_add_object saveConfig
+			json_add_string name name
+			json_add_string content content
 		json_close_object
 		json_add_object importDnsmasqDryRun
 		json_close_object
@@ -402,8 +621,29 @@ case "$1" in
 			getServices)
 				get_services
 				;;
+			getNetworkInterfaces)
+				get_network_interfaces
+				;;
 			validate)
 				validate_configs
+				;;
+			getConfigList)
+				get_config_list
+				;;
+			getConfig)
+				read -r input
+				json_load "$input"
+				json_get_var name name
+				json_cleanup
+				get_config "$name"
+				;;
+			saveConfig)
+				read -r input
+				json_load "$input"
+				json_get_var name name
+				json_get_var content content
+				json_cleanup
+				save_config "$name" "$content"
 				;;
 			importDnsmasqDryRun)
 				import_dnsmasq_dry_run
