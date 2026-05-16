@@ -105,6 +105,18 @@ function arrayContains(list, value) {
 	return false;
 }
 
+function splitList(value) {
+	var raw = String(value || "").split(/\s*,\s*|\s+/);
+	var values = [];
+	var i;
+
+	for (i = 0; i < raw.length; i++)
+		if (raw[i])
+			values.push(raw[i]);
+
+	return values;
+}
+
 function optionValue(options, name) {
 	var i, opt;
 
@@ -127,14 +139,26 @@ function addOption(options, name, value) {
 	});
 }
 
-function poolParts(subnet) {
-	var pool = subnet && subnet.pools && subnet.pools[0] && subnet.pools[0].pool || "";
-	var parts = pool.split(/\s*-\s*/);
+function firstPool(subnet) {
+	return subnet && subnet.pools && subnet.pools[0] && subnet.pools[0].pool || "";
+}
+
+function firstPdPool(subnet) {
+	var pool = subnet && subnet["pd-pools"] && subnet["pd-pools"][0] || {};
 
 	return {
-		start: parts[0] || "",
-		end: parts[1] || ""
+		prefix: pool.prefix || "",
+		prefixLen: pool["prefix-len"] || "",
+		delegatedLen: pool["delegated-len"] || ""
 	};
+}
+
+function isDocumentationSubnet6(subnet) {
+	var value = String(subnet && subnet.subnet || "").toLowerCase();
+
+	return value === "2001:db8::/32" ||
+		value.indexOf("2001:db8:") === 0 ||
+		value.indexOf("2001:0db8:") === 0;
 }
 
 function interfaceLabel(item) {
@@ -147,194 +171,93 @@ function interfaceLabel(item) {
 	return item.name || item.device || _("Interface");
 }
 
-function ipv4ToInt(addr) {
-	var parts = String(addr || "").split(".");
-	var value = 0;
-	var i, octet;
-
-	if (parts.length !== 4)
-		return null;
-
-	for (i = 0; i < 4; i++) {
-		if (!/^\d+$/.test(parts[i]))
-			return null;
-
-		octet = Number(parts[i]);
-		if (octet < 0 || octet > 255)
-			return null;
-
-		value = ((value << 8) | octet) >>> 0;
-	}
-
-	return value >>> 0;
-}
-
-function maskFromPrefix(prefix) {
-	prefix = Number(prefix);
-
-	if (prefix < 0 || prefix > 32 || isNaN(prefix))
-		return null;
-
-	if (prefix === 0)
-		return 0;
-
-	return (0xffffffff << (32 - prefix)) >>> 0;
-}
-
-function parseCidr(value) {
-	var parts = String(value || "").trim().split("/");
-	var ip = ipv4ToInt(parts[0]);
-	var prefix = parts.length > 1 ? Number(parts[1]) : 32;
-	var mask = maskFromPrefix(prefix);
-
-	if (ip === null || mask === null)
-		return null;
-
-	return {
-		network: (ip & mask) >>> 0,
-		prefix: prefix
-	};
-}
-
-function interfaceNetworks(tab) {
-	var values = String(tab.ipaddr || "").trim().split(/\s+/);
-	var networks = [];
-	var i, cidr;
-
-	for (i = 0; i < values.length; i++) {
-		if (!values[i])
-			continue;
-
-		cidr = parseCidr(values[i]);
-		if (cidr)
-			networks.push(cidr);
-	}
-
-	return networks;
-}
-
-function findTabBySubnet(tabs, subnet) {
-	var target = parseCidr(subnet && subnet.subnet);
-	var i, j, networks;
-
-	if (!target)
-		return null;
-
-	for (i = 0; i < tabs.length; i++) {
-		if (tabs[i].subnet)
-			continue;
-
-		networks = interfaceNetworks(tabs[i]);
-		for (j = 0; j < networks.length; j++) {
-			if (networks[j].prefix === target.prefix && networks[j].network === target.network)
-				return tabs[i];
-		}
-	}
-
-	return null;
-}
-
-function isDocumentationSubnet4(subnet) {
-	var addr = String(subnet && subnet.subnet || "").trim().split("/")[0];
-
-	return /^192\.0\.2\./.test(addr) ||
-		/^198\.51\.100\./.test(addr) ||
-		/^203\.0\.113\./.test(addr);
-}
-
-function isSampleOption4(option) {
-	var name = option && option.name || "";
-	var code = option && option.code;
-	var data = option && option.data || "";
-
-	return (name === "domain-name-servers" && data === "192.0.2.1, 192.0.2.2") ||
-		(code === 15 && data === "example.org") ||
-		(name === "domain-search" && data === "mydomain.example.com, example.com") ||
-		(name === "boot-file-name" && data === "EST5EDT4\\,M3.2.0/02:00\\,M11.1.0/02:00") ||
-		(name === "default-ip-ttl" && data === "0xf0");
-}
-
-function isSampleClientClass4(clientClass) {
-	return clientClass && (
-		clientClass.name === "voip" ||
-		clientClass.test === "substring(option[60].hex,0,6) == 'Aastra'" ||
-		clientClass["next-server"] === "192.0.2.254" ||
-		clientClass["server-hostname"] === "hal9000" ||
-		clientClass["boot-file-name"] === "/dev/null"
-	);
-}
-
-function removeStockSampleDhcp4(dhcp4) {
-	if (dhcp4["option-data"]) {
-		dhcp4["option-data"] = dhcp4["option-data"].filter(function(option) {
-			return !isSampleOption4(option || {});
-		});
-
-		if (dhcp4["option-data"].length === 0)
-			delete dhcp4["option-data"];
-	}
-
-	if (dhcp4["client-classes"]) {
-		dhcp4["client-classes"] = dhcp4["client-classes"].filter(function(clientClass) {
-			return !isSampleClientClass4(clientClass || {});
-		});
-
-		if (dhcp4["client-classes"].length === 0)
-			delete dhcp4["client-classes"];
-	}
-}
-
 function makeBaseTab(item) {
 	return {
 		name: item && item.name || "",
 		device: item && item.device || "",
-		ipaddr: item && item.ipaddr || "",
+		ip6addr: item && item.ip6addr || "",
 		label: interfaceLabel(item),
 		enabled: false,
 		subnetId: null,
 		subnet: "",
-		poolStart: "",
-		poolEnd: "",
-		router: "",
+		pool: "",
+		pdPrefix: "",
+		pdPrefixLen: "",
+		pdDelegatedLen: "",
 		dnsServers: "",
-		domainName: "",
 		domainSearch: "",
 		renewTimer: "",
 		rebindTimer: "",
+		preferredLifetime: "",
 		validLifetime: "",
 		reservations: []
 	};
 }
 
-function applySubnet(tab, subnet, dhcp4) {
-	var parts = poolParts(subnet);
+function reservationIdentity(reservation) {
+	if (reservation.duid)
+		return { type: "duid", value: reservation.duid };
+	if (reservation["hw-address"])
+		return { type: "hw-address", value: reservation["hw-address"] };
+	if (reservation["client-id"])
+		return { type: "client-id", value: reservation["client-id"] };
+	if (reservation["flex-id"])
+		return { type: "flex-id", value: reservation["flex-id"] };
+
+	return { type: "duid", value: "" };
+}
+
+function applySubnet(tab, subnet, dhcp6) {
+	var pdPool = firstPdPool(subnet);
 	var reservations = subnet.reservations || [];
 
 	tab.subnetId = subnet.id || null;
 	tab.subnet = subnet.subnet || "";
-	tab.poolStart = parts.start;
-	tab.poolEnd = parts.end;
-	tab.router = optionValue(subnet["option-data"], "routers");
-	tab.dnsServers = optionValue(subnet["option-data"], "domain-name-servers");
-	tab.domainName = optionValue(subnet["option-data"], "domain-name");
+	tab.pool = firstPool(subnet);
+	tab.pdPrefix = pdPool.prefix;
+	tab.pdPrefixLen = pdPool.prefixLen;
+	tab.pdDelegatedLen = pdPool.delegatedLen;
+	tab.dnsServers = optionValue(subnet["option-data"], "dns-servers");
 	tab.domainSearch = optionValue(subnet["option-data"], "domain-search");
-	tab.renewTimer = subnet["renew-timer"] || dhcp4["renew-timer"] || "";
-	tab.rebindTimer = subnet["rebind-timer"] || dhcp4["rebind-timer"] || "";
-	tab.validLifetime = subnet["valid-lifetime"] || dhcp4["valid-lifetime"] || "";
+	tab.renewTimer = subnet["renew-timer"] || dhcp6["renew-timer"] || "";
+	tab.rebindTimer = subnet["rebind-timer"] || dhcp6["rebind-timer"] || "";
+	tab.preferredLifetime = subnet["preferred-lifetime"] || dhcp6["preferred-lifetime"] || "";
+	tab.validLifetime = subnet["valid-lifetime"] || dhcp6["valid-lifetime"] || "";
 	tab.reservations = reservations.map(function(reservation) {
+		var identity = reservationIdentity(reservation || {});
+
 		return {
 			enabled: true,
 			hostname: reservation.hostname || "",
-			mac: reservation["hw-address"] || "",
-			ip: reservation["ip-address"] || ""
+			type: identity.type,
+			identity: identity.value,
+			addresses: (reservation["ip-addresses"] || []).join(", "),
+			prefixes: (reservation.prefixes || []).join(", ")
 		};
 	});
 }
 
+function findOnlyEnabledTab(tabs, enabledIfaces) {
+	var i, tab, found = null;
+
+	if (enabledIfaces.length !== 1)
+		return null;
+
+	for (i = 0; i < tabs.length; i++) {
+		tab = tabs[i];
+		if (tab.subnet)
+			continue;
+		if (tab.device === enabledIfaces[0] || tab.name === enabledIfaces[0])
+			found = tab;
+	}
+
+	return found;
+}
+
 function buildTabs(config, interfaces) {
-	var dhcp4 = config.Dhcp4 || {};
-	var subnets = dhcp4.subnet4 || [];
-	var enabledIfaces = dhcp4["interfaces-config"] && dhcp4["interfaces-config"].interfaces || [];
+	var dhcp6 = config.Dhcp6 || {};
+	var subnets = dhcp6.subnet6 || [];
+	var enabledIfaces = dhcp6["interfaces-config"] && dhcp6["interfaces-config"].interfaces || [];
 	var tabs = [];
 	var byDevice = {};
 	var i, item, tab, subnet, key;
@@ -359,18 +282,18 @@ function buildTabs(config, interfaces) {
 		subnet = subnets[i] || {};
 		key = subnet["interface"] || subnet["interface-id"] || "";
 
-		if (!key && isDocumentationSubnet4(subnet))
+		if (!key && isDocumentationSubnet6(subnet))
 			continue;
 
-		tab = key ? byDevice[key] : findTabBySubnet(tabs, subnet);
+		tab = key ? byDevice[key] : findOnlyEnabledTab(tabs, enabledIfaces);
 
 		if (!tab) {
 			tab = makeBaseTab({
-				name: key || subnet.subnet || "subnet" + (i + 1),
+				name: key || subnet.subnet || "subnet6-" + (i + 1),
 				device: key || ""
 			});
 			tab.enabled = key ? arrayContains(enabledIfaces, key) : false;
-			tab.label = key || subnet.subnet || "subnet" + (i + 1);
+			tab.label = key || subnet.subnet || "subnet6-" + (i + 1);
 			tabs.push(tab);
 
 			if (key)
@@ -379,14 +302,15 @@ function buildTabs(config, interfaces) {
 
 		if (tab.subnet) {
 			tab = makeBaseTab({
-				name: (key || "subnet") + "-" + (i + 1),
+				name: (key || "subnet6") + "-" + (i + 1),
 				device: key || ""
 			});
 			tab.enabled = key ? arrayContains(enabledIfaces, key) : false;
+			tab.label = key || subnet.subnet || "subnet6-" + (i + 1);
 			tabs.push(tab);
 		}
 
-		applySubnet(tab, subnet, dhcp4);
+		applySubnet(tab, subnet, dhcp6);
 	}
 
 	if (tabs.length === 0)
@@ -434,6 +358,13 @@ function checkboxInput(id, checked) {
 	});
 }
 
+function selectOption(value, title, selected) {
+	return E("option", {
+		"value": value,
+		"selected": selected ? "selected" : null
+	}, title);
+}
+
 function reservationRow(reservation) {
 	return E("tr", { "class": "tr kea-reservation-row" }, [
 		E("td", { "class": "td left" }, E("input", {
@@ -441,17 +372,32 @@ function reservationRow(reservation) {
 			"type": "text",
 			"value": reservation.hostname || ""
 		})),
+		E("td", { "class": "td left" }, [
+			E("select", { "class": "cbi-input-select kea-res-type" }, [
+				selectOption("duid", "DUID", reservation.type === "duid"),
+				selectOption("hw-address", _("MAC Address"), reservation.type === "hw-address"),
+				selectOption("client-id", _("Client ID"), reservation.type === "client-id"),
+				selectOption("flex-id", _("Flex ID"), reservation.type === "flex-id")
+			]),
+			" ",
+			E("input", {
+				"class": "cbi-input-text kea-res-id",
+				"type": "text",
+				"value": reservation.identity || "",
+				"placeholder": "00:04:..."
+			})
+		]),
 		E("td", { "class": "td left" }, E("input", {
-			"class": "cbi-input-text kea-res-mac",
+			"class": "cbi-input-text kea-res-addresses",
 			"type": "text",
-			"value": reservation.mac || "",
-			"placeholder": "00:11:22:33:44:55"
+			"value": reservation.addresses || "",
+			"placeholder": "fd00:1234:abcd:1::100"
 		})),
 		E("td", { "class": "td left" }, E("input", {
-			"class": "cbi-input-text kea-res-ip",
+			"class": "cbi-input-text kea-res-prefixes",
 			"type": "text",
-			"value": reservation.ip || "",
-			"placeholder": "192.168.1.10"
+			"value": reservation.prefixes || "",
+			"placeholder": "fd00:1234:abcd:100::/64"
 		})),
 		E("td", { "class": "td left" }, E("input", {
 			"class": "kea-res-enabled",
@@ -469,7 +415,7 @@ function reservationRow(reservation) {
 }
 
 function collectReservations() {
-	var rows = document.querySelectorAll("#kea-reservation-table .kea-reservation-row");
+	var rows = document.querySelectorAll("#kea-dhcp6-reservation-table .kea-reservation-row");
 	var reservations = [];
 	var i, row;
 
@@ -478,8 +424,10 @@ function collectReservations() {
 		reservations.push({
 			enabled: row.querySelector(".kea-res-enabled").checked,
 			hostname: row.querySelector(".kea-res-hostname").value.trim(),
-			mac: row.querySelector(".kea-res-mac").value.trim(),
-			ip: row.querySelector(".kea-res-ip").value.trim()
+			type: row.querySelector(".kea-res-type").value,
+			identity: row.querySelector(".kea-res-id").value.trim(),
+			addresses: row.querySelector(".kea-res-addresses").value.trim(),
+			prefixes: row.querySelector(".kea-res-prefixes").value.trim()
 		});
 	}
 
@@ -487,8 +435,25 @@ function collectReservations() {
 }
 
 function cleanNumber(value) {
+	var number;
+
 	value = String(value || "").trim();
-	return value ? Number(value) : null;
+	if (!value)
+		return null;
+
+	number = Number(value);
+	return isNaN(number) ? undefined : number;
+}
+
+function addReservationIdentity(target, reservation) {
+	if (reservation.type === "hw-address")
+		target["hw-address"] = reservation.identity;
+	else if (reservation.type === "client-id")
+		target["client-id"] = reservation.identity;
+	else if (reservation.type === "flex-id")
+		target["flex-id"] = reservation.identity;
+	else
+		target.duid = reservation.identity;
 }
 
 function tabHasReservationConfig(tab) {
@@ -496,7 +461,7 @@ function tabHasReservationConfig(tab) {
 
 	for (i = 0; i < tab.reservations.length; i++) {
 		reservation = tab.reservations[i] || {};
-		if (reservation.enabled && (reservation.hostname || reservation.mac || reservation.ip))
+		if (reservation.enabled && (reservation.hostname || reservation.identity || reservation.addresses || reservation.prefixes))
 			return true;
 	}
 
@@ -504,16 +469,16 @@ function tabHasReservationConfig(tab) {
 }
 
 function tabHasSubnetConfig(tab) {
-	return !!(tab.subnet || tab.poolStart || tab.poolEnd || tab.router ||
-		tab.dnsServers || tab.domainName || tab.domainSearch ||
-		tab.renewTimer || tab.rebindTimer || tab.validLifetime ||
-		tabHasReservationConfig(tab));
+	return !!(tab.subnet || tab.pool || tab.pdPrefix || tab.pdPrefixLen ||
+		tab.pdDelegatedLen || tab.dnsServers || tab.domainSearch ||
+		tab.renewTimer || tab.rebindTimer || tab.preferredLifetime ||
+		tab.validLifetime || tabHasReservationConfig(tab));
 }
 
 return view.extend({
 	load: function() {
 		return Promise.all([
-			L.resolveDefault(callGetConfig("dhcp4"), {}),
+			L.resolveDefault(callGetConfig("dhcp6"), {}),
 			L.resolveDefault(callNetworkInterfaces(), {})
 		]);
 	},
@@ -524,18 +489,19 @@ return view.extend({
 		if (!tab)
 			return;
 
-		tab.enabled = document.querySelector("#kea-dhcp4-enabled").checked;
-		tab.device = document.querySelector("#kea-dhcp4-interface").value.trim();
-		tab.subnet = document.querySelector("#kea-dhcp4-subnet").value.trim();
-		tab.poolStart = document.querySelector("#kea-dhcp4-pool-start").value.trim();
-		tab.poolEnd = document.querySelector("#kea-dhcp4-pool-end").value.trim();
-		tab.router = document.querySelector("#kea-dhcp4-router").value.trim();
-		tab.dnsServers = document.querySelector("#kea-dhcp4-dns").value.trim();
-		tab.domainName = document.querySelector("#kea-dhcp4-domain").value.trim();
-		tab.domainSearch = document.querySelector("#kea-dhcp4-search").value.trim();
-		tab.renewTimer = document.querySelector("#kea-dhcp4-renew").value.trim();
-		tab.rebindTimer = document.querySelector("#kea-dhcp4-rebind").value.trim();
-		tab.validLifetime = document.querySelector("#kea-dhcp4-valid").value.trim();
+		tab.enabled = document.querySelector("#kea-dhcp6-enabled").checked;
+		tab.device = document.querySelector("#kea-dhcp6-interface").value.trim();
+		tab.subnet = document.querySelector("#kea-dhcp6-subnet").value.trim();
+		tab.pool = document.querySelector("#kea-dhcp6-pool").value.trim();
+		tab.pdPrefix = document.querySelector("#kea-dhcp6-pd-prefix").value.trim();
+		tab.pdPrefixLen = document.querySelector("#kea-dhcp6-pd-prefix-len").value.trim();
+		tab.pdDelegatedLen = document.querySelector("#kea-dhcp6-pd-delegated-len").value.trim();
+		tab.dnsServers = document.querySelector("#kea-dhcp6-dns").value.trim();
+		tab.domainSearch = document.querySelector("#kea-dhcp6-search").value.trim();
+		tab.renewTimer = document.querySelector("#kea-dhcp6-renew").value.trim();
+		tab.rebindTimer = document.querySelector("#kea-dhcp6-rebind").value.trim();
+		tab.preferredLifetime = document.querySelector("#kea-dhcp6-preferred").value.trim();
+		tab.validLifetime = document.querySelector("#kea-dhcp6-valid").value.trim();
 		tab.reservations = collectReservations();
 	},
 
@@ -547,7 +513,7 @@ return view.extend({
 	},
 
 	addReservation: function() {
-		var body = document.querySelector("#kea-reservation-table tbody");
+		var body = document.querySelector("#kea-dhcp6-reservation-table tbody");
 		var empty;
 
 		if (!body)
@@ -560,20 +526,20 @@ return view.extend({
 		body.appendChild(reservationRow({
 			enabled: true,
 			hostname: "",
-			mac: "",
-			ip: ""
+			type: "duid",
+			identity: "",
+			addresses: "",
+			prefixes: ""
 		}));
 	},
 
 	buildConfig: function() {
 		var config = cloneObject(this.config);
-		var dhcp4 = config.Dhcp4 || {};
+		var dhcp6 = config.Dhcp6 || {};
 		var enabledIfaces = [];
 		var subnets = [];
 		var errors = [];
-		var i, tab, subnet, options, reservations, timer;
-
-		dhcp4["valid-lifetime"] = dhcp4["valid-lifetime"] || 4000;
+		var i, tab, subnet, options, reservations, timer, pdPrefixLen, pdDelegatedLen;
 
 		for (i = 0; i < this.tabs.length; i++) {
 			tab = this.tabs[i];
@@ -585,8 +551,9 @@ return view.extend({
 				errors.push(tab.label + ": " + _("interface device is required"));
 			if (!tab.subnet)
 				errors.push(tab.label + ": " + _("subnet is required"));
-			if ((tab.poolStart && !tab.poolEnd) || (!tab.poolStart && tab.poolEnd))
-				errors.push(tab.label + ": " + _("pool start and end must be set together"));
+			if ((tab.pdPrefix || tab.pdPrefixLen || tab.pdDelegatedLen) &&
+			    (!tab.pdPrefix || !tab.pdPrefixLen || !tab.pdDelegatedLen))
+				errors.push(tab.label + ": " + _("prefix delegation prefix, prefix length, and delegated length must be set together"));
 
 			if (tab.enabled && tab.device && !arrayContains(enabledIfaces, tab.device))
 				enabledIfaces.push(tab.device);
@@ -597,42 +564,78 @@ return view.extend({
 				interface: tab.device
 			};
 
-			if (tab.poolStart && tab.poolEnd)
-				subnet.pools = [ { pool: tab.poolStart + " - " + tab.poolEnd } ];
+			if (tab.pool)
+				subnet.pools = [ { pool: tab.pool } ];
+
+			if (tab.pdPrefix && tab.pdPrefixLen && tab.pdDelegatedLen) {
+				pdPrefixLen = cleanNumber(tab.pdPrefixLen);
+				pdDelegatedLen = cleanNumber(tab.pdDelegatedLen);
+
+				if (pdPrefixLen === undefined || pdDelegatedLen === undefined) {
+					errors.push(tab.label + ": " + _("prefix delegation lengths must be numeric"));
+				}
+				else {
+					subnet["pd-pools"] = [ {
+						prefix: tab.pdPrefix,
+						"prefix-len": pdPrefixLen,
+						"delegated-len": pdDelegatedLen
+					} ];
+				}
+			}
 
 			timer = cleanNumber(tab.renewTimer);
-			if (timer !== null)
+			if (timer === undefined)
+				errors.push(tab.label + ": " + _("renew timer must be numeric"));
+			else if (timer !== null)
 				subnet["renew-timer"] = timer;
 			timer = cleanNumber(tab.rebindTimer);
-			if (timer !== null)
+			if (timer === undefined)
+				errors.push(tab.label + ": " + _("rebind timer must be numeric"));
+			else if (timer !== null)
 				subnet["rebind-timer"] = timer;
+			timer = cleanNumber(tab.preferredLifetime);
+			if (timer === undefined)
+				errors.push(tab.label + ": " + _("preferred lifetime must be numeric"));
+			else if (timer !== null)
+				subnet["preferred-lifetime"] = timer;
 			timer = cleanNumber(tab.validLifetime);
-			if (timer !== null)
+			if (timer === undefined)
+				errors.push(tab.label + ": " + _("valid lifetime must be numeric"));
+			else if (timer !== null)
 				subnet["valid-lifetime"] = timer;
 
 			options = [];
-			addOption(options, "routers", tab.router);
-			addOption(options, "domain-name-servers", tab.dnsServers);
-			addOption(options, "domain-name", tab.domainName);
+			addOption(options, "dns-servers", tab.dnsServers);
 			addOption(options, "domain-search", tab.domainSearch);
 			if (options.length)
 				subnet["option-data"] = options;
 
 			reservations = [];
 			tab.reservations.forEach(function(reservation) {
+				var entry, addresses, prefixes;
+
 				if (!reservation.enabled)
 					return;
 
-				if (!reservation.mac || !reservation.ip) {
-					errors.push(tab.label + ": " + _("reservation MAC and address are required"));
+				addresses = splitList(reservation.addresses);
+				prefixes = splitList(reservation.prefixes);
+
+				if (!reservation.identity || (addresses.length === 0 && prefixes.length === 0)) {
+					errors.push(tab.label + ": " + _("reservation identity and an address or prefix are required"));
 					return;
 				}
 
-				reservations.push({
-					hostname: reservation.hostname || undefined,
-					"hw-address": reservation.mac,
-					"ip-address": reservation.ip
-				});
+				entry = {
+					hostname: reservation.hostname || undefined
+				};
+				addReservationIdentity(entry, reservation);
+
+				if (addresses.length)
+					entry["ip-addresses"] = addresses;
+				if (prefixes.length)
+					entry.prefixes = prefixes;
+
+				reservations.push(entry);
 			});
 
 			if (reservations.length)
@@ -644,11 +647,10 @@ return view.extend({
 		if (errors.length)
 			return { errors: errors };
 
-		dhcp4["interfaces-config"] = dhcp4["interfaces-config"] || {};
-		dhcp4["interfaces-config"].interfaces = enabledIfaces;
-		dhcp4.subnet4 = subnets;
-		removeStockSampleDhcp4(dhcp4);
-		config.Dhcp4 = dhcp4;
+		dhcp6["interfaces-config"] = dhcp6["interfaces-config"] || {};
+		dhcp6["interfaces-config"].interfaces = enabledIfaces;
+		dhcp6.subnet6 = subnets;
+		config.Dhcp6 = dhcp6;
 
 		return {
 			content: JSON.stringify(config, function(key, value) {
@@ -671,10 +673,10 @@ return view.extend({
 			return Promise.resolve();
 		}
 
-		return callSaveConfig("dhcp4", built.content).then(function(result) {
+		return callSaveConfig("dhcp6", built.content).then(function(result) {
 			if (!result || !result.result) {
 				ui.addNotification(null, E("p", [
-					result && result.error ? result.error : _("Failed to save DHCPv4 configuration."),
+					result && result.error ? result.error : _("Failed to save DHCPv6 configuration."),
 					result && result.validation ? E("pre", {
 						"style": "white-space: pre-wrap; max-height: 18rem; overflow: auto"
 					}, result.validation) : ""
@@ -682,7 +684,7 @@ return view.extend({
 				return;
 			}
 
-			ui.addNotification(null, E("p", _("DHCPv4 configuration saved.")), "info");
+			ui.addNotification(null, E("p", _("DHCPv6 configuration saved.")), "info");
 			return self.reload();
 		});
 	},
@@ -711,7 +713,7 @@ return view.extend({
 	reload: function() {
 		var self = this;
 
-		return callGetConfig("dhcp4").then(function(config) {
+		return callGetConfig("dhcp6").then(function(config) {
 			var parsed = parseKeaConfig(config.content || "{}");
 
 			if (parsed.error) {
@@ -730,7 +732,7 @@ return view.extend({
 
 	renderTabs: function() {
 		var self = this;
-		var container = document.querySelector("#kea-dhcp4-tabs");
+		var container = document.querySelector("#kea-dhcp6-tabs");
 
 		if (!container)
 			return;
@@ -749,7 +751,7 @@ return view.extend({
 
 	renderActiveTab: function() {
 		var self = this;
-		var container = document.querySelector("#kea-dhcp4-editor");
+		var container = document.querySelector("#kea-dhcp6-editor");
 		var tab = this.tabs[this.activeIndex];
 		var rows;
 
@@ -764,42 +766,43 @@ return view.extend({
 			E("div", { "class": "cbi-section" }, [
 				E("h3", tab.label),
 				field(_("Enable"), E("label", {}, [
-					checkboxInput("kea-dhcp4-enabled", tab.enabled),
+					checkboxInput("kea-dhcp6-enabled", tab.enabled),
 					" ",
-					_("Enable DHCPv4 server on this interface")
+					_("Enable DHCPv6 server on this interface")
 				])),
-				field(_("Interface"), textInput("kea-dhcp4-interface", tab.device, "br-lan")),
-				field(_("Subnet"), textInput("kea-dhcp4-subnet", tab.subnet, "192.168.1.0/24")),
-				field(_("Address Pool"), E("span", {}, [
-					textInput("kea-dhcp4-pool-start", tab.poolStart, "192.168.1.100"),
+				field(_("Interface"), textInput("kea-dhcp6-interface", tab.device, "br-lan")),
+				field(_("Subnet"), textInput("kea-dhcp6-subnet", tab.subnet, "fd00:1234:abcd:1::/64")),
+				field(_("Address Pool"), textInput("kea-dhcp6-pool", tab.pool, "fd00:1234:abcd:1::100 - fd00:1234:abcd:1::ffff")),
+				field(_("Prefix Delegation"), E("span", {}, [
+					textInput("kea-dhcp6-pd-prefix", tab.pdPrefix, "fd00:1234:abcd:100::"),
 					" ",
-					_("to"),
+					numberInput("kea-dhcp6-pd-prefix-len", tab.pdPrefixLen, "56"),
 					" ",
-					textInput("kea-dhcp4-pool-end", tab.poolEnd, "192.168.1.199")
-				])),
-				field(_("Gateway"), textInput("kea-dhcp4-router", tab.router, "192.168.1.1")),
-				field(_("DNS Servers"), textInput("kea-dhcp4-dns", tab.dnsServers, "192.168.1.1, 1.1.1.1")),
-				field(_("Domain Name"), textInput("kea-dhcp4-domain", tab.domainName, "lan")),
-				field(_("Domain Search"), textInput("kea-dhcp4-search", tab.domainSearch, "lan, example.org")),
-				field(_("Renew Timer"), numberInput("kea-dhcp4-renew", tab.renewTimer, "1000")),
-				field(_("Rebind Timer"), numberInput("kea-dhcp4-rebind", tab.rebindTimer, "2000")),
-				field(_("Valid Lifetime"), numberInput("kea-dhcp4-valid", tab.validLifetime, "4000"))
+					numberInput("kea-dhcp6-pd-delegated-len", tab.pdDelegatedLen, "64")
+				]), _("Prefix, prefix length, and delegated prefix length.")),
+				field(_("DNS Servers"), textInput("kea-dhcp6-dns", tab.dnsServers, "fd00:1234:abcd:1::1, 2001:4860:4860::8888")),
+				field(_("Domain Search"), textInput("kea-dhcp6-search", tab.domainSearch, "lan, example.org")),
+				field(_("Renew Timer"), numberInput("kea-dhcp6-renew", tab.renewTimer, "1000")),
+				field(_("Rebind Timer"), numberInput("kea-dhcp6-rebind", tab.rebindTimer, "2000")),
+				field(_("Preferred Lifetime"), numberInput("kea-dhcp6-preferred", tab.preferredLifetime, "3000")),
+				field(_("Valid Lifetime"), numberInput("kea-dhcp6-valid", tab.validLifetime, "4000"))
 			]),
 			E("div", { "class": "cbi-section" }, [
 				E("h3", _("Static Reservations")),
-				E("table", { "id": "kea-reservation-table", "class": "table" }, [
+				E("table", { "id": "kea-dhcp6-reservation-table", "class": "table" }, [
 					E("thead", {}, [
 						E("tr", { "class": "tr table-titles" }, [
 							E("th", { "class": "th left" }, _("Hostname")),
-							E("th", { "class": "th left" }, _("MAC Address")),
-							E("th", { "class": "th left" }, _("IPv4 Address")),
+							E("th", { "class": "th left" }, _("Identifier")),
+							E("th", { "class": "th left" }, _("IPv6 Addresses")),
+							E("th", { "class": "th left" }, _("Prefixes")),
 							E("th", { "class": "th left" }, _("Enabled")),
 							E("th", { "class": "th right" }, "")
 						])
 					]),
 					E("tbody", {}, rows.length ? rows : [
 						E("tr", { "class": "tr kea-reservations-empty" }, [
-							E("td", { "class": "td left", "colspan": "5" }, _("No static reservations."))
+							E("td", { "class": "td left", "colspan": "6" }, _("No static reservations."))
 						])
 					])
 				]),
@@ -827,9 +830,9 @@ return view.extend({
 
 		if (parsed.error) {
 			return E("div", {}, [
-				E("h2", _("Kea DHCPv4")),
+				E("h2", _("Kea DHCPv6")),
 				E("div", { "class": "alert-message warning" }, [
-					_("The DHCPv4 config cannot be parsed by the structured editor."),
+					_("The DHCPv6 config cannot be parsed by the structured editor."),
 					E("pre", { "style": "white-space: pre-wrap" }, parsed.error)
 				])
 			]);
@@ -844,9 +847,9 @@ return view.extend({
 		}, 0, this);
 
 		return E("div", {}, [
-			E("h2", _("Kea DHCPv4")),
-			E("div", { "id": "kea-dhcp4-tabs", "class": "cbi-section" }, _("Loading...")),
-			E("div", { "id": "kea-dhcp4-editor" }, E("div", { "class": "spinning" }, _("Loading..."))),
+			E("h2", _("Kea DHCPv6")),
+			E("div", { "id": "kea-dhcp6-tabs", "class": "cbi-section" }, _("Loading...")),
+			E("div", { "id": "kea-dhcp6-editor" }, E("div", { "class": "spinning" }, _("Loading..."))),
 			E("div", { "class": "cbi-page-actions" }, [
 				E("button", {
 					"class": "btn cbi-button cbi-button-apply",

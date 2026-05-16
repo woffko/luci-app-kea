@@ -13,7 +13,10 @@ FUNCTIONS="$ROOT/lib/functions.sh"
 KEA_INIT="$ROOT/etc/init.d/kea"
 KEA_CONF_DIR="$ROOT/etc/kea"
 KEA_STAGING_FILE="$ROOT/etc/kea/luci-reservations.json"
+KEA_IMPORTER="$ROOT/usr/share/luci/kea/importer.uc"
 KEA_RUN_DIR="${KEA_RUN_DIR:-/var/run/kea}"
+KEA_LEASE_DIR="${KEA_LEASE_DIR:-$ROOT/var/lib/kea}"
+KEA_API_PASSWORD="$KEA_CONF_DIR/kea-api-password"
 
 config_path() {
 	case "$1" in
@@ -48,6 +51,38 @@ ensure_kea_runtime_dir() {
 	chmod 750 "$KEA_RUN_DIR" 2>/dev/null || true
 }
 
+random_secret() {
+	if command -v openssl >/dev/null 2>&1; then
+		openssl rand -hex 24 2>/dev/null && return 0
+	fi
+
+	if [ -r /dev/urandom ] && command -v hexdump >/dev/null 2>&1; then
+		hexdump -n 24 -e '1/1 "%02x"' /dev/urandom 2>/dev/null && {
+			printf '\n'
+			return 0
+		}
+	fi
+
+	printf '%s%s\n' "$(date +%s)" "$$"
+}
+
+ensure_kea_state() {
+	ensure_kea_runtime_dir
+
+	[ -d "$KEA_LEASE_DIR" ] || mkdir -p "$KEA_LEASE_DIR" 2>/dev/null || return 1
+	chmod 750 "$KEA_LEASE_DIR" 2>/dev/null || true
+
+	[ -d "$KEA_CONF_DIR" ] || mkdir -p "$KEA_CONF_DIR" 2>/dev/null || return 1
+
+	if [ ! -s "$KEA_API_PASSWORD" ]; then
+		umask 077
+		random_secret > "$KEA_API_PASSWORD" 2>/dev/null || return 1
+		chmod 600 "$KEA_API_PASSWORD" 2>/dev/null || true
+	fi
+
+	return 0
+}
+
 service_running() {
 	local name="$1"
 	pgrep -f "/usr/sbin/kea-$name" >/dev/null 2>&1
@@ -55,6 +90,18 @@ service_running() {
 
 service_enabled() {
 	[ -x "$KEA_INIT" ] && "$KEA_INIT" enabled >/dev/null 2>&1
+}
+
+init_installed() {
+	[ -x "$ROOT/etc/init.d/$1" ]
+}
+
+init_enabled_named() {
+	[ -x "$ROOT/etc/init.d/$1" ] && "$ROOT/etc/init.d/$1" enabled >/dev/null 2>&1
+}
+
+process_running() {
+	pgrep -f "$1" >/dev/null 2>&1
 }
 
 config_service_disabled() {
@@ -81,6 +128,28 @@ add_config_status() {
 	json_close_object
 }
 
+add_runtime_status() {
+	json_add_object runtime
+	json_add_boolean run_dir "$(bool_file_exists "$KEA_RUN_DIR")"
+	json_add_string run_dir_path "$KEA_RUN_DIR"
+	json_add_boolean lease_dir "$(bool_file_exists "$KEA_LEASE_DIR")"
+	json_add_string lease_dir_path "$KEA_LEASE_DIR"
+	json_add_boolean api_password "$(bool_file_exists "$KEA_API_PASSWORD")"
+	json_add_string api_password_path "$KEA_API_PASSWORD"
+	json_close_object
+}
+
+add_conflict_status() {
+	local name="$1" process="$2"
+
+	json_add_object "$name"
+	json_add_boolean installed "$(init_installed "$name" && echo 1 || echo 0)"
+	json_add_boolean enabled "$(init_enabled_named "$name" && echo 1 || echo 0)"
+	json_add_boolean running "$(process_running "$process" && echo 1 || echo 0)"
+	json_add_string init "/etc/init.d/$name"
+	json_close_object
+}
+
 get_status() {
 	json_init
 	json_add_object status
@@ -88,6 +157,8 @@ get_status() {
 	json_add_boolean init_installed "$(bool_executable "$KEA_INIT")"
 	json_add_boolean init_enabled "$(service_enabled && echo 1 || echo 0)"
 	json_add_boolean staging_exists "$(bool_file_exists "$KEA_STAGING_FILE")"
+
+	add_runtime_status
 
 	json_add_object binaries
 	add_package_status dhcp4 /usr/sbin/kea-dhcp4
@@ -108,6 +179,11 @@ get_status() {
 	add_config_status dhcp_ddns "$KEA_CONF_DIR/kea-dhcp-ddns.conf"
 	add_config_status ctrl_agent "$KEA_CONF_DIR/kea-ctrl-agent.conf"
 	add_config_status staging "$KEA_STAGING_FILE"
+	json_close_object
+
+	json_add_object conflicts
+	add_conflict_status dnsmasq /usr/sbin/dnsmasq
+	add_conflict_status odhcpd /usr/sbin/odhcpd
 	json_close_object
 
 	json_close_object
@@ -248,11 +324,70 @@ set_init_action() {
 			;;
 	esac
 
+	case "$action" in
+		start|restart|reload)
+			if ! ensure_kea_state; then
+				json_add_boolean result 0
+				json_add_string error "failed to prepare Kea runtime state"
+				json_dump
+				json_cleanup
+				return
+			fi
+			;;
+	esac
+
 	if "$KEA_INIT" "$action" >/dev/null 2>&1; then
 		json_add_boolean result 1
 	else
 		json_add_boolean result 0
 		json_add_string error "init action failed"
+	fi
+
+	json_dump
+	json_cleanup
+}
+
+set_conflict_action() {
+	local name="$1" action="$2" init
+
+	json_init
+
+	case "$name" in
+		dnsmasq|odhcpd) ;;
+		*)
+			json_add_boolean result 0
+			json_add_string error "invalid service name"
+			json_dump
+			json_cleanup
+			return
+			;;
+	esac
+
+	case "$action" in
+		enable|disable|start|stop|restart|reload) ;;
+		*)
+			json_add_boolean result 0
+			json_add_string error "invalid service action"
+			json_dump
+			json_cleanup
+			return
+			;;
+	esac
+
+	init="$ROOT/etc/init.d/$name"
+	if [ ! -x "$init" ]; then
+		json_add_boolean result 0
+		json_add_string error "init script is not installed"
+		json_dump
+		json_cleanup
+		return
+	fi
+
+	if "$init" "$action" >/dev/null 2>&1; then
+		json_add_boolean result 1
+	else
+		json_add_boolean result 0
+		json_add_string error "service action failed"
 	fi
 
 	json_dump
@@ -496,13 +631,13 @@ valid_duid() {
 	esac
 }
 
-add_import_entry() {
-	local cfg="$1" name mac ip duid hostid enable tag match_tag networkid dns
-	local status warnings family
+load_import_entry() {
+	local cfg="$1" enable tag match_tag dns
 
 	status="ready"
 	warnings=""
 	family="dhcp4"
+	source="$cfg"
 
 	config_get_bool enable "$cfg" enable 1
 	config_get name "$cfg" name
@@ -541,9 +676,13 @@ add_import_entry() {
 	[ -z "$match_tag" ] || append_warning "dnsmasq match_tag import is not implemented yet"
 	[ -z "$networkid" ] || append_warning "dnsmasq networkid import is not implemented yet"
 	[ "$dns" = 0 ] || append_warning "dns hostfile side effect is not represented in Kea reservation"
+}
+
+add_import_entry() {
+	load_import_entry "$1"
 
 	json_add_object
-	json_add_string source "$cfg"
+	json_add_string source "$source"
 	json_add_string family "$family"
 	json_add_string status "$status"
 	json_add_boolean enabled "$([ "$status" = ready ] && echo 1 || echo 0)"
@@ -572,11 +711,101 @@ import_dnsmasq_dry_run() {
 }
 
 import_dnsmasq_commit() {
+	local path entries_tmp out_tmp result_tmp error_tmp bak output rc
+
 	json_init
-	json_add_boolean result 0
-	json_add_string error "commit is not implemented yet; use dry-run preview first"
-	json_dump
+
+	path="$(config_path dhcp4)" || {
+		json_add_boolean result 0
+		json_add_string error "invalid DHCPv4 config path"
+		json_dump
+		json_cleanup
+		return
+	}
+
+	if [ ! -x /usr/bin/ucode ]; then
+		json_add_boolean result 0
+		json_add_string error "ucode is required for import"
+		json_dump
+		json_cleanup
+		return
+	fi
+
+	if [ ! -f "$KEA_IMPORTER" ]; then
+		json_add_boolean result 0
+		json_add_string error "Kea importer backend is missing"
+		json_dump
+		json_cleanup
+		return
+	fi
+
+	if [ ! -f "$path" ]; then
+		json_add_boolean result 0
+		json_add_string error "DHCPv4 config file does not exist"
+		json_add_string path "$path"
+		json_dump
+		json_cleanup
+		return
+	fi
+
+	[ -d "$KEA_CONF_DIR" ] || mkdir -p "$KEA_CONF_DIR"
+
+	entries_tmp="$KEA_CONF_DIR/.luci-import-entries.$$"
+	out_tmp="$KEA_CONF_DIR/.luci-import-dhcp4.$$"
+	result_tmp="$KEA_CONF_DIR/.luci-import-result.$$"
+	error_tmp="$KEA_CONF_DIR/.luci-import-error.$$"
+	bak="${path}.bak.import"
+
 	json_cleanup
+	json_init
+	json_add_array entries
+	config_load dhcp
+	config_foreach add_import_entry host
+	json_close_array
+	json_dump > "$entries_tmp"
+	json_cleanup
+
+	if ! /usr/bin/ucode "$KEA_IMPORTER" "$path" "$entries_tmp" "$out_tmp" "$KEA_STAGING_FILE" > "$result_tmp" 2> "$error_tmp"; then
+		json_init
+		json_add_boolean result 0
+		json_add_string error "import backend failed"
+		json_add_string detail "$(cat "$error_tmp" 2>/dev/null)"
+		json_dump
+		json_cleanup
+		rm -f "$entries_tmp" "$out_tmp" "$result_tmp" "$error_tmp"
+		return
+	fi
+
+	if [ -f "$out_tmp" ]; then
+		output="$(validate_config_file dhcp4 "$out_tmp")"
+		rc=$?
+
+		if [ "$rc" -ne 0 ]; then
+			json_init
+			json_add_boolean result 0
+			json_add_string error "imported DHCPv4 config failed validation"
+			json_add_string validation "$output"
+			json_dump
+			json_cleanup
+			rm -f "$entries_tmp" "$out_tmp" "$result_tmp" "$error_tmp"
+			return
+		fi
+
+		[ ! -f "$path" ] || cp "$path" "$bak" 2>/dev/null || true
+
+		if ! mv "$out_tmp" "$path"; then
+			json_init
+			json_add_boolean result 0
+			json_add_string error "failed to replace DHCPv4 config"
+			json_dump
+			json_cleanup
+			rm -f "$entries_tmp" "$out_tmp" "$result_tmp" "$error_tmp"
+			return
+		fi
+	fi
+
+	cat "$result_tmp"
+	rm -f "$entries_tmp" "$out_tmp" "$result_tmp" "$error_tmp"
 }
 
 case "$1" in
@@ -608,6 +837,10 @@ case "$1" in
 			json_add_boolean enabled 0
 		json_close_object
 		json_add_object setInitAction
+			json_add_string action action
+		json_close_object
+		json_add_object setConflictAction
+			json_add_string name name
 			json_add_string action action
 		json_close_object
 		json_dump
@@ -665,6 +898,14 @@ case "$1" in
 				json_get_var action action
 				json_cleanup
 				set_init_action "$action"
+				;;
+			setConflictAction)
+				read -r input
+				json_load "$input"
+				json_get_var name name
+				json_get_var action action
+				json_cleanup
+				set_conflict_action "$name" "$action"
 				;;
 		esac
 		;;

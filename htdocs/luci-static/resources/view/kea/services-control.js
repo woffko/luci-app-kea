@@ -29,6 +29,13 @@ var callInitAction = rpc.declare({
 	expect: { result: false }
 });
 
+var callConflictAction = rpc.declare({
+	object: "luci.kea",
+	method: "setConflictAction",
+	params: [ "name", "action" ],
+	expect: { result: false }
+});
+
 var SERVICE_ORDER = [
 	{
 		name: "dhcp4",
@@ -57,6 +64,19 @@ var SERVICE_ORDER = [
 		binary: "ctrl_agent",
 		config: "ctrl_agent",
 		process: "kea-ctrl-agent"
+	}
+];
+
+var CONFLICT_SERVICES = [
+	{
+		name: "dnsmasq",
+		title: "dnsmasq",
+		description: _("OpenWrt DHCP/DNS service")
+	},
+	{
+		name: "odhcpd",
+		title: "odhcpd",
+		description: _("OpenWrt IPv6 RA/DHCPv6 service")
 	}
 ];
 
@@ -89,6 +109,10 @@ function boolValue(value) {
 	return value === true || value === 1 || value === "1";
 }
 
+function hasOwn(object, key) {
+	return Object.prototype.hasOwnProperty.call(object || {}, key);
+}
+
 function hasAnyRunningService(services) {
 	var i, item;
 
@@ -108,7 +132,8 @@ function serviceRow(serviceDef, services, status, self) {
 	var binary = binaries[serviceDef.binary] || {};
 	var config = configs[serviceDef.config] || {};
 	var configured = service.section ? true : false;
-	var enabled = boolValue(service.enabled);
+	var enabled = self.effectiveServiceEnabled(serviceDef.name);
+	var changed = self.hasPendingService(serviceDef.name);
 	var running = boolValue(service.running);
 	var checkbox;
 
@@ -117,7 +142,7 @@ function serviceRow(serviceDef, services, status, self) {
 		"checked": enabled ? "checked" : null,
 		"disabled": configured ? null : "disabled",
 		"change": function(ev) {
-			return self.handleToggle(serviceDef.name, ev.target.checked);
+			self.setPendingService(serviceDef.name, ev.target.checked);
 		}
 	});
 
@@ -132,7 +157,8 @@ function serviceRow(serviceDef, services, status, self) {
 		E("td", { "class": "td left" }, configured ? E("label", {}, [
 			checkbox,
 			" ",
-			enabled ? _("Enabled") : _("Disabled")
+			enabled ? _("Enabled") : _("Disabled"),
+			changed ? E("em", { "style": "margin-left:.35rem" }, _("pending")) : ""
 		]) : neutralBadge(_("Not configured"))),
 		E("td", { "class": "td left" }, running ? badge(true, _("Running"), _("Stopped")) : badge(false, _("Running"), _("Stopped"))),
 		E("td", { "class": "td left" }, service.section || "-")
@@ -160,18 +186,93 @@ return view.extend({
 		});
 	},
 
-	handleToggle: function(name, enabled) {
-		var self = this;
+	hasPendingService: function(name) {
+		return hasOwn(this.pendingServices, name);
+	},
 
-		return callSetService(name, enabled).then(function(result) {
-			if (!result) {
-				ui.addNotification(null, E("p", _("Failed to update Kea service setting.")), "danger");
+	effectiveServiceEnabled: function(name) {
+		var service = (this.services || {})[name] || {};
+
+		if (this.hasPendingService(name))
+			return boolValue(this.pendingServices[name]);
+
+		return boolValue(service.enabled);
+	},
+
+	setPendingService: function(name, enabled) {
+		var service = (this.services || {})[name] || {};
+		var original = boolValue(service.enabled);
+
+		if (!this.pendingServices)
+			this.pendingServices = {};
+
+		if (boolValue(enabled) === original)
+			delete this.pendingServices[name];
+		else
+			this.pendingServices[name] = boolValue(enabled);
+
+		this.renderContent();
+	},
+
+	savePendingServices: function(silent) {
+		var self = this;
+		var pending = this.pendingServices || {};
+		var names = Object.keys(pending);
+
+		if (!names.length) {
+			if (!silent)
+				ui.addNotification(null, E("p", _("No Kea service setting changes to save.")), "info");
+			return Promise.resolve(false);
+		}
+
+		return Promise.all(names.map(function(name) {
+			return L.resolveDefault(callSetService(name, boolValue(pending[name])), false);
+		})).then(function(results) {
+			var i;
+
+			for (i = 0; i < results.length; i++) {
+				if (!results[i]) {
+					ui.addNotification(null, E("p", _("Failed to save one or more Kea service settings.")), "danger");
+					return false;
+				}
+			}
+
+			self.pendingServices = {};
+			if (!silent)
+				ui.addNotification(null, E("p", _("Kea service settings saved. Restart Kea to apply changed components.")), "info");
+
+			return self.refresh().then(function() {
+				return true;
+			});
+		});
+	},
+
+	handleSave: function() {
+		return this.savePendingServices(false);
+	},
+
+	handleSaveApply: function() {
+		var self = this;
+		var wasRunning = hasAnyRunningService(this.services || {});
+
+		return this.savePendingServices(true).then(function(saved) {
+			if (!saved) {
+				ui.addNotification(null, E("p", _("No Kea service setting changes to apply.")), "info");
 				return;
 			}
 
-			ui.addNotification(null, E("p", _("Kea service setting saved. Restart Kea to apply it.")), "info");
-			return self.refresh();
+			if (!wasRunning) {
+				ui.addNotification(null, E("p", _("Kea service settings saved. Start Kea manually when ready.")), "info");
+				return self.refresh();
+			}
+
+			return self.handleInitAction("restart");
 		});
+	},
+
+	handleReset: function() {
+		this.pendingServices = {};
+		return this.refresh();
 	},
 
 	handleInitAction: function(action) {
@@ -184,6 +285,20 @@ return view.extend({
 			}
 
 			ui.addNotification(null, E("p", _("Kea init action completed.")), "info");
+			return self.refresh();
+		});
+	},
+
+	handleConflictAction: function(name, action) {
+		var self = this;
+
+		return callConflictAction(name, action).then(function(result) {
+			if (!result) {
+				ui.addNotification(null, E("p", _("Service action failed.")), "danger");
+				return;
+			}
+
+			ui.addNotification(null, E("p", _("Service action completed.")), "info");
 			return self.refresh();
 		});
 	},
@@ -235,6 +350,71 @@ return view.extend({
 		]);
 	},
 
+	renderConflictSection: function() {
+		var self = this;
+		var status = this.status || {};
+		var conflicts = status.conflicts || {};
+		var rows;
+
+		rows = CONFLICT_SERVICES.map(function(serviceDef) {
+			var service = conflicts[serviceDef.name] || {};
+			var installed = boolValue(service.installed);
+			var enabled = boolValue(service.enabled);
+			var running = boolValue(service.running);
+			var actions = [];
+
+			if (installed) {
+				actions.push(
+					running ?
+						actionButton(_("Stop"), "stop", "cbi-button-negative", function(action) {
+							return self.handleConflictAction(serviceDef.name, action);
+						}) :
+						actionButton(_("Start"), "start", "cbi-button-apply", function(action) {
+							return self.handleConflictAction(serviceDef.name, action);
+						}),
+					" ",
+					actionButton(_("Restart"), "restart", "cbi-button-reload", function(action) {
+						return self.handleConflictAction(serviceDef.name, action);
+					}),
+					" ",
+					enabled ?
+						actionButton(_("Disable autostart"), "disable", "cbi-button-negative", function(action) {
+							return self.handleConflictAction(serviceDef.name, action);
+						}) :
+						actionButton(_("Enable autostart"), "enable", "cbi-button-apply", function(action) {
+							return self.handleConflictAction(serviceDef.name, action);
+						})
+				);
+			}
+
+			return E("tr", { "class": "tr" }, [
+				E("td", { "class": "td left" }, [
+					E("strong", {}, serviceDef.title),
+					E("br"),
+					E("small", {}, serviceDef.description)
+				]),
+				E("td", { "class": "td left" }, installed ? badge(true, _("Installed"), _("Missing")) : badge(false, _("Installed"), _("Missing"))),
+				E("td", { "class": "td left" }, enabled ? badge(true, _("Enabled"), _("Disabled")) : badge(false, _("Enabled"), _("Disabled"))),
+				E("td", { "class": "td left" }, running ? badge(true, _("Running"), _("Stopped")) : badge(false, _("Running"), _("Stopped"))),
+				E("td", { "class": "td left" }, installed ? actions : neutralBadge(_("Unavailable")))
+			]);
+		});
+
+		return E("div", { "class": "cbi-section" }, [
+			E("h3", _("Potential Conflicts")),
+			E("p", {}, _("Kea and the OpenWrt DHCP services should not answer the same clients at the same time. Stop or disable competing services only after the Kea configuration is ready.")),
+			E("table", { "class": "table" }, [
+				E("tr", { "class": "tr table-titles" }, [
+					E("th", { "class": "th left" }, _("Service")),
+					E("th", { "class": "th left" }, _("Installed")),
+					E("th", { "class": "th left" }, _("Autostart")),
+					E("th", { "class": "th left" }, _("Runtime")),
+					E("th", { "class": "th left" }, _("Actions"))
+				])
+			].concat(rows))
+		]);
+	},
+
 	renderServiceSection: function() {
 		var self = this;
 		var rows = SERVICE_ORDER.map(function(serviceDef) {
@@ -251,9 +431,8 @@ return view.extend({
 					E("th", { "class": "th left" }, _("Enabled")),
 					E("th", { "class": "th left" }, _("Runtime")),
 					E("th", { "class": "th left" }, _("UCI section"))
-				]),
-				rows
-			])
+				])
+			].concat(rows))
 		]);
 	},
 
@@ -265,6 +444,7 @@ return view.extend({
 
 		container.replaceChildren(
 			this.renderInitSection(),
+			this.renderConflictSection(),
 			this.renderServiceSection()
 		);
 	},
@@ -272,11 +452,13 @@ return view.extend({
 	render: function(data) {
 		this.status = data[0] || {};
 		this.services = data[1] || {};
+		this.pendingServices = {};
 
 		return E("div", {}, [
 			E("h2", _("Kea Services")),
 			E("div", { "id": "kea-services-content" }, [
 				this.renderInitSection(),
+				this.renderConflictSection(),
 				this.renderServiceSection()
 			])
 		]);

@@ -242,48 +242,6 @@ function isDocumentationSubnet4(subnet) {
 		/^203\.0\.113\./.test(addr);
 }
 
-function isSampleOption4(option) {
-	var name = option && option.name || "";
-	var code = option && option.code;
-	var data = option && option.data || "";
-
-	return (name === "domain-name-servers" && data === "192.0.2.1, 192.0.2.2") ||
-		(code === 15 && data === "example.org") ||
-		(name === "domain-search" && data === "mydomain.example.com, example.com") ||
-		(name === "boot-file-name" && data === "EST5EDT4\\,M3.2.0/02:00\\,M11.1.0/02:00") ||
-		(name === "default-ip-ttl" && data === "0xf0");
-}
-
-function isSampleClientClass4(clientClass) {
-	return clientClass && (
-		clientClass.name === "voip" ||
-		clientClass.test === "substring(option[60].hex,0,6) == 'Aastra'" ||
-		clientClass["next-server"] === "192.0.2.254" ||
-		clientClass["server-hostname"] === "hal9000" ||
-		clientClass["boot-file-name"] === "/dev/null"
-	);
-}
-
-function removeStockSampleDhcp4(dhcp4) {
-	if (dhcp4["option-data"]) {
-		dhcp4["option-data"] = dhcp4["option-data"].filter(function(option) {
-			return !isSampleOption4(option || {});
-		});
-
-		if (dhcp4["option-data"].length === 0)
-			delete dhcp4["option-data"];
-	}
-
-	if (dhcp4["client-classes"]) {
-		dhcp4["client-classes"] = dhcp4["client-classes"].filter(function(clientClass) {
-			return !isSampleClientClass4(clientClass || {});
-		});
-
-		if (dhcp4["client-classes"].length === 0)
-			delete dhcp4["client-classes"];
-	}
-}
-
 function makeBaseTab(item) {
 	return {
 		name: item && item.name || "",
@@ -647,7 +605,6 @@ return view.extend({
 		dhcp4["interfaces-config"] = dhcp4["interfaces-config"] || {};
 		dhcp4["interfaces-config"].interfaces = enabledIfaces;
 		dhcp4.subnet4 = subnets;
-		removeStockSampleDhcp4(dhcp4);
 		config.Dhcp4 = dhcp4;
 
 		return {

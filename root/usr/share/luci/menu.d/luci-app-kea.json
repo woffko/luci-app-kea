@@ -23,7 +23,7 @@
 		"order": 20,
 		"action": {
 			"type": "view",
-			"path": "kea/services"
+			"path": "kea/services-control"
 		}
 	},
 	"admin/services/kea/dhcp4": {
@@ -31,7 +31,15 @@
 		"order": 30,
 		"action": {
 			"type": "view",
-			"path": "kea/dhcp4"
+			"path": "kea/dhcp4-clean-save"
+		}
+	},
+	"admin/services/kea/dhcp6": {
+		"title": "DHCPv6",
+		"order": 40,
+		"action": {
+			"type": "view",
+			"path": "kea/dhcp6-clean-save"
 		}
 	},
 	"admin/services/kea/configuration": {
@@ -47,7 +55,7 @@
 		"order": 90,
 		"action": {
 			"type": "view",
-			"path": "kea/import-dnsmasq"
+			"path": "kea/import-dnsmasq-commit"
 		}
 	}
 }
