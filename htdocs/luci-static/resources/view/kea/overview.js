@@ -32,6 +32,11 @@ function renderObjectTable(title, rows) {
 }
 
 return view.extend({
+	/* A read-only page: no Save / Apply / Reset footer. */
+	handleSave: null,
+	handleSaveApply: null,
+	handleReset: null,
+
 	load: function() {
 		return Promise.all([
 			L.resolveDefault(callStatus(), {}),
