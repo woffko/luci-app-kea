@@ -17,6 +17,8 @@ KEA_IMPORTER="$ROOT/usr/share/luci/kea/importer.uc"
 KEA_RUN_DIR="${KEA_RUN_DIR:-/var/run/kea}"
 KEA_LEASE_DIR="${KEA_LEASE_DIR:-$ROOT/var/lib/kea}"
 KEA_API_PASSWORD="$KEA_CONF_DIR/kea-api-password"
+KEA_BACKUP_DIR="$KEA_CONF_DIR/backups"
+KEA_BACKUP_KEEP=10
 
 config_path() {
 	case "$1" in
@@ -51,22 +53,32 @@ ensure_kea_runtime_dir() {
 	chmod 750 "$KEA_RUN_DIR" 2>/dev/null || true
 }
 
+# Print 24 random bytes as 48 hex digits. Fails when no random source works:
+# a guessable secret must never be written.
 random_secret() {
+	local secret=""
+
 	if command -v openssl >/dev/null 2>&1; then
-		openssl rand -hex 24 2>/dev/null && return 0
+		secret="$(openssl rand -hex 24 2>/dev/null)"
 	fi
 
-	if [ -r /dev/urandom ] && command -v hexdump >/dev/null 2>&1; then
-		hexdump -n 24 -e '1/1 "%02x"' /dev/urandom 2>/dev/null && {
-			printf '\n'
-			return 0
-		}
+	if [ "${#secret}" -ne 48 ] && [ -r /dev/urandom ]; then
+		if command -v hexdump >/dev/null 2>&1; then
+			secret="$(hexdump -n 24 -e '1/1 "%02x"' /dev/urandom 2>/dev/null)"
+		fi
+
+		[ "${#secret}" -eq 48 ] ||
+			secret="$(tr -dc 'a-f0-9' < /dev/urandom 2>/dev/null | head -c 48)"
 	fi
 
-	printf '%s%s\n' "$(date +%s)" "$$"
+	[ "${#secret}" -eq 48 ] || return 1
+
+	printf '%s\n' "$secret"
 }
 
 ensure_kea_state() {
+	local secret
+
 	ensure_kea_runtime_dir
 
 	[ -d "$KEA_LEASE_DIR" ] || mkdir -p "$KEA_LEASE_DIR" 2>/dev/null || return 1
@@ -75,8 +87,8 @@ ensure_kea_state() {
 	[ -d "$KEA_CONF_DIR" ] || mkdir -p "$KEA_CONF_DIR" 2>/dev/null || return 1
 
 	if [ ! -s "$KEA_API_PASSWORD" ]; then
-		umask 077
-		random_secret > "$KEA_API_PASSWORD" 2>/dev/null || return 1
+		secret="$(random_secret)" || return 1
+		( umask 077; printf '%s\n' "$secret" > "$KEA_API_PASSWORD" ) 2>/dev/null || return 1
 		chmod 600 "$KEA_API_PASSWORD" 2>/dev/null || true
 	fi
 
@@ -104,9 +116,10 @@ process_running() {
 	pgrep -f "$1" >/dev/null 2>&1
 }
 
+# A service section without the option is enabled, as in /etc/init.d/kea.
 config_service_disabled() {
 	local section="$1" disabled
-	config_get_bool disabled "$section" disabled 1
+	config_get_bool disabled "$section" disabled 0
 	echo "$disabled"
 }
 
@@ -504,7 +517,10 @@ get_config() {
 		return
 	fi
 
-	content="$(cat "$path" 2>/dev/null)"
+	# Command substitution drops trailing newlines; the marker keeps them so
+	# the editor gets the file exactly as it is on disk.
+	content="$(cat "$path" 2>/dev/null; printf x)"
+	content="${content%x}"
 	output="$(validate_config_file "$name" "$path")"
 	rc=$?
 
@@ -518,8 +534,183 @@ get_config() {
 	json_cleanup
 }
 
+# Backups live in $KEA_BACKUP_DIR as <config basename>.<id>.conf. The id is
+# a UTC timestamp, so sorting the names sorts the backups by age. "_N" is
+# appended when two backups fall into the same second; "_" sorts after ".".
+
+backup_base() {
+	local path
+
+	path="$(config_path "$1")" || return 1
+	basename "$path" .conf
+}
+
+valid_backup_id() {
+	case "$1" in
+		''|*[!0-9TZ_]*) return 1 ;;
+	esac
+
+	return 0
+}
+
+list_backup_files() {
+	local base="$1"
+
+	[ -d "$KEA_BACKUP_DIR" ] || return 0
+
+	ls -1 "$KEA_BACKUP_DIR" 2>/dev/null |
+		grep "^$base\\.[0-9TZ_]*\\.conf\$" |
+		sort -r
+}
+
+# Copy the current config file of <name> into the backup directory and drop
+# the oldest backups beyond $KEA_BACKUP_KEEP. Sets BACKUP_ID.
+backup_config() {
+	local name="$1" path base stamp id n old
+
+	BACKUP_ID=""
+
+	path="$(config_path "$name")" || return 1
+	[ -f "$path" ] || return 0
+
+	base="$(backup_base "$name")" || return 1
+
+	mkdir -p "$KEA_BACKUP_DIR" 2>/dev/null || return 1
+	chmod 700 "$KEA_BACKUP_DIR" 2>/dev/null || true
+
+	stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+	id="$stamp"
+	n=1
+
+	while [ -e "$KEA_BACKUP_DIR/$base.$id.conf" ]; do
+		n=$((n + 1))
+		id="${stamp}_$n"
+	done
+
+	cp "$path" "$KEA_BACKUP_DIR/$base.$id.conf" 2>/dev/null || return 1
+	chmod 600 "$KEA_BACKUP_DIR/$base.$id.conf" 2>/dev/null || true
+
+	list_backup_files "$base" | tail -n +$((KEA_BACKUP_KEEP + 1)) | while read -r old; do
+		rm -f "$KEA_BACKUP_DIR/$old"
+	done
+
+	BACKUP_ID="$id"
+}
+
+list_backups() {
+	local name="$1" base file id size
+
+	json_init
+
+	base="$(backup_base "$name")" || {
+		json_add_boolean result 0
+		json_add_string error "invalid config name"
+		json_dump
+		json_cleanup
+		return
+	}
+
+	json_add_boolean result 1
+	json_add_string name "$name"
+	json_add_array items
+
+	for file in $(list_backup_files "$base"); do
+		id="${file#"$base".}"
+		id="${id%.conf}"
+		size="$(wc -c < "$KEA_BACKUP_DIR/$file" 2>/dev/null)"
+
+		json_add_object
+		json_add_string id "$id"
+		json_add_int size "${size:-0}"
+		json_close_object
+	done
+
+	json_close_array
+	json_dump
+	json_cleanup
+}
+
+restore_backup() {
+	local name="$1" id="$2" path base file tmp output rc
+
+	json_init
+
+	path="$(config_path "$name")" && base="$(backup_base "$name")" || {
+		json_add_boolean result 0
+		json_add_string error "invalid config name"
+		json_dump
+		json_cleanup
+		return
+	}
+
+	if ! valid_backup_id "$id"; then
+		json_add_boolean result 0
+		json_add_string error "invalid backup id"
+		json_dump
+		json_cleanup
+		return
+	fi
+
+	file="$KEA_BACKUP_DIR/$base.$id.conf"
+
+	if [ ! -f "$file" ]; then
+		json_add_boolean result 0
+		json_add_string error "backup does not exist"
+		json_dump
+		json_cleanup
+		return
+	fi
+
+	output="$(validate_config_file "$name" "$file")"
+	rc=$?
+
+	if [ "$rc" -ne 0 ]; then
+		json_add_boolean result 0
+		json_add_string error "backup failed validation"
+		json_add_string validation "$output"
+		json_dump
+		json_cleanup
+		return
+	fi
+
+	# Copy first: backing up the current file may prune the chosen backup.
+	tmp="${path}.luci.$$"
+
+	if ! ( umask 077; cp "$file" "$tmp" ) 2>/dev/null; then
+		rm -f "$tmp"
+		json_add_boolean result 0
+		json_add_string error "failed to copy the backup"
+		json_dump
+		json_cleanup
+		return
+	fi
+
+	if ! backup_config "$name"; then
+		rm -f "$tmp"
+		json_add_boolean result 0
+		json_add_string error "failed to back up the current config"
+		json_dump
+		json_cleanup
+		return
+	fi
+
+	if mv "$tmp" "$path"; then
+		json_add_boolean result 1
+		json_add_string path "$path"
+		json_add_string restored "$id"
+		json_add_string backup "$BACKUP_ID"
+	else
+		rm -f "$tmp"
+		json_add_boolean result 0
+		json_add_string error "failed to replace config"
+	fi
+
+	json_dump
+	json_cleanup
+}
+
 save_config() {
-	local name="$1" content="$2" path tmp bak output rc
+	local name="$1" content="$2" path tmp output rc
 
 	json_init
 
@@ -534,10 +725,8 @@ save_config() {
 	[ -d "$KEA_CONF_DIR" ] || mkdir -p "$KEA_CONF_DIR"
 
 	tmp="${path}.luci.$$"
-	bak="${path}.bak.luci"
 
-	umask 077
-	if ! printf '%s' "$content" > "$tmp"; then
+	if ! ( umask 077; printf '%s' "$content" > "$tmp" ) 2>/dev/null; then
 		rm -f "$tmp"
 		json_add_boolean result 0
 		json_add_string error "failed to write temporary config"
@@ -559,12 +748,19 @@ save_config() {
 		return
 	fi
 
-	[ ! -f "$path" ] || cp "$path" "$bak" 2>/dev/null || true
+	if ! backup_config "$name"; then
+		rm -f "$tmp"
+		json_add_boolean result 0
+		json_add_string error "failed to back up the current config"
+		json_dump
+		json_cleanup
+		return
+	fi
 
 	if mv "$tmp" "$path"; then
 		json_add_boolean result 1
 		json_add_string path "$path"
-		json_add_string backup "$bak"
+		json_add_string backup "$BACKUP_ID"
 		json_add_string validation "$output"
 	else
 		rm -f "$tmp"
@@ -711,7 +907,7 @@ import_dnsmasq_dry_run() {
 }
 
 import_dnsmasq_commit() {
-	local path entries_tmp out_tmp result_tmp error_tmp bak output rc
+	local path entries_tmp out_tmp result_tmp error_tmp output rc
 
 	json_init
 
@@ -754,7 +950,6 @@ import_dnsmasq_commit() {
 	out_tmp="$KEA_CONF_DIR/.luci-import-dhcp4.$$"
 	result_tmp="$KEA_CONF_DIR/.luci-import-result.$$"
 	error_tmp="$KEA_CONF_DIR/.luci-import-error.$$"
-	bak="${path}.bak.import"
 
 	json_cleanup
 	json_init
@@ -791,7 +986,15 @@ import_dnsmasq_commit() {
 			return
 		fi
 
-		[ ! -f "$path" ] || cp "$path" "$bak" 2>/dev/null || true
+		if ! backup_config dhcp4; then
+			json_init
+			json_add_boolean result 0
+			json_add_string error "failed to back up the current config"
+			json_dump
+			json_cleanup
+			rm -f "$entries_tmp" "$out_tmp" "$result_tmp" "$error_tmp"
+			return
+		fi
 
 		if ! mv "$out_tmp" "$path"; then
 			json_init
@@ -827,6 +1030,13 @@ case "$1" in
 		json_add_object saveConfig
 			json_add_string name name
 			json_add_string content content
+		json_close_object
+		json_add_object listBackups
+			json_add_string name name
+		json_close_object
+		json_add_object restoreBackup
+			json_add_string name name
+			json_add_string id id
 		json_close_object
 		json_add_object importDnsmasqDryRun
 		json_close_object
@@ -877,6 +1087,21 @@ case "$1" in
 				json_get_var content content
 				json_cleanup
 				save_config "$name" "$content"
+				;;
+			listBackups)
+				read -r input
+				json_load "$input"
+				json_get_var name name
+				json_cleanup
+				list_backups "$name"
+				;;
+			restoreBackup)
+				read -r input
+				json_load "$input"
+				json_get_var name name
+				json_get_var id id
+				json_cleanup
+				restore_backup "$name" "$id"
 				;;
 			importDnsmasqDryRun)
 				import_dnsmasq_dry_run

@@ -10,6 +10,7 @@
 					"validate",
 					"getConfigList",
 					"getConfig",
+					"listBackups",
 					"importDnsmasqDryRun"
 				]
 			}
@@ -21,6 +22,7 @@
 					"setInitAction",
 					"setConflictAction",
 					"saveConfig",
+					"restoreBackup",
 					"importDnsmasqCommit"
 				]
 			}
