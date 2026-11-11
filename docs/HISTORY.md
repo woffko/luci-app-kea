@@ -16,6 +16,9 @@ landed.
   reordered the plan in [ROADMAP.md](ROADMAP.md).
 - Split the documentation into status, packaging, roadmap, design and
   development files. No code changes.
+- Owner decisions: the maintainer entry stays as it is for now; the project
+  stays a standalone repository with a later submission to `openwrt/luci` as
+  the goal.
 
 ## 2026-05-16: Services page and alpha README
 

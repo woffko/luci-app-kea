@@ -18,9 +18,11 @@ itself and ships, M1 stops the editors from destroying configuration.
 
 Small, mechanical, and needed before any release.
 
-- [ ] Makefile: set `LUCI_URL`, `LUCI_MAINTAINER`, `LUCI_DESCRIPTION`,
-      `PKG_LICENSE_FILES`; give `PKG_MAINTAINER` a name and address; drop the
-      redundant `+rpcd +rpcd-mod-file` dependencies.
+- [ ] Makefile: set `LUCI_URL`, `LUCI_DESCRIPTION`, `PKG_LICENSE_FILES`, and
+      `LUCI_MAINTAINER:=$(PKG_MAINTAINER)` so the package stops naming the
+      LuCI community as maintainer; drop the redundant
+      `+rpcd +rpcd-mod-file` dependencies. The maintainer identity itself is
+      unchanged (see [Decisions](#decisions)).
 - [ ] Replace `LICENSE` with the full Apache-2.0 text.
 - [ ] Delete the 10 unused view files and rename the active ones to stable
       names (`overview`, `services`, `dhcp4`, `dhcp6`, `configuration`,
@@ -125,17 +127,34 @@ changes only the edited field. This needs an automated test from M2.
 - [ ] Changelog and version policy; tag `v0.x` releases.
 - [ ] Attach built packages to GitHub releases.
 - [ ] Document installation as a custom feed.
-- [ ] Decide on an upstream submission to `openwrt/luci` and meet the extra
-      requirements in [PACKAGING.md](PACKAGING.md).
+- [ ] Prepare the submission to `openwrt/luci`: meet the extra requirements in
+      [PACKAGING.md](PACKAGING.md), including a maintainer with a real name
+      and e-mail address.
+
+## Decisions
+
+Made by the project owner on 2026-11-11.
+
+1. **Maintainer.** Stays `Woffko`, without an e-mail address, for now. To be
+   revisited before an upstream submission, which requires a real name and
+   address.
+2. **Distribution.** A standalone repository for now, with a later submission
+   to `openwrt/luci` as the goal. Consequences:
+   - the Makefile keeps its out-of-tree form
+     (`include $(TOPDIR)/feeds/luci/luci.mk`, explicit version) until the
+     submission;
+   - all new work follows LuCI conventions so the move stays cheap: stable
+     view names, strings through `_()` with an up-to-date `kea.pot`, the LuCI
+     ESLint configuration, standard LuCI widgets where practical, standard
+     install paths for ucode, and no dependencies outside the OpenWrt feeds;
+   - where a choice exists, prefer what `openwrt/luci` reviewers expect over
+     what is quickest.
 
 ## Open questions
 
-1. Which name and e-mail address should the package list as maintainer?
-2. Stay a standalone repository, or aim for `openwrt/luci`? This decides the
-   Makefile form, the commit conventions and the translation workflow.
-3. Menu location: **Services > Kea DHCP** (current) or under **Network**?
-4. Minimum supported OpenWrt and Kea versions. Is 24.10 (opkg) in scope?
-5. Keep the shell backend, or move fully to ucode in M2?
-6. Where should disabled and unresolved reservations live: the JSON staging
+1. Menu location: **Services > Kea DHCP** (current) or under **Network**?
+2. Minimum supported OpenWrt and Kea versions. Is 24.10 (opkg) in scope?
+3. Keep the shell backend, or move fully to ucode in M2?
+4. Where should disabled and unresolved reservations live: the JSON staging
    file, a UCI namespace, or Kea `user-context`?
-7. Lease viewer in the first stable release, or later?
+5. Lease viewer in the first stable release, or later?

@@ -160,9 +160,12 @@ apk list --installed | grep -E '^(kea|luci-app-kea)-'
 
 - Everything published to GitHub is written in English: code comments,
   documentation, commit messages, issues and pull requests.
-- Commit subjects are short and imperative. If the package is later submitted
-  to `openwrt/luci`, the rules in [PACKAGING.md](PACKAGING.md) apply
-  (`luci-app-kea:` prefix, `Signed-off-by`).
+- The package is standalone for now and is meant to be submitted to
+  `openwrt/luci` later. Write new code to LuCI conventions (see the decisions
+  in [ROADMAP.md](ROADMAP.md#decisions)) so the move stays cheap.
+- Commit subjects are short and imperative. At submission time the rules in
+  [PACKAGING.md](PACKAGING.md) apply (`luci-app-kea:` prefix,
+  `Signed-off-by`).
 - LuCI strings go through `_()`.
 - Do not use `String.format()` in views. It was removed in May 2026 while
   fixing a blank page.

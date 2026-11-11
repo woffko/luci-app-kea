@@ -16,6 +16,9 @@ everything else live in Kea's JSON files.
 This application adds a LuCI interface for the common DHCP settings and keeps
 the JSON files reachable for everything else.
 
+It is developed as a standalone package for now, with a later submission to
+[openwrt/luci](https://github.com/openwrt/luci) as the goal.
+
 ## Features
 
 Menu location: **Services > Kea DHCP**.

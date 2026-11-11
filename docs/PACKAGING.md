@@ -104,6 +104,11 @@ package has to set `LUCI_MAINTAINER` and `LUCI_URL` before including `luci.mk`.
 The packages feed rule for the maintainer format is
 `PKG_MAINTAINER:=Joe D. Hacker <jdh@jdhs-email-provider.org>`.
 
+Owner decision, 2026-11-11: the maintainer stays `Woffko` without an e-mail
+address for now. `LUCI_MAINTAINER` still has to be set, so that the package
+names the project maintainer instead of the LuCI community. A real name and
+address become necessary at an upstream submission.
+
 ### Dependencies (item 8)
 
 `luci-base` depends on `rpcd`, `rpcd-mod-file`, `rpcd-mod-luci`,
@@ -163,8 +168,7 @@ agent credentials). Decide whether it belongs in the write group.
 
 ### Proposed Makefile
 
-Not applied and not build-tested yet. The maintainer line needs a real name and
-address chosen by the project owner.
+Not applied and not build-tested yet.
 
 ```make
 # SPDX-License-Identifier: Apache-2.0
@@ -177,7 +181,7 @@ PKG_RELEASE:=2
 
 PKG_LICENSE:=Apache-2.0
 PKG_LICENSE_FILES:=LICENSE
-PKG_MAINTAINER:=Full Name <address@example.org>
+PKG_MAINTAINER:=Woffko
 
 LUCI_TITLE:=LuCI support for ISC Kea DHCP server
 LUCI_DESCRIPTION:=Web interface for the ISC Kea DHCPv4/DHCPv6 servers: \
@@ -199,7 +203,9 @@ include $(TOPDIR)/feeds/luci/luci.mk
 
 ## Additional requirements for an upstream submission
 
-These apply only if the package is proposed to `openwrt/luci`:
+The project is a standalone repository for now and aims at a later submission
+to `openwrt/luci` (see the decisions in [ROADMAP.md](ROADMAP.md#decisions)).
+These apply at that point:
 
 - place it in `applications/luci-app-kea` and use `include ../../luci.mk`;
 - drop `PKG_NAME`, `PKG_VERSION` and `PKG_RELEASE` unless there is a reason to
