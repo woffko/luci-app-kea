@@ -9,16 +9,16 @@ root/usr/libexec/rpcd/luci.kea                rpcd backend (POSIX shell, jshn)
 root/usr/share/luci/kea/importer.uc           ucode helper for the import commit
 root/usr/share/luci/menu.d/luci-app-kea.json  menu entries
 root/usr/share/rpcd/acl.d/luci-app-kea.json   rpcd ACL
-test/                                         fixtures and the import fixture test
+po/templates/kea.pot                          translation template
+tools/update-pot.sh                           regenerates the template
+test/                                         fixtures, import fixture test, browser smoke test
 docs/                                         project documentation
 ```
 
-`luci.mk` installs `htdocs/` to `/www/` and `root/` to `/`. Nothing else in the
-repository is packaged.
+`luci.mk` installs `htdocs/` to `/www/` and `root/` to `/`, and builds
+translation packages from `po/`. Nothing else in the repository is packaged.
 
-The views that are actually loaded are the ones named in the menu file. The
-view directory still holds unused copies; see
-[PACKAGING.md](PACKAGING.md#unused-view-files).
+View names are part of the page URL. Keep them stable.
 
 ## Building
 
@@ -41,6 +41,26 @@ depends on `kea-uci`, which requires one of them.
 
 A package placed under `package/` is written to
 `bin/packages/<arch>/base/luci-app-kea-<version>.apk`.
+
+### Building with the SDK
+
+The SDK avoids building the toolchain. Use a `PATH` without spaces (on WSL,
+drop the Windows directories).
+
+```sh
+cd /path/to/openwrt-sdk
+./scripts/feeds update base packages luci
+./scripts/feeds install luci-base kea
+ln -s /path/to/luci-app-kea package/luci-app-kea
+make defconfig
+make package/feeds/luci/luci-base/host/compile
+make -C package/luci-app-kea TOPDIR="$PWD" compile
+```
+
+The last command builds only this package. The usual
+`make package/luci-app-kea/compile` also compiles every dependency, including
+Kea and Boost, which takes much longer and is not needed when Kea is installed
+on the target from the official package repository.
 
 To inspect the metadata without building:
 
@@ -97,9 +117,6 @@ For hand-copied files, either:
   ssh root@<target> 'touch /lib/apk/db/installed'
   ```
 
-  This follows from the LuCI code above but has not been confirmed on a target
-  yet.
-
 ## Checks
 
 Run before every commit:
@@ -112,14 +129,60 @@ jq -e . root/usr/share/luci/menu.d/luci-app-kea.json >/dev/null
 jq -e . root/usr/share/rpcd/acl.d/luci-app-kea.json >/dev/null
 ```
 
-The import fixture test needs `uci`, `jshn` and `/lib/functions.sh`, so run it
-on OpenWrt or in an OpenWrt root filesystem:
+After changing a user-visible string, regenerate the translation template:
+
+```sh
+tools/update-pot.sh /path/to/luci-checkout
+```
+
+The import fixture test needs `uci`, `jshn`, `jsonfilter` and
+`/lib/functions.sh`, so run it on OpenWrt or in an OpenWrt root filesystem:
 
 ```sh
 ./test/run-import-fixture.sh
 ```
 
+The browser smoke test opens every page on a target and fails on JavaScript
+errors. It needs Node.js with the `playwright` package:
+
+```sh
+npm install playwright
+npx playwright install chromium-headless-shell
+BASE_URL=http://<target> LUCI_PASSWORD=<password> node test/browser/smoke.js
+```
+
+Set `OUT_DIR` to keep a screenshot of each page.
+
 There is no CI yet.
+
+## A disposable test target
+
+The official x86-64 image runs under QEMU without KVM. With two network
+cards, the first is the LAN (`192.168.1.1`) and the second can serve as WAN:
+
+```sh
+gunzip -k openwrt-<version>-x86-64-generic-ext4-combined.img.gz
+qemu-system-x86_64 -m 512 -display none \
+    -drive file=openwrt-<version>-x86-64-generic-ext4-combined.img,format=raw,if=ide \
+    -netdev user,id=lan,net=192.168.1.0/24,host=192.168.1.2,restrict=on,hostfwd=tcp:127.0.0.1:2222-192.168.1.1:22,hostfwd=tcp:127.0.0.1:8080-192.168.1.1:80 \
+    -device e1000,netdev=lan \
+    -netdev user,id=wan -device e1000,netdev=wan
+```
+
+The image has no WAN interface configured. Add one on the guest, then install
+Kea:
+
+```sh
+uci set network.wan=interface
+uci set network.wan.device=eth1
+uci set network.wan.proto=dhcp
+uci commit network
+/etc/init.d/network reload
+apk update
+apk add kea-dhcp4 kea-dhcp6 kea-dhcp-ddns kea-ctrl kea-uci
+```
+
+LuCI is then at `http://127.0.0.1:8080` and SSH at port 2222 on the host.
 
 ## Debugging the backend on a target
 

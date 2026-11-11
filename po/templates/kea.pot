@@ -1,0 +1,611 @@
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8"
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:336
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:412
+msgid "Actions"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:813
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:840
+msgid "Add Reservation"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:96
+msgid "Address"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:773
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:799
+msgid "Address Pool"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:334
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:410
+msgid "Autostart"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:429
+msgid "Binary"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:402
+msgid "Client ID"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:428
+msgid "Component"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:143
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:430
+msgid "Config"
+msgstr ""
+
+#: applications/luci-app-kea/root/usr/share/luci/menu.d/luci-app-kea.json:45
+msgid "Configuration"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/overview.js:81
+msgid "Configuration Files"
+msgstr ""
+
+#: applications/luci-app-kea/root/usr/share/luci/menu.d/luci-app-kea.json:29
+msgid "DHCPv4"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:685
+msgid "DHCPv4 configuration saved."
+msgstr ""
+
+#: applications/luci-app-kea/root/usr/share/luci/menu.d/luci-app-kea.json:37
+msgid "DHCPv6"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:711
+msgid "DHCPv6 configuration saved."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:781
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:807
+msgid "DNS Servers"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:467
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:436
+msgid "Delete"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:324
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:381
+msgid "Disable autostart"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:160
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:345
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:397
+msgid "Disabled"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:782
+msgid "Domain Name"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:783
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:808
+msgid "Domain Search"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:766
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:792
+msgid "Enable"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:769
+msgid "Enable DHCPv4 server on this interface"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:795
+msgid "Enable DHCPv6 server on this interface"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:325
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:384
+msgid "Enable autostart"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:796
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:823
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:160
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:345
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:397
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:431
+msgid "Enabled"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:55
+msgid "Failed to load Kea config."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:677
+msgid "Failed to save DHCPv4 configuration."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:703
+msgid "Failed to save DHCPv6 configuration."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:74
+msgid "Failed to save Kea config."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:235
+msgid "Failed to save one or more Kea service settings."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:92
+msgid "Family"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:403
+msgid "Flex ID"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:780
+msgid "Gateway"
+msgstr ""
+
+#: applications/luci-app-kea/root/usr/share/rpcd/acl.d/luci-app-kea.json:3
+msgid "Grant access to Kea DHCP LuCI application"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:793
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:819
+msgid "Hostname"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:795
+msgid "IPv4 Address"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:821
+msgid "IPv6 Addresses"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:820
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:95
+msgid "Identifier"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:126
+msgid "Import Ready Entries"
+msgstr ""
+
+#: applications/luci-app-kea/root/usr/share/luci/menu.d/luci-app-kea.json:53
+msgid "Import dnsmasq"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:113
+msgid "Import dnsmasq Static Leases"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:44
+msgid "Import failed."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:36
+msgid "Import ready dnsmasq static leases into Kea?"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:51
+msgid "Imported"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:329
+msgid "Init Service"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/overview.js:67
+msgid "Init autostart enabled"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/overview.js:66
+msgid "Init script installed"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:155
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:333
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:344
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:396
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:409
+msgid "Installed"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/overview.js:71
+msgid "Installed Components"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:147
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:771
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:194
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:797
+msgid "Interface"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:37
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/overview.js:55
+msgid "Invalid"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:425
+msgid "Kea Components"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:140
+msgid "Kea Configuration"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/overview.js:62
+#: applications/luci-app-kea/root/usr/share/luci/menu.d/luci-app-kea.json:3
+msgid "Kea DHCP"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:830
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:847
+msgid "Kea DHCPv4"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:857
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:874
+msgid "Kea DHCPv6"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:458
+msgid "Kea Services"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:405
+msgid ""
+"Kea and the OpenWrt DHCP services should not answer the same clients at the "
+"same time. Stop or disable competing services only after the Kea "
+"configuration is ready."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:82
+msgid "Kea config saved."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:287
+msgid "Kea init action completed."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:283
+msgid "Kea init action failed."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:242
+msgid "Kea service settings saved. Restart Kea to apply changed components."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:265
+msgid "Kea service settings saved. Start Kea manually when ready."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:148
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:848
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:849
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:875
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:876
+msgid "Loading..."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/overview.js:68
+msgid "LuCI import staging file exists"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:794
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:401
+msgid "MAC Address"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/overview.js:63
+msgid ""
+"Manage ISC Kea DHCP services, configuration, reservations, and dnsmasq "
+"static lease imports."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:142
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:189
+msgid "Manual"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:155
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:156
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:344
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:396
+msgid "Missing"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:94
+msgid "Name"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/overview.js:19
+msgid "No"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:149
+msgid "No Kea config files were found."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:260
+msgid "No Kea service setting changes to apply."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:224
+msgid "No Kea service setting changes to save."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:108
+msgid "No dnsmasq static leases were found."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:802
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:829
+msgid "No static reservations."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/overview.js:91
+msgid "No validation results are available."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:162
+msgid "Not configured"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:74
+msgid "OpenWrt DHCP/DNS service"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:79
+msgid "OpenWrt IPv6 RA/DHCPv6 service"
+msgstr ""
+
+#: applications/luci-app-kea/root/usr/share/luci/menu.d/luci-app-kea.json:13
+msgid "Overview"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:404
+msgid "Potential Conflicts"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:811
+msgid "Preferred Lifetime"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:800
+msgid "Prefix Delegation"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:806
+msgid "Prefix, prefix length, and delegated prefix length."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:822
+msgid "Prefixes"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:156
+msgid "Present"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:785
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:810
+msgid "Rebind Timer"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:113
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:865
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:892
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:321
+msgid "Reload"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:784
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:809
+msgid "Renew Timer"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:319
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:376
+msgid "Restart"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:163
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:346
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:398
+msgid "Running"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/overview.js:65
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:335
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:411
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:432
+msgid "Runtime"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:108
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:857
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:884
+msgid "Save"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:332
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:408
+msgid "Service"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:301
+msgid "Service action completed."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:297
+msgid "Service action failed."
+msgstr ""
+
+#: applications/luci-app-kea/root/usr/share/luci/menu.d/luci-app-kea.json:21
+msgid "Services"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:53
+msgid "Skipped"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:91
+msgid "Source"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:54
+msgid "Staged"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:315
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:372
+msgid "Start"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:789
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:815
+msgid "Static Reservations"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:93
+msgid "Status"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:317
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:369
+msgid "Stop"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:163
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:346
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:398
+msgid "Stopped"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:772
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:798
+msgid "Subnet"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:832
+msgid "The DHCPv4 config cannot be parsed by the structured editor."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:859
+msgid "The DHCPv6 config cannot be parsed by the structured editor."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:114
+msgid ""
+"This is a dry-run preview. Entries that cannot be safely represented as Kea "
+"reservations are marked disabled with warnings."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:433
+msgid "UCI section"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:347
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:399
+msgid "Unavailable"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:52
+msgid "Updated"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:37
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/overview.js:55
+msgid "Valid"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:786
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:812
+msgid "Valid Lifetime"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:34
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/overview.js:88
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/overview.js:90
+msgid "Validation"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:97
+msgid "Warnings"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/overview.js:19
+msgid "Yes"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:585
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:574
+msgid "interface device is required"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:161
+msgid "pending"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:589
+msgid "pool start and end must be set together"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:621
+msgid "preferred lifetime must be numeric"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:598
+msgid "prefix delegation lengths must be numeric"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:579
+msgid ""
+"prefix delegation prefix, prefix length, and delegated length must be set "
+"together"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:616
+msgid "rebind timer must be numeric"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:611
+msgid "renew timer must be numeric"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:627
+msgid "reservation MAC and address are required"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:647
+msgid "reservation identity and an address or prefix are required"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:59
+msgid "skipped"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:587
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:576
+msgid "subnet is required"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp4.js:776
+msgid "to"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/dhcp6.js:626
+msgid "valid lifetime must be numeric"
+msgstr ""

@@ -11,19 +11,7 @@
 					"getConfigList",
 					"getConfig",
 					"importDnsmasqDryRun"
-				],
-				"service": [ "list" ]
-			},
-			"uci": [
-				"kea",
-				"dhcp",
-				"network"
-			],
-			"file": {
-				"/etc/kea/kea-dhcp4.conf": [ "read" ],
-				"/etc/kea/kea-dhcp6.conf": [ "read" ],
-				"/etc/kea/kea-dhcp-ddns.conf": [ "read" ],
-				"/etc/kea/luci-reservations.json": [ "read" ]
+				]
 			}
 		},
 		"write": {
@@ -35,17 +23,6 @@
 					"saveConfig",
 					"importDnsmasqCommit"
 				]
-			},
-			"uci": [
-				"kea"
-			],
-			"file": {
-				"/etc/kea/luci-reservations.json": [ "write" ],
-				"/etc/kea/kea-dhcp4.conf": [ "write" ],
-				"/etc/kea/kea-dhcp6.conf": [ "write" ],
-				"/etc/kea/kea-dhcp-ddns.conf": [ "write" ],
-				"/etc/kea/kea-ctrl-agent.conf": [ "write" ],
-				"/etc/kea": [ "write" ]
 			}
 		}
 	}

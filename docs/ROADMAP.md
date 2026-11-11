@@ -16,28 +16,29 @@ itself and ships, M1 stops the editors from destroying configuration.
 
 ## M0: Packaging hygiene
 
-Small, mechanical, and needed before any release.
+Done in `0.1.0-r2`.
 
-- [ ] Makefile: set `LUCI_URL`, `LUCI_DESCRIPTION`, `PKG_LICENSE_FILES`, and
+- [x] Makefile: set `LUCI_URL`, `LUCI_DESCRIPTION`, `PKG_LICENSE_FILES`, and
       `LUCI_MAINTAINER:=$(PKG_MAINTAINER)` so the package stops naming the
       LuCI community as maintainer; drop the redundant
       `+rpcd +rpcd-mod-file` dependencies. The maintainer identity itself is
       unchanged (see [Decisions](#decisions)).
-- [ ] Replace `LICENSE` with the full Apache-2.0 text.
-- [ ] Delete the 10 unused view files and rename the active ones to stable
+- [x] Replace `LICENSE` with the full Apache-2.0 text.
+- [x] Delete the 10 unused view files and rename the active ones to stable
       names (`overview`, `services`, `dhcp4`, `dhcp6`, `configuration`,
       `import-dnsmasq`); update the menu.
-- [ ] Menu: use a `firstchild` action on the parent node.
-- [ ] ACL: remove the unused `file`, `uci` and `service` grants; decide whether
-      `getConfig` moves to the write group.
-- [ ] Declare `/etc/kea/luci-reservations.json` in `conffiles`.
-- [ ] Generate `po/templates/kea.pot` with the LuCI `build/i18n-scan.pl`.
-- [ ] Remove `create-and-push-github-repo.sh`.
-- [ ] Build in an OpenWrt 25.12.6 tree (Kea 3.0.4), install with `apk` on the
-      test target, and open every page.
+- [x] Menu: use a `firstchild` action on the parent node.
+- [x] ACL: remove the unused `file`, `uci` and `service` grants. `getConfig`
+      stays in the read group; see [PACKAGING.md](PACKAGING.md#acl-item-13).
+- [x] Declare `/etc/kea/luci-reservations.json` in `conffiles`.
+- [x] Generate `po/templates/kea.pot` with the LuCI `build/i18n-scan.pl`.
+- [x] Remove `create-and-push-github-repo.sh`.
+- [x] Build with the OpenWrt 25.12.6 SDK, install with `apk` on an OpenWrt
+      25.12.6 virtual machine with Kea 3.0.4, and open every page.
 
-Done when the metadata dump shows the project URL and maintainer, the package
-contains six view files, and the build and install are confirmed on 25.12.6.
+Also fixed on the way: `test/run-import-fixture.sh` compared against compact
+JSON, which `jshn` does not produce, so it never passed on OpenWrt. It now
+reads fields with `jsonfilter`.
 
 ## M1: Configuration safety
 

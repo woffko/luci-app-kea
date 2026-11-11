@@ -67,8 +67,8 @@ The full list is in [docs/STATUS.md](docs/STATUS.md).
 - `kea-uci` and at least one of `kea-dhcp4`, `kea-dhcp6`, `kea-dhcp-ddns`,
   `kea-ctrl` from the OpenWrt packages feed.
 
-Tested in May 2026 on OpenWrt 25.12.3 x86_64 with Kea 3.0.2. The current
-25.12.6 feed ships Kea 3.0.4, which has not been tested yet.
+Tested on OpenWrt 25.12.6 x86-64 with Kea 3.0.4 (November 2026). Earlier
+versions were tested on OpenWrt 25.12.3 with Kea 3.0.2.
 
 ## Installation
 
