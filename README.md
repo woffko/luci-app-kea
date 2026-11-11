@@ -2,10 +2,9 @@
 
 LuCI application for managing the ISC Kea DHCP server on OpenWrt.
 
-> **Status: alpha (0.1.0).** Usable for testing on a lab router. Not ready to
-> replace a production dnsmasq/odhcpd setup. Read
-> [Known limitations](#known-limitations) before saving from the DHCPv4 or
-> DHCPv6 pages: they can remove settings from an existing Kea configuration.
+> **Status: alpha (0.2.0).** Usable for testing on a lab router. Not ready to
+> replace a production dnsmasq/odhcpd setup yet: see
+> [Known limitations](#known-limitations).
 
 ## Purpose
 
@@ -29,31 +28,35 @@ Menu location: **Services > Kea DHCP**.
   service; enable or disable `kea-dhcp4`, `kea-dhcp6`, `kea-dhcp-ddns` and
   `kea-ctrl-agent`; state and explicit controls for `dnsmasq` and `odhcpd`.
 - **DHCPv4**: one tab per interface with subnet, address pool, gateway, DNS
-  servers, domain, timers and MAC-based reservations.
+  servers, domain, timers and reservations by MAC address, client ID, DUID,
+  circuit ID or flex ID.
 - **DHCPv6**: one tab per interface with subnet, address pool, prefix
-  delegation pool, DNS servers, timers and reservations by DUID, MAC address,
-  client ID or flex ID.
-- **Configuration**: raw editor for the four Kea config files.
+  delegation pool, DNS servers, timers and reservations by DUID, MAC address
+  or flex ID.
+- **Configuration**: raw editor for the four Kea config files, with restore
+  from backup.
 - **Import dnsmasq**: preview of dnsmasq static leases with warnings, and
   import of the DHCPv4 entries that map cleanly to a Kea subnet.
 
+The DHCPv4 and DHCPv6 pages change only what you edit. Settings they do not
+show (additional pools, other options, relay settings, client classes and so
+on) stay in the file as they were. A reservation can be switched off without
+deleting it.
+
 Every config write is validated with the Kea binary (`kea-dhcp4 -t` and so on)
-before the file is replaced. The previous file is kept as `<file>.bak.luci`,
-or as `kea-dhcp4.conf.bak.import` after an import.
+before the file is replaced, and the previous file is kept in
+`/etc/kea/backups/` (the ten newest per file). **Save & Apply** also reloads
+a running Kea daemon and tells you whether it is still running afterwards.
 
 ## Known limitations
 
-- **The DHCPv4 and DHCPv6 pages rewrite every subnet from the form.** Subnet
-  settings the form does not show are removed on save: additional pools, other
-  DHCP options, relay settings, client classes, `user-context`, and extra
-  reservation fields. Use the Configuration page for configs that contain
-  them.
-- A reservation with **Enabled** unchecked is deleted on save.
-- Saving from these pages also removes JSON comments and the sample subnets,
-  options and client class that ship in the stock Kea config files.
-- Saving does not reload Kea. Apply changes with **Reload** or **Restart** on
-  the Services page.
-- Only one backup generation is kept, and there is no restore button.
+- The DHCPv4 and DHCPv6 pages edit the first address pool of a subnet and a
+  fixed set of options. Everything else is preserved but has to be edited on
+  the Configuration page. Subnets inside shared networks are not shown.
+- Saving from the DHCPv4 and DHCPv6 pages removes comments from the file. The
+  page tells you when the file has any.
+- Input is checked by Kea, not by the form: a mistyped address is reported
+  only when you save.
 - The import writes DHCPv4 entries only. DHCPv6 entries and entries with
   warnings are stored in `/etc/kea/luci-reservations.json` and not applied.
 - No high-availability page and no lease viewer.
@@ -66,6 +69,9 @@ The full list is in [docs/STATUS.md](docs/STATUS.md).
 - OpenWrt with LuCI.
 - `kea-uci` and at least one of `kea-dhcp4`, `kea-dhcp6`, `kea-dhcp-ddns`,
   `kea-ctrl` from the OpenWrt packages feed.
+- `kea-lfc`, unless you turn off lease file cleanup: the configuration files
+  shipped with Kea enable it, and the DHCP daemons do not start without that
+  package.
 
 Tested on OpenWrt 25.12.6 x86-64 with Kea 3.0.4 (November 2026). Earlier
 versions were tested on OpenWrt 25.12.3 with Kea 3.0.2.

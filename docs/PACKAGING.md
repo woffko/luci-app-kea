@@ -2,7 +2,8 @@
 
 Audit date: 2026-11-11. Audited revision: `b6eedcf` (package version
 `0.1.0-r1`). The findings marked "fixed" below were resolved in `0.1.0-r2`
-(roadmap milestone M0) and re-checked with a real build and install.
+(roadmap milestone M0) and re-checked with a real build and install. The
+current version is `0.2.0-r1`.
 
 ## References
 
@@ -54,7 +55,7 @@ Still not done: a lint run with the LuCI ESLint configuration.
 ```text
 Package: luci-app-kea
 Submenu: 3. Applications
-Version: 0.1.0-r2
+Version: 0.2.0-r1
 Depends: +libc +luci-base +kea-uci
 Section: luci
 Category: LuCI
@@ -94,8 +95,8 @@ not conform.
 | 14 | Post-install | OK | The `luci.mk` default clears the LuCI caches and reloads `rpcd`. | - |
 | 15 | Configuration files | GAP | No `conffiles`. | Fixed: `/etc/kea/luci-reservations.json` |
 | 16 | Translations | GAP | No translation template. | Partly fixed: `po/templates/kea.pot` exists; backend messages are still untranslatable English text |
-| 17 | JavaScript conventions | GAP | Hand-made tabs and inputs instead of `form.JSONMap` / `ui.tabs`, `window.confirm()` instead of `ui.showModal()`, no LuCI validation helpers. | Open (M4) |
-| 18 | Tests and CI | GAP | One fixture test, which did not pass on OpenWrt. No CI. | Partly fixed: fixture test corrected, browser smoke test added. CI open (M2) |
+| 17 | JavaScript conventions | GAP | Hand-made tabs and inputs instead of `form.JSONMap` / `ui.tabs`, `window.confirm()` instead of `ui.showModal()`, no LuCI validation helpers. | Partly fixed in `0.2.0`: shared code moved to modules under `resources/kea/`, new dialogs use `ui.showModal()`. The import page still uses `window.confirm()`. Widgets and validation open (M4) |
+| 18 | Tests and CI | GAP | One fixture test, which did not pass on OpenWrt. No CI. | Partly fixed: fixture test corrected; unit, backend and browser tests added. CI open (M2) |
 | 19 | Repository hygiene | GAP | Unrelated helper script, no tags or releases, no repository topics. | Helper script removed. Releases open (M7) |
 
 ## Details

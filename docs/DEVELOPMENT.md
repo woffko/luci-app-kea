@@ -4,14 +4,17 @@
 
 ```text
 Makefile                                      OpenWrt package definition (includes luci.mk)
-htdocs/luci-static/resources/view/kea/        LuCI JavaScript views
+htdocs/luci-static/resources/view/kea/        LuCI JavaScript views (one per page)
+htdocs/luci-static/resources/kea/             shared modules: model, backend, editor
 root/usr/libexec/rpcd/luci.kea                rpcd backend (POSIX shell, jshn)
 root/usr/share/luci/kea/importer.uc           ucode helper for the import commit
 root/usr/share/luci/menu.d/luci-app-kea.json  menu entries
 root/usr/share/rpcd/acl.d/luci-app-kea.json   rpcd ACL
 po/templates/kea.pot                          translation template
 tools/update-pot.sh                           regenerates the template
-test/                                         fixtures, import fixture test, browser smoke test
+test/js/                                      unit tests for the configuration model (Node.js)
+test/browser/                                 browser tests (Playwright)
+test/*.sh, test/fixtures/                     tests that run on OpenWrt, and fixtures
 docs/                                         project documentation
 ```
 
@@ -19,6 +22,22 @@ docs/                                         project documentation
 translation packages from `po/`. Nothing else in the repository is packaged.
 
 View names are part of the page URL. Keep them stable.
+
+## How the structured editors save
+
+`kea/model.js` is the only place that turns the form into Kea JSON. Its rule:
+the editors never rebuild a subnet. A tab keeps the original subnet object and
+the values the form started with; on save, only values that differ from the
+starting ones are written back into a copy of that object. Unknown keys,
+their order and the formatting of untouched values survive.
+
+When adding a field, add it to the family description at the top of
+`model.js`, load it in `loadSubnet()`, write it in `mergeSubnet()` behind a
+`fieldChanged()` check, and add a unit test that changing it changes nothing
+else. `kea/editor.js` only renders inputs bound to the tab model.
+
+`model.js` has no DOM or RPC code so that it can be tested under Node.
+`test/js/luci-loader.js` loads it the way LuCI does.
 
 ## Building
 
@@ -119,15 +138,20 @@ For hand-copied files, either:
 
 ## Checks
 
-Run before every commit:
+Run before every commit. These need only Node.js and `jq`:
 
 ```sh
-for f in htdocs/luci-static/resources/view/kea/*.js; do node --check "$f"; done
+find htdocs test -name '*.js' -exec node --check {} \;
 sh -n root/usr/libexec/rpcd/luci.kea
-sh -n test/run-import-fixture.sh
+for f in test/*.sh tools/*.sh; do sh -n "$f"; done
 jq -e . root/usr/share/luci/menu.d/luci-app-kea.json >/dev/null
 jq -e . root/usr/share/rpcd/acl.d/luci-app-kea.json >/dev/null
+node --test "test/js/*.test.js"
 ```
+
+To run the model tests against the configs of an installed Kea package as
+well, copy `kea-dhcp4.conf` and `kea-dhcp6.conf` from a target and point
+`KEA_STOCK_DIR` at the directory.
 
 After changing a user-visible string, regenerate the translation template:
 
@@ -135,23 +159,31 @@ After changing a user-visible string, regenerate the translation template:
 tools/update-pot.sh /path/to/luci-checkout
 ```
 
-The import fixture test needs `uci`, `jshn`, `jsonfilter` and
-`/lib/functions.sh`, so run it on OpenWrt or in an OpenWrt root filesystem:
+Two tests run on OpenWrt itself. Copy `test/` to a target and run them there;
+set `BACKEND=/usr/libexec/rpcd/luci.kea` to test the installed backend:
 
 ```sh
-./test/run-import-fixture.sh
+./test/run-import-fixture.sh     # needs uci, jshn, jsonfilter
+./test/run-backend-tests.sh      # also needs kea-dhcp-ddns
 ```
 
-The browser smoke test opens every page on a target and fails on JavaScript
-errors. It needs Node.js with the `playwright` package:
+`run-backend-tests.sh` works in a temporary root and does not touch
+`/etc/kea`.
+
+The browser tests drive LuCI on a target. They need Node.js with the
+`playwright` package:
 
 ```sh
 npm install playwright
 npx playwright install chromium-headless-shell
-BASE_URL=http://<target> LUCI_PASSWORD=<password> node test/browser/smoke.js
+export BASE_URL=http://<target> LUCI_PASSWORD=<password>
+node test/browser/smoke.js       # every page renders without errors
+node test/browser/editor.js      # editors, raw editor and backups end to end
 ```
 
-Set `OUT_DIR` to keep a screenshot of each page.
+`editor.js` rewrites `/etc/kea/kea-dhcp4.conf` and `kea-dhcp6.conf` while it
+runs and puts the originals back at the end. Run it only against a test
+target whose LAN device is `br-lan`. Set `OUT_DIR` to keep screenshots.
 
 There is no CI yet.
 
@@ -194,6 +226,7 @@ ubus call luci.kea getNetworkInterfaces
 ubus call luci.kea validate
 ubus call luci.kea getConfigList
 ubus call luci.kea getConfig '{"name":"dhcp4"}'
+ubus call luci.kea listBackups '{"name":"dhcp4"}'
 ubus call luci.kea importDnsmasqDryRun
 ```
 
@@ -216,8 +249,11 @@ apk list --installed | grep -E '^(kea|luci-app-kea)-'
   target before testing saves or imports.
 - Keep the Kea components disabled unless a test needs them, so Kea does not
   answer on an interface that dnsmasq or odhcpd still serves.
-- Config writes leave `<file>.bak.luci`; import commits leave
-  `kea-dhcp4.conf.bak.import`. Each is a single generation.
+- Every config write from LuCI leaves a backup in `/etc/kea/backups/`. Only
+  the ten newest per file are kept, so a test that saves many times pushes
+  older backups out.
+- A config that passes `kea-dhcp4 -t` can still fail to start. Check the
+  system log (`logread | grep kea`) after starting a daemon.
 
 ## Conventions
 

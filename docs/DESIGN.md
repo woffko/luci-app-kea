@@ -42,9 +42,12 @@ UCI and must edit Kea JSON.
 - Back up before every write.
 - Never stop dnsmasq or odhcpd implicitly. Show conflicts and give explicit
   controls.
-- Keep Kea JSON valid at all times. Entries that are disabled or cannot be
-  expressed as a valid reservation live in a LuCI-owned staging file, not in
-  the Kea config.
+- Keep Kea JSON valid at all times. A reservation the user disabled is moved
+  into the subnet's `user-context`, where Kea ignores it. Import entries that
+  cannot be expressed as a valid reservation live in a LuCI-owned staging
+  file, not in the Kea config.
+- Write back only what the user changed. The editors keep the original subnet
+  object and never rebuild it from the form.
 - Keep parsing, import and validation logic in backend ucode modules so it can
   be tested without a browser.
 
@@ -54,9 +57,23 @@ DHCPv4 reservations support `hw-address`, `client-id` when needed,
 `ip-address`, `hostname`, `user-context`, and an enabled state held in the
 LuCI model.
 
-DHCPv6 reservations support DUID or client ID, IAID where required, address
+DHCPv6 reservations support DUID, MAC address or flex ID (Kea has no
+client-ID reservations for DHCPv6), IAID where required, address
 reservations, prefix reservations, `hostname`, `user-context`, and an enabled
 state held in the LuCI model.
+
+Disabled reservations are stored like this and shown in the editor with the
+**Enabled** box cleared:
+
+```json
+"user-context": {
+	"luci-app-kea": {
+		"disabled-reservations": [
+			{ "hw-address": "02:00:00:00:00:01", "ip-address": "192.168.1.10" }
+		]
+	}
+}
+```
 
 ## dnsmasq static lease import
 
