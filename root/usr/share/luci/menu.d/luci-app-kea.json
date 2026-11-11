@@ -3,8 +3,7 @@
 		"title": "Kea DHCP",
 		"order": 61,
 		"action": {
-			"type": "view",
-			"path": "kea/overview"
+			"type": "firstchild"
 		},
 		"depends": {
 			"acl": [ "luci-app-kea" ]
@@ -23,7 +22,7 @@
 		"order": 20,
 		"action": {
 			"type": "view",
-			"path": "kea/services-control"
+			"path": "kea/services"
 		}
 	},
 	"admin/services/kea/dhcp4": {
@@ -31,7 +30,7 @@
 		"order": 30,
 		"action": {
 			"type": "view",
-			"path": "kea/dhcp4-clean-save"
+			"path": "kea/dhcp4"
 		}
 	},
 	"admin/services/kea/dhcp6": {
@@ -39,7 +38,7 @@
 		"order": 40,
 		"action": {
 			"type": "view",
-			"path": "kea/dhcp6-clean-save"
+			"path": "kea/dhcp6"
 		}
 	},
 	"admin/services/kea/configuration": {
@@ -55,7 +54,7 @@
 		"order": 90,
 		"action": {
 			"type": "view",
-			"path": "kea/import-dnsmasq-commit"
+			"path": "kea/import-dnsmasq"
 		}
 	}
 }
