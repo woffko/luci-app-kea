@@ -7,6 +7,32 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-11: Configuration safety (M1, `0.2.0-r1`)
+
+- New shared modules under `htdocs/luci-static/resources/kea/`: `model.js`
+  (configuration model), `backend.js` (RPC and save/apply sequence),
+  `editor.js` (subnet editor used by both DHCP pages).
+- The structured editors merge changed values into the existing subnet
+  instead of rebuilding it. Extra pools, options, relay settings, client
+  classes, `user-context` and reservation fields survive a save.
+- DHCPv4 reservations by client ID, DUID, circuit ID and flex ID. "Client ID"
+  removed from the DHCPv6 identifier list: Kea rejects it.
+- Disabled reservations are stored in the subnet's `user-context`.
+- Stock example entries are no longer removed silently; the page announces
+  them and removes them on request.
+- Subnets can be removed explicitly. New subnets get an unused ID.
+- Backups in `/etc/kea/backups/` (ten per file), `listBackups` and
+  `restoreBackup`, restore control on the Configuration page.
+- **Save & Apply** reloads a running daemon and reports its state. The pages'
+  own Save/Reload buttons are gone.
+- The API password is never generated from the clock; a service section
+  without `disabled` is read as enabled, like the init script does.
+- `getConfig` no longer drops the final newline; `#` comments are understood.
+- Tests: unit tests for the model, backend tests, end-to-end browser test.
+- Verified on OpenWrt 25.12.6 with Kea 3.0.4. Finding: the stock Kea configs
+  need the `kea-lfc` package to start, although `kea-* -t` accepts them
+  without it.
+
 ## 2026-11-11: Packaging hygiene (M0, `0.1.0-r2`)
 
 - Makefile reports the project URL, maintainer and a description; redundant

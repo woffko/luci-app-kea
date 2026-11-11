@@ -30,7 +30,7 @@ function stripJsonComments(text) {
 			continue;
 		}
 
-		if (ch == "/" && next == "/") {
+		if (ch == "#" || (ch == "/" && next == "/")) {
 			while (i < length(text) && substr(text, i, 1) != "\n")
 				i++;
 			out += "\n";

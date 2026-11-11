@@ -42,37 +42,52 @@ reads fields with `jsonfilter`.
 
 ## M1: Configuration safety
 
-The structured editors currently rebuild every subnet from the form. See
-"Known defects" in [STATUS.md](STATUS.md).
+Done in `0.2.0-r1`. Until `0.1.0` the structured editors rebuilt every subnet
+from the form and dropped what the form did not show.
 
-- [ ] Merge form values into the existing subnet object instead of replacing
+- [x] Merge form values into the existing subnet object instead of replacing
       it, so unknown keys, extra pools and extra options survive a save.
-- [ ] Keep reservation fields the form does not edit; support DHCPv4
+- [x] Keep reservation fields the form does not edit; support DHCPv4
       reservations that are not keyed by MAC address.
-- [ ] Store disabled reservations instead of deleting them (staging file or
-      Kea `user-context`).
-- [ ] Make removal of the stock sample subnets, options and client class an
+- [x] Store disabled reservations instead of deleting them. They live in the
+      subnet's `user-context`.
+- [x] Make removal of the stock sample subnets, options and client class an
       explicit action with a confirmation.
-- [ ] Allocate subnet IDs that do not collide with existing ones.
-- [ ] Timestamped backups with a retention limit, plus `listBackups` and
+- [x] Allocate subnet IDs that do not collide with existing ones.
+- [x] Timestamped backups with a retention limit, plus `listBackups` and
       `restoreBackup` methods and a restore control in the raw editor.
-- [ ] Apply flow: validate, save, then reload Kea, with the result shown.
+- [x] Apply flow: validate, save, then reload Kea, with the result shown.
       Remove the duplicate Save/Reload buttons.
-- [ ] Fail instead of writing a guessable API password when no random source
+- [x] Fail instead of writing a guessable API password when no random source
       is available.
-- [ ] Read the `disabled` default the same way `/etc/init.d/kea` does.
-- [ ] Warn in the UI that saving removes JSON comments.
+- [x] Read the `disabled` default the same way `/etc/init.d/kea` does.
+- [x] Warn in the UI that saving removes JSON comments.
 
-Done when a round trip (load, change one field, save) on a config with
-multiple pools, custom options, relay settings and mixed reservation types
-changes only the edited field. This needs an automated test from M2.
+The round trip (load, change one field, save) on a config with several pools,
+custom options, relay settings and mixed reservation types changes only the
+edited field. This is checked by unit tests of the model and by an end-to-end
+browser test in which Kea validates every save.
+
+Also fixed on the way:
+
+- `getConfig` dropped the final newline of the file, so every save from the
+  raw editor changed the file even without edits;
+- the comment stripper did not know `#` comments, which Kea accepts, so such
+  files could not be opened in the structured editors;
+- the DHCPv6 editor offered "Client ID" as a reservation identifier, which
+  Kea does not support for DHCPv6;
+- the raw editor could show the wrong file when the selection changed while
+  a request was in flight;
+- the Overview and Import pages showed Save / Apply / Reset buttons that did
+  nothing.
 
 ## M2: Backend structure and tests
 
 - [ ] Move parsing, validation and import logic from the shell script into
       ucode modules; consider replacing the shell plugin with an rpcd ucode
       plugin (`/usr/share/rpcd/ucode/kea.uc`).
-- [ ] Use the procd service state instead of `pgrep`.
+- [ ] Use the procd service state instead of `pgrep`. `pgrep -f` matches
+      any process whose command line contains the daemon path.
 - [ ] Include the control agent config in `validate`.
 - [ ] Tests that run without a router: ucode unit tests for the importer,
       the validator and the config merge.
@@ -100,6 +115,10 @@ changes only the edited field. This needs an automated test from M2.
 - [ ] Browser-side validation of addresses, CIDR values, MAC addresses, DUIDs
       and ranges.
 - [ ] Several pools and prefix delegation pools per subnet.
+- [ ] Show and edit subnets inside `shared-networks`.
+- [ ] Warn when a config enables lease file cleanup (`lfc-interval`) and
+      `kea-lfc` is not installed: `kea-* -t` accepts such a config, but the
+      daemon does not start.
 - [ ] Global and per-subnet `option-data` editor.
 - [ ] Reservation options: `client-id`, IAID where needed, `user-context`.
 - [ ] Lease database settings.
@@ -151,11 +170,29 @@ Made by the project owner on 2026-11-11.
    - where a choice exists, prefer what `openwrt/luci` reviewers expect over
      what is quickest.
 
+### Working decisions
+
+Taken while implementing M0 and M1, where the roadmap left a choice open.
+They follow the recommendation at the time and can be revisited.
+
+- `getConfig` stays in the read ACL group. See
+  [PACKAGING.md](PACKAGING.md#acl-item-13).
+- Reservations disabled in the editors are stored in the subnet's
+  `user-context` under `luci-app-kea` / `disabled-reservations`. They stay in
+  the same file as the subnet, are covered by its backups, and are ignored by
+  Kea.
+- Backups go to `/etc/kea/backups/`, ten per config file.
+- Version numbers: packaging-only changes bump `PKG_RELEASE`; changes in
+  behavior bump `PKG_VERSION`.
+
 ## Open questions
 
 1. Menu location: **Services > Kea DHCP** (current) or under **Network**?
 2. Minimum supported OpenWrt and Kea versions. Is 24.10 (opkg) in scope?
 3. Keep the shell backend, or move fully to ucode in M2?
-4. Where should disabled and unresolved reservations live: the JSON staging
-   file, a UCI namespace, or Kea `user-context`?
+4. Where should import entries that cannot be applied live: the JSON staging
+   file (current), a UCI namespace, or Kea `user-context` like the disabled
+   reservations?
 5. Lease viewer in the first stable release, or later?
+6. Should the package depend on, or recommend, `kea-lfc`? The stock Kea
+   configs need it to start.

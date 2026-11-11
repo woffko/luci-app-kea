@@ -26,6 +26,11 @@ function warningIcon(entry) {
 }
 
 return view.extend({
+	/* The page has its own import button: no Save / Apply / Reset footer. */
+	handleSave: null,
+	handleSaveApply: null,
+	handleReset: null,
+
 	load: function() {
 		return L.resolveDefault(callImportDryRun(), {});
 	},
