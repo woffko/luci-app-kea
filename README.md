@@ -1,79 +1,76 @@
 # luci-app-kea
 
-LuCI application for managing ISC Kea DHCP on OpenWrt.
+LuCI application for managing the ISC Kea DHCP server on OpenWrt.
 
-> **Status: alpha.** This project is in early development. The UI and backend
-> are already useful for testing, but the package is not ready to replace a
-> production dnsmasq/odhcpd setup without manual review and backups.
+> **Status: alpha (0.1.0).** Usable for testing on a lab router. Not ready to
+> replace a production dnsmasq/odhcpd setup. Read
+> [Known limitations](#known-limitations) before saving from the DHCPv4 or
+> DHCPv6 pages: they can remove settings from an existing Kea configuration.
 
 ## Purpose
 
-OpenWrt ships Kea packages, but does not currently provide a complete native
-LuCI application for day-to-day Kea management. This package aims to make Kea
-manageable from LuCI while preserving access to Kea's JSON configuration model.
+OpenWrt packages Kea but has no LuCI application for it. `kea-uci` only
+provides on/off switches for the Kea daemons; subnets, pools, reservations and
+everything else live in Kea's JSON files.
 
-The long-term goal is a practical OpenWrt UI for:
+This application adds a LuCI interface for the common DHCP settings and keeps
+the JSON files reachable for everything else.
 
-- DHCPv4 server configuration;
-- DHCPv6 server configuration;
-- static reservations;
-- dnsmasq static lease import;
-- Kea service control and validation;
-- Kea HA hook configuration when the required hook packages are installed.
+## Features
 
-## Current Features
+Menu location: **Services > Kea DHCP**.
 
-- LuCI menu integration under **Services -> Kea DHCP**.
-- Overview page with installed package/config/hook status.
-- Services page with:
-  - Kea init service status;
-  - Kea component status for `kea-dhcp4`, `kea-dhcp6`,
-    `kea-dhcp-ddns`, and `kea-ctrl-agent`;
-  - staged enable/disable checkboxes, committed only by Save/Save & Apply;
-  - explicit start/stop/restart/reload controls;
-  - conflict visibility and controls for `dnsmasq` and `odhcpd`.
-- DHCPv4 structured editor:
-  - one tab per OpenWrt interface/subnet;
-  - enable/disable listening per interface;
-  - subnet and address pool fields;
-  - router, DNS, domain, search domain, and timer fields;
-  - basic reservation editing;
-  - validation through the Kea binary before writing config.
-- DHCPv6 structured editor:
-  - one tab per OpenWrt interface/subnet;
-  - enable/disable listening per interface;
-  - subnet and address pool fields;
-  - prefix delegation fields;
-  - DNS/search-domain/timer fields;
-  - validation through the Kea binary before writing config.
-- Raw Kea JSON configuration editor for advanced/manual edits.
-- dnsmasq static lease import:
-  - dry-run preview;
-  - validation and warning display;
-  - import of ready DHCPv4 reservations into matching Kea subnets;
-  - staging file for entries that need manual review.
-- rpcd backend for status, validation, config save, service control, and import.
-- Runtime preparation for Kea starts/reloads:
-  - creates `/var/run/kea`;
-  - creates `/var/lib/kea`;
-  - creates `/etc/kea/kea-api-password` if missing.
-- Initial OpenWrt-side import regression fixture.
+- **Overview**: installed Kea components and hooks, config files, validation
+  result.
+- **Services**: start, stop, restart, reload and autostart for the Kea init
+  service; enable or disable `kea-dhcp4`, `kea-dhcp6`, `kea-dhcp-ddns` and
+  `kea-ctrl-agent`; state and explicit controls for `dnsmasq` and `odhcpd`.
+- **DHCPv4**: one tab per interface with subnet, address pool, gateway, DNS
+  servers, domain, timers and MAC-based reservations.
+- **DHCPv6**: one tab per interface with subnet, address pool, prefix
+  delegation pool, DNS servers, timers and reservations by DUID, MAC address,
+  client ID or flex ID.
+- **Configuration**: raw editor for the four Kea config files.
+- **Import dnsmasq**: preview of dnsmasq static leases with warnings, and
+  import of the DHCPv4 entries that map cleanly to a Kea subnet.
 
-## Important Notes
+Every config write is validated with the Kea binary (`kea-dhcp4 -t` and so on)
+before the file is replaced. The previous file is kept as `<file>.bak.luci`,
+or as `kea-dhcp4.conf.bak.import` after an import.
 
-- This is an alpha package. Keep backups of `/etc/config/dhcp`,
-  `/etc/config/kea`, and `/etc/kea/*.conf`.
-- Do not run Kea and dnsmasq/odhcpd as authoritative DHCP services on the same
-  interfaces unless you know exactly what is being served by each daemon.
-- The Services page intentionally does not stop `dnsmasq` or `odhcpd`
-  automatically. It shows their state and provides explicit controls.
-- The structured editors cover common DHCP settings first. Advanced Kea
-  features should still be edited through the raw configuration page.
-- DHCPv6 import and HA configuration are still incomplete.
+## Known limitations
 
-## OpenWrt Build Usage
+- **The DHCPv4 and DHCPv6 pages rewrite every subnet from the form.** Subnet
+  settings the form does not show are removed on save: additional pools, other
+  DHCP options, relay settings, client classes, `user-context`, and extra
+  reservation fields. Use the Configuration page for configs that contain
+  them.
+- A reservation with **Enabled** unchecked is deleted on save.
+- Saving from these pages also removes JSON comments and the sample subnets,
+  options and client class that ship in the stock Kea config files.
+- Saving does not reload Kea. Apply changes with **Reload** or **Restart** on
+  the Services page.
+- Only one backup generation is kept, and there is no restore button.
+- The import writes DHCPv4 entries only. DHCPv6 entries and entries with
+  warnings are stored in `/etc/kea/luci-reservations.json` and not applied.
+- No high-availability page and no lease viewer.
+- English only.
 
-Copy or clone the package into an OpenWrt build tree:
+The full list is in [docs/STATUS.md](docs/STATUS.md).
+
+## Requirements
+
+- OpenWrt with LuCI.
+- `kea-uci` and at least one of `kea-dhcp4`, `kea-dhcp6`, `kea-dhcp-ddns`,
+  `kea-ctrl` from the OpenWrt packages feed.
+
+Tested in May 2026 on OpenWrt 25.12.3 x86_64 with Kea 3.0.2. The current
+25.12.6 feed ships Kea 3.0.4, which has not been tested yet.
+
+## Installation
+
+There are no prebuilt packages yet. Build the package in an OpenWrt tree that
+has the `luci` and `packages` feeds installed:
 
 ```sh
 cd /path/to/openwrt
@@ -84,61 +81,34 @@ make menuconfig
 make package/luci-app-kea/compile V=s
 ```
 
-Enable `luci-app-kea` and the Kea packages you need, for example:
+In menuconfig, select a Kea daemon under **Network > IP Addresses and Names**
+first. `luci-app-kea` appears under **LuCI > 3. Applications** only after
+that.
 
-- `kea-dhcp4`
-- `kea-dhcp6`
-- `kea-dhcp-ddns`
-- `kea-ctrl`
-- `kea-hook-ha`
-- `kea-hook-lease-cmds`
-- `kea-uci`
-
-## Test Target Notes
-
-During development this package has been tested on OpenWrt 25.12.3 x86_64 with
-Kea 3.0.2 packages.
-
-After installing or replacing LuCI files manually, restart LuCI services and
-clear LuCI caches:
+Copy the resulting package to the router and install it:
 
 ```sh
-rm -f /tmp/luci-indexcache* /tmp/luci-modulecache*
-/etc/init.d/rpcd restart
-/etc/init.d/uhttpd restart
+apk add --allow-untrusted /tmp/luci-app-kea-*.apk
 ```
 
-## Tests
+## Before you use it
 
-The current import fixture test exercises the rpcd backend shell code and should
-be run on OpenWrt or inside an OpenWrt rootfs where `uci`, `jshn`, and
-`/lib/functions.sh` are available:
+- Back up `/etc/config/dhcp`, `/etc/config/kea` and `/etc/kea/*.conf`.
+- Do not run Kea and dnsmasq/odhcpd as DHCP servers on the same interface.
+  The application shows the state of both and never stops them on its own.
 
-```sh
-./test/run-import-fixture.sh
-```
+## Documentation
 
-JavaScript files can be syntax-checked with Node.js during development:
-
-```sh
-node --check htdocs/luci-static/resources/view/kea/dhcp4-clean-save.js
-node --check htdocs/luci-static/resources/view/kea/dhcp6-clean-save.js
-node --check htdocs/luci-static/resources/view/kea/services-control.js
-node --check htdocs/luci-static/resources/view/kea/import-dnsmasq-commit.js
-```
-
-## Roadmap
-
-See [docs/ROADMAP.md](docs/ROADMAP.md) for the broader implementation plan.
-
-Near-term work:
-
-- complete DHCPv6 reservation/import support;
-- add richer validation for conflicts and invalid option combinations;
-- improve HA hook UI and configuration generation;
-- add browser/UI regression tests;
-- reduce temporary cache-busting view module names once the UI stabilizes.
+- [docs/STATUS.md](docs/STATUS.md): what is implemented, known defects, what
+  is missing.
+- [docs/ROADMAP.md](docs/ROADMAP.md): the work plan and open questions.
+- [docs/PACKAGING.md](docs/PACKAGING.md): conformance with the OpenWrt and
+  LuCI packaging rules.
+- [docs/DESIGN.md](docs/DESIGN.md): intended behavior of each feature.
+- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): building, deploying to a test
+  target, checks, debugging.
+- [docs/HISTORY.md](docs/HISTORY.md): development log.
 
 ## License
 
-Apache-2.0, matching the LuCI package style used in OpenWrt.
+Apache-2.0.
