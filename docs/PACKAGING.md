@@ -1,11 +1,8 @@
 # OpenWrt / LuCI Packaging Conformance
 
 Audit date: 2026-11-11. Audited revision: `b6eedcf` (package version
-`0.1.0-r1`).
-
-This document records how `luci-app-kea` compares with the OpenWrt and LuCI
-packaging rules, and what has to change. The fixes are tracked as milestone M0
-in [ROADMAP.md](ROADMAP.md).
+`0.1.0-r1`). The findings marked "fixed" below were resolved in `0.1.0-r2`
+(roadmap milestone M0) and re-checked with a real build and install.
 
 ## References
 
@@ -18,7 +15,7 @@ tree (LuCI feed commit `e969939b`, packages feed commit `1a304c1`):
   `BUILDING.md`) - the reference layout for a JavaScript LuCI application;
 - `feeds/packages/CONTRIBUTING.md` - the feed-level summary of the OpenWrt
   package guide;
-- `feeds/packages/net/kea` (Kea 3.0.4) - the package this application manages;
+- `feeds/packages/net/kea` - the package this application manages;
 - `scripts/package-metadata.pl` - how dependencies become menuconfig rules.
 
 The OpenWrt wiki pages
@@ -39,58 +36,67 @@ upstream submission.
   ```
 
 - `node --check` on all view files, `sh -n` on the shell scripts, `jq` on the
-  menu and ACL JSON. All passed.
+  menu and ACL JSON.
 
-Not done in this audit:
+Verification of `0.1.0-r2`:
 
-- a full package build (the 25.12.3 tree used in May 2026 no longer exists);
-- a runtime test against OpenWrt 25.12.6 / Kea 3.0.4;
-- a lint run with the LuCI ESLint configuration.
+- built with the official OpenWrt 25.12.6 x86-64 SDK;
+- installed with `apk` on an OpenWrt 25.12.6 x86-64 virtual machine with
+  Kea 3.0.4 from the official package repository;
+- all six pages opened in a headless browser without JavaScript errors
+  (`test/browser/smoke.js`);
+- `test/run-import-fixture.sh` passed on that machine.
+
+Still not done: a lint run with the LuCI ESLint configuration.
 
 ## Metadata as the build system sees it
 
 ```text
 Package: luci-app-kea
 Submenu: 3. Applications
-Version: 0.1.0-r1
-Depends: +libc +luci-base +rpcd +rpcd-mod-file +kea-uci
+Version: 0.1.0-r2
+Depends: +libc +luci-base +kea-uci
 Section: luci
 Category: LuCI
 Title: LuCI support for ISC Kea DHCP server
-Maintainer: OpenWrt LuCI community
+Maintainer: Woffko
 License: Apache-2.0
-URL: https://github.com/openwrt/luci
-Description: LuCI support for ISC Kea DHCP server
+LicenseFiles: LICENSE
+URL: https://github.com/woffko/luci-app-kea
+Description: Web interface for the ISC Kea DHCPv4 and DHCPv6 servers: service
+ control, structured and raw configuration editors, and dnsmasq static lease
+ import.
 ```
 
-`Maintainer` and `URL` are wrong for an out-of-tree package. See items 4 and 5.
+At `b6eedcf` the same dump showed `Maintainer: OpenWrt LuCI community`,
+`URL: https://github.com/openwrt/luci` and a description equal to the title.
 
 ## Checklist
 
-Status: **OK** conforms, **GAP** works but should be fixed, **FAIL** does not
-conform.
+Audit status: **OK** conforms, **GAP** works but should be fixed, **FAIL** does
+not conform.
 
-| # | Area | Status | Finding |
-|---|------|--------|---------|
-| 1 | Makefile skeleton | OK | `rules.mk` first, `LUCI_*` variables, `luci.mk` included last, `BuildPackage` signature comment present. |
-| 2 | Package name | OK | `luci-app-kea`, matches the directory name that `luci.mk` derives `LUCI_NAME` from. Keep the checkout directory named `luci-app-kea`. |
-| 3 | Version and release | OK | Explicit `PKG_VERSION:=0.1.0`, `PKG_RELEASE:=1`. Valid out of tree. |
-| 4 | Maintainer | FAIL | `PKG_MAINTAINER:=Woffko` has no e-mail address, and `luci.mk` does not use it: the package is built with `Maintainer: OpenWrt LuCI community`. |
-| 5 | Project URL | FAIL | `LUCI_URL` is unset, so the package points at `https://github.com/openwrt/luci`. |
-| 6 | License | GAP | `PKG_LICENSE:=Apache-2.0` is a valid SPDX tag. `PKG_LICENSE_FILES` is unset, and `LICENSE` holds only the short notice, not the license text (GitHub reports the license as "Other"). |
-| 7 | Description | GAP | No `LUCI_DESCRIPTION`; the description repeats the title. |
-| 8 | Dependencies | GAP | All dependencies resolve. `+rpcd +rpcd-mod-file` are redundant: `luci-base` already depends on both, and the application never uses the `file` rpcd module. |
-| 9 | File layout | OK | Views in `htdocs/luci-static/resources/view/kea/`, menu in `root/usr/share/luci/menu.d/luci-app-kea.json`, ACL in `root/usr/share/rpcd/acl.d/luci-app-kea.json`, rpcd plugin in `root/usr/libexec/rpcd/luci.kea` (mode 0755, preserved by `cp -pR`). |
-| 10 | ucode location | GAP | `root/usr/share/luci/kea/importer.uc` is a private path. LuCI convention is `ucode/` (installed to `/usr/share/ucode/luci/`) for libraries or `root/usr/share/rpcd/ucode/` for rpcd plugins. |
-| 11 | Unused files | FAIL | 10 of the 16 installed view files are unused duplicates or stale copies. See [Unused view files](#unused-view-files). |
-| 12 | Menu | GAP | Valid, under `admin/services/kea`. The parent node repeats the Overview view instead of using a `firstchild` action. |
-| 13 | ACL | GAP | Grants more than the application uses. See [ACL](#acl). |
-| 14 | Post-install | OK | No custom script needed: the `luci.mk` default clears the LuCI caches and reloads `rpcd`. |
-| 15 | Configuration files | GAP | No `conffiles`. The application owns `/etc/kea/luci-reservations.json`. It survives upgrades today only because the Kea packages declare the whole `/etc/kea/` directory. |
-| 16 | Translations | GAP | View strings are wrapped in `_()`, but there is no `po/templates/kea.pot`, and about 37 backend messages are returned as untranslatable English text. Required for an upstream submission. |
-| 17 | JavaScript conventions | GAP | Strict mode, `require` directives, `view.extend`, `rpc.declare`, DOM built with `E()`, no `innerHTML`, no `String.format`. Editors use hand-made tabs and inputs instead of `form.JSONMap` / `ui.tabs`, `window.confirm()` instead of `ui.showModal()`, and no LuCI validation helpers. |
-| 18 | Tests and CI | GAP | One fixture test that only runs on OpenWrt. No CI. |
-| 19 | Repository hygiene | GAP | `create-and-push-github-repo.sh` is a one-time helper unrelated to the package. No tags or releases. No repository topics. |
+| # | Area | Audit | Finding at `b6eedcf` | Now |
+|---|------|-------|----------------------|-----|
+| 1 | Makefile skeleton | OK | `rules.mk` first, `LUCI_*` variables, `luci.mk` included last, `BuildPackage` signature comment present. | - |
+| 2 | Package name | OK | `luci-app-kea`, matches the directory name that `luci.mk` derives `LUCI_NAME` from. Keep the checkout directory named `luci-app-kea`. | - |
+| 3 | Version and release | OK | Explicit `PKG_VERSION` and `PKG_RELEASE`. Valid out of tree. | - |
+| 4 | Maintainer | FAIL | `luci.mk` ignores `PKG_MAINTAINER`; the package named the LuCI community as maintainer. | Fixed: `LUCI_MAINTAINER` set. No e-mail address, by owner decision. |
+| 5 | Project URL | FAIL | `LUCI_URL` unset; the package pointed at `openwrt/luci`. | Fixed |
+| 6 | License | GAP | Valid SPDX tag, but `PKG_LICENSE_FILES` unset and `LICENSE` held only the short notice. | Fixed: full Apache-2.0 text |
+| 7 | Description | GAP | No `LUCI_DESCRIPTION`. | Fixed |
+| 8 | Dependencies | GAP | `+rpcd +rpcd-mod-file` redundant and unused. | Fixed: `+luci-base +kea-uci` |
+| 9 | File layout | OK | Views, menu, ACL and rpcd plugin in the standard locations; plugin mode 0755 preserved. | - |
+| 10 | ucode location | GAP | `root/usr/share/luci/kea/importer.uc` is a private path. LuCI convention is `ucode/` (installed to `/usr/share/ucode/luci/`) or `root/usr/share/rpcd/ucode/`. | Open, with the backend rework (M2) |
+| 11 | Unused files | FAIL | 10 of the 16 installed view files were unused copies. | Fixed: six views with stable names |
+| 12 | Menu | GAP | Parent node repeated the Overview view. | Fixed: `firstchild` |
+| 13 | ACL | GAP | Unused `file`, `uci` and `service` grants, including write access to `/etc/kea`. | Fixed: only `luci.kea` methods |
+| 14 | Post-install | OK | The `luci.mk` default clears the LuCI caches and reloads `rpcd`. | - |
+| 15 | Configuration files | GAP | No `conffiles`. | Fixed: `/etc/kea/luci-reservations.json` |
+| 16 | Translations | GAP | No translation template. | Partly fixed: `po/templates/kea.pot` exists; backend messages are still untranslatable English text |
+| 17 | JavaScript conventions | GAP | Hand-made tabs and inputs instead of `form.JSONMap` / `ui.tabs`, `window.confirm()` instead of `ui.showModal()`, no LuCI validation helpers. | Open (M4) |
+| 18 | Tests and CI | GAP | One fixture test, which did not pass on OpenWrt. No CI. | Partly fixed: fixture test corrected, browser smoke test added. CI open (M2) |
+| 19 | Repository hygiene | GAP | Unrelated helper script, no tags or releases, no repository topics. | Helper script removed. Releases open (M7) |
 
 ## Details
 
@@ -105,9 +111,8 @@ The packages feed rule for the maintainer format is
 `PKG_MAINTAINER:=Joe D. Hacker <jdh@jdhs-email-provider.org>`.
 
 Owner decision, 2026-11-11: the maintainer stays `Woffko` without an e-mail
-address for now. `LUCI_MAINTAINER` still has to be set, so that the package
-names the project maintainer instead of the LuCI community. A real name and
-address become necessary at an upstream submission.
+address for now. A real name and address become necessary at an upstream
+submission.
 
 ### Dependencies (item 8)
 
@@ -125,81 +130,43 @@ The metadata generator copies the dependencies of a selected package to the
 selecting one, so `luci-app-kea` appears in menuconfig only after at least one
 Kea daemon package is selected.
 
-### Unused view files
+### View files (item 11)
 
-The menu references six views. The other ten were created while renaming
-modules to defeat browser caching during development:
+Until `0.1.0-r1` the view directory held sixteen files, of which the menu used
+six. The other ten were created while renaming modules to defeat browser
+caching during development: 72% of the shipped JavaScript was never loaded.
 
-| Active view (menu) | Identical copies | Older revisions |
-|---|---|---|
-| `overview.js` | - | - |
-| `services-control.js` | `services-status.js` | - |
-| `dhcp4-clean-save.js` | `dhcp4.js`, `dhcp4-config-save.js` | `dhcp4-config.js`, `dhcp4-editor.js` |
-| `dhcp6-clean-save.js` | `dhcp6.js`, `dhcp6-config-save.js` | `dhcp6-editor.js` |
-| `configuration.js` | - | - |
-| `import-dnsmasq-commit.js` | `import-dnsmasq.js`, `import-dnsmasq-preview.js` | - |
+The renames are not needed. LuCI loads every resource with
+`?v=<luci-base version>-<mtime of /lib/apk/db/installed>` (see `luci-base`
+`ucode/runtime.uc` and `ucode/template/header.ut`), so any package install or
+upgrade changes the URL of every view. Only files copied by hand keep their
+old URL; [DEVELOPMENT.md](DEVELOPMENT.md#browser-caching) describes how to
+handle that.
 
-The six active views are 70,949 bytes; all sixteen are 249,871 bytes, so 72% of
-the JavaScript shipped in the package is never loaded.
+The views are now `overview`, `services`, `dhcp4`, `dhcp6`, `configuration`
+and `import-dnsmasq`. View names are part of the URL and must stay stable.
 
-The renames are not needed for packaged installs. LuCI loads every resource
-with `?v=<luci-base version>-<mtime of /lib/apk/db/installed>` (see
-`luci-base` `ucode/runtime.uc` and `ucode/template/header.ut`), so any package
-install or upgrade changes the URL of every view. Only files copied by hand
-keep their old URL. [DEVELOPMENT.md](DEVELOPMENT.md) describes how to handle
-that case without renaming modules.
+### ACL (item 13)
 
-Target names: `overview`, `services`, `dhcp4`, `dhcp6`, `configuration`,
-`import-dnsmasq`.
-
-### ACL
-
-The views talk only to the `luci.kea` ubus object. These grants are unused:
-
-- `read.ubus.service: [ "list" ]`;
-- `read.uci: [ "kea", "dhcp", "network" ]` and `write.uci: [ "kea" ]` - the
-  backend runs as root and does not need them;
-- every `file` entry, including write access to the whole `/etc/kea`
-  directory.
+The views talk only to the `luci.kea` ubus object, and the ACL now grants
+nothing else.
 
 `getConfig` is a read-level method and returns complete Kea configuration
 files, which can hold secrets (TSIG keys in `kea-dhcp-ddns.conf`, control
-agent credentials). Decide whether it belongs in the write group.
+agent credentials). It stays in the read group: LuCI read access already
+exposes comparable secrets stored in UCI, and the DHCP pages need the method
+to display anything. Revisit if reviewers of an upstream submission object.
 
-### Proposed Makefile
+### Translations (item 16)
 
-Not applied and not build-tested yet.
+`po/templates/kea.pot` is generated with the LuCI string scanner:
 
-```make
-# SPDX-License-Identifier: Apache-2.0
-
-include $(TOPDIR)/rules.mk
-
-PKG_NAME:=luci-app-kea
-PKG_VERSION:=0.1.0
-PKG_RELEASE:=2
-
-PKG_LICENSE:=Apache-2.0
-PKG_LICENSE_FILES:=LICENSE
-PKG_MAINTAINER:=Woffko
-
-LUCI_TITLE:=LuCI support for ISC Kea DHCP server
-LUCI_DESCRIPTION:=Web interface for the ISC Kea DHCPv4/DHCPv6 servers: \
-	service control, structured and raw configuration editors, and \
-	dnsmasq static lease import.
-LUCI_URL:=https://github.com/woffko/luci-app-kea
-LUCI_MAINTAINER:=$(PKG_MAINTAINER)
-LUCI_DEPENDS:=+luci-base +kea-uci
-LUCI_PKGARCH:=all
-
-define Package/luci-app-kea/conffiles
-/etc/kea/luci-reservations.json
-endef
-
-include $(TOPDIR)/feeds/luci/luci.mk
-
-# call BuildPackage - OpenWrt buildroot signature
+```sh
+tools/update-pot.sh /path/to/luci-checkout
 ```
+
+Regenerate it whenever a user-visible string changes. Messages produced by
+the shell backend (error texts, import warnings) are not covered.
 
 ## Additional requirements for an upstream submission
 
@@ -218,5 +185,5 @@ These apply at that point:
   by the packages feed);
 - new packages go to the `master` branch only, never to `openwrt-xx.yy`
   release branches;
-- provide `po/templates/kea.pot`; translations are managed through Weblate;
+- translations are managed through Weblate;
 - pass the LuCI ESLint configuration.

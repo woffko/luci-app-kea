@@ -1,7 +1,6 @@
 # Project Status
 
-Status date: 2026-11-11. Revision reviewed: `b6eedcf` (package version
-`0.1.0-r1`, alpha).
+Status date: 2026-11-11. Package version `0.1.0-r2`, alpha.
 
 This is a code-level inventory of what exists and what is missing. The work
 needed to close the gaps is ordered in [ROADMAP.md](ROADMAP.md). Packaging
@@ -11,7 +10,7 @@ issues are listed separately in [PACKAGING.md](PACKAGING.md).
 
 | Area | State |
 |------|-------|
-| Package skeleton, menu, ACL | Done, with packaging defects |
+| Package skeleton, menu, ACL | Done |
 | rpcd backend (`luci.kea`, 12 methods) | Done as a single shell script |
 | Overview page | Done |
 | Services page | Done |
@@ -22,21 +21,21 @@ issues are listed separately in [PACKAGING.md](PACKAGING.md).
 | HA hook editor | Not started |
 | Lease viewer | Not started |
 | Backend semantic validation | Not started (only `kea-* -t`) |
-| Automated tests | One fixture test, OpenWrt only |
+| Automated tests | Import fixture test (OpenWrt only), browser smoke test |
 | CI, releases, translations | Not started |
 
 ## Verification state
 
-- Last runtime test: May 2026, OpenWrt 25.12.3 x86_64 VM, Kea 3.0.2, package
-  built in an OpenWrt 25.12.3 tree and installed with `apk`.
-- That build tree no longer exists, and the build was not repeated in this
-  review.
-- The current OpenWrt 25.12.6 packages feed ships Kea 3.0.4. Nothing has been
-  tested against it.
-- The DHCPv6 page was never visually checked in a browser.
-- Checked in this review: `node --check` on all views, `sh -n` on the shell
-  scripts, JSON syntax of the menu and ACL files, and the package metadata dump
-  described in [PACKAGING.md](PACKAGING.md).
+- `0.1.0-r2` was built with the official OpenWrt 25.12.6 x86-64 SDK and
+  installed with `apk` on an OpenWrt 25.12.6 x86-64 virtual machine running
+  Kea 3.0.4 from the official package repository (November 2026).
+- On that machine all six pages open in a headless browser without JavaScript
+  errors, the backend methods answer over ubus, and the import fixture test
+  passes.
+- The first runtime tests were made in May 2026 on OpenWrt 25.12.3 with
+  Kea 3.0.2.
+- Not exercised yet on the new setup: saving from the editors, the import
+  commit, and running Kea daemons.
 
 ## Implemented
 
@@ -69,21 +68,21 @@ Before `start`, `restart` and `reload` the backend creates `/var/run/kea`,
 
 - **Overview** (`overview.js`): runtime state, installed components and hooks,
   config file presence, validation output.
-- **Services** (`services-control.js`): init service table with actions; Kea
+- **Services** (`services.js`): init service table with actions; Kea
   component table with staged enable/disable checkboxes committed by Save or
   Save & Apply; conflict table for dnsmasq and odhcpd with explicit actions.
   Save & Apply restarts Kea only if a component was already running.
-- **DHCPv4** (`dhcp4-clean-save.js`): one tab per OpenWrt interface; listen
+- **DHCPv4** (`dhcp4.js`): one tab per OpenWrt interface; listen
   toggle, device, subnet, one address pool, router, DNS servers, domain name,
   domain search, renew/rebind/valid timers; reservations by MAC address.
   Subnets without an `interface` are matched to an interface by network.
-- **DHCPv6** (`dhcp6-clean-save.js`): the same model with one address pool, one
+- **DHCPv6** (`dhcp6.js`): the same model with one address pool, one
   prefix delegation pool, DNS servers, domain search, four timers; reservations
   by DUID, MAC address, client ID or flex ID with address and prefix lists.
 - **Configuration** (`configuration.js`): raw editor for `kea-dhcp4.conf`,
   `kea-dhcp6.conf`, `kea-dhcp-ddns.conf` and `kea-ctrl-agent.conf` with
   validation output.
-- **Import dnsmasq** (`import-dnsmasq-commit.js`): preview table with status
+- **Import dnsmasq** (`import-dnsmasq.js`): preview table with status
   and warnings, and an import button.
 
 ### Import
@@ -99,9 +98,13 @@ Before `start`, `restart` and `reload` the backend creates `/var/run/kea`,
 
 ### Tests
 
-`test/run-import-fixture.sh` runs `importDnsmasqDryRun` against
-`test/fixtures/dhcp-static-leases.uci` and checks five cases. It needs `uci`,
-`jshn` and `/lib/functions.sh`, so it runs only on OpenWrt.
+- `test/run-import-fixture.sh` runs `importDnsmasqDryRun` against
+  `test/fixtures/dhcp-static-leases.uci` and checks five cases. It needs
+  `uci`, `jshn`, `jsonfilter` and `/lib/functions.sh`, so it runs only on
+  OpenWrt.
+- `test/browser/smoke.js` logs in to LuCI on a target and opens every page in
+  a headless browser. A page fails on a JavaScript error, a console error, an
+  error notification or a missing heading.
 
 ## Known defects
 
@@ -164,5 +167,5 @@ replaces `subnet4` / `subnet6` entirely. On save:
 - Backend semantic checks: subnet overlap, pool inside subnet, reservation
   inside subnet, duplicate reservations, HA peer URLs.
 - Backup history, restore, diff preview.
-- RPC tests, importer commit tests, browser tests, CI.
-- Translation template, releases, prebuilt packages.
+- RPC tests, importer commit tests, browser tests beyond the smoke test, CI.
+- Translations (only the template exists), releases, prebuilt packages.

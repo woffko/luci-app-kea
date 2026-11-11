@@ -7,6 +7,20 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-11: Packaging hygiene (M0, `0.1.0-r2`)
+
+- Makefile reports the project URL, maintainer and a description; redundant
+  dependencies dropped; `conffiles` declared; full Apache-2.0 license text.
+- Ten unused view files removed; the remaining six have stable names.
+- Menu parent uses `firstchild`. ACL reduced to the `luci.kea` methods.
+- Translation template `po/templates/kea.pot` and `tools/update-pot.sh`.
+- `create-and-push-github-repo.sh` removed.
+- `test/run-import-fixture.sh` fixed: it compared against compact JSON, which
+  `jshn` does not produce, so it had never passed on OpenWrt.
+- Added `test/browser/smoke.js`.
+- Verified with the OpenWrt 25.12.6 SDK and an OpenWrt 25.12.6 virtual machine
+  running Kea 3.0.4.
+
 ## 2026-11-11: Project review
 
 - Reviewed the code, the packaging and the documentation at `b6eedcf`.
