@@ -15,8 +15,8 @@ if [ -z "$LUCI_DIR" ] || [ ! -f "$LUCI_DIR/build/i18n-scan.pl" ]; then
 	exit 1
 fi
 
-LUCI_DIR="$(CDPATH= cd -- "$LUCI_DIR" && pwd)"
-ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+LUCI_DIR="$(CDPATH='' cd -- "$LUCI_DIR" && pwd)"
+ROOT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 

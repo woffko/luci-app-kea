@@ -12,7 +12,7 @@
 
 set -eu
 
-ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+ROOT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 UCODE="${UCODE:-ucode}"
 TARGET=0
 INSTALLED=0
