@@ -68,3 +68,38 @@ export function parse(text) {
 		return { config: null, error: e.message };
 	}
 };
+
+function stringify_value(value, indent) {
+	let inner = indent + '\t';
+
+	if (type(value) == 'array') {
+		if (!length(value))
+			return '[]';
+
+		return '[\n' + join(',\n', map(value, item => inner + stringify_value(item, inner))) +
+			'\n' + indent + ']';
+	}
+
+	if (type(value) == 'object') {
+		if (!length(value))
+			return '{}';
+
+		return '{\n' + join(',\n', map(keys(value), key =>
+			inner + sprintf('%J', key) + ': ' + stringify_value(value[key], inner))) +
+			'\n' + indent + '}';
+	}
+
+	return sprintf('%J', value);
+}
+
+// Serialize a configuration the way the LuCI editors do
+// (JSON.stringify(config, null, "\t") plus a final newline), so that a file
+// keeps one layout whether the browser or the backend wrote it last.
+export function stringify(value) {
+	return stringify_value(value, '') + '\n';
+};
+
+// True when writing the parsed text back would drop comments.
+export function has_comments(text) {
+	return strip_comments(text ?? '') != (text ?? '');
+};
