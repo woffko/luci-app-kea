@@ -7,6 +7,27 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-12: Editor completeness (M4, `0.5.0-r1`)
+
+- The DHCPv4 and DHCPv6 pages show every address pool and prefix delegation
+  pool of a subnet as a row, and every option that has no field of its own.
+  Until now the second pool of a subnet could not be seen or changed.
+- Subnets inside shared networks have tabs and are edited where they are.
+- A tab for the global settings: timers, lease file cleanup interval and
+  global options.
+- Input is checked in the browser against what Kea 3.0.4 was measured to
+  refuse: pools and reserved addresses outside the subnet, overlapping
+  pools, duplicate reservations, malformed identifiers, the same subnet
+  twice. Wrong values are marked while typing. Only changed values are
+  checked.
+- A warning on an interface that OpenWrt already serves with dnsmasq or
+  odhcpd; `getNetworkInterfaces` reports that per interface.
+- **Show changes** in the editors and in the raw editor; the raw editor
+  refuses text that is not JSON before sending it.
+- One confirmation dialog for all pages (`kea/dialogs.js`).
+- Tests: 47 model cases, 32 browser checks of the editors.
+- Verified on OpenWrt 25.12.6 (QEMU) and 25.12.5 (VMware) with Kea 3.0.4.
+
 ## 2026-11-12: Static lease import completed (M3, `0.4.0-r1`)
 
 - The import reads static leases the way OpenWrt writes them: one host

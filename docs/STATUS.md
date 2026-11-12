@@ -1,6 +1,6 @@
 # Project Status
 
-Status date: 2026-11-12. Package version `0.4.0-r1`, alpha.
+Status date: 2026-11-12. Package version `0.5.0-r1`, alpha.
 
 This is a code-level inventory of what exists and what is missing. The work
 needed to close the gaps is ordered in [ROADMAP.md](ROADMAP.md). Packaging
@@ -14,29 +14,30 @@ issues are listed separately in [PACKAGING.md](PACKAGING.md).
 | rpcd backend (`luci.kea`, 14 methods) | Done, in ucode |
 | Overview page | Done |
 | Services page | Done |
-| Raw configuration editor | Done, with backups and restore |
-| DHCPv4 structured editor | Common settings; everything else in the file is preserved |
-| DHCPv6 structured editor | Common settings; everything else in the file is preserved |
+| Raw configuration editor | Done, with syntax check, change view, backups and restore |
+| DHCPv4 structured editor | Subnets, pools, options, reservations, global settings; everything else in the file is preserved |
+| DHCPv6 structured editor | The same, plus prefix delegation pools |
 | Static lease import | Done for DHCPv4 and DHCPv6 |
 | HA hook editor | Not started |
 | Lease viewer | Not started |
-| Backend semantic validation | Not started (only `kea-* -t`) |
+| Input checks | In the browser, for what the editors write; `kea-* -t` on every save |
 | Automated tests | Unit tests (JavaScript and ucode), on-target tests, browser tests |
 | CI | GitHub Actions: lint, unit tests, SDK package build |
 | Releases, translations | Not started |
 
 ## Verification state
 
-`0.4.0-r1` was built with the official OpenWrt 25.12.6 x86-64 SDK and
+`0.5.0-r1` was built with the official OpenWrt 25.12.6 x86-64 SDK and
 installed with `apk` on two machines running Kea 3.0.4 from the official
 package repository (November 2026): an OpenWrt 25.12.6 x86-64 virtual machine
 under QEMU, and an OpenWrt 25.12.5 x86-64 virtual machine under VMware. On
 the first:
 
 - all six pages open in a headless browser without JavaScript errors;
-- the end-to-end browser test passes for DHCPv4 and DHCPv6: every save made
-  by the editors is accepted by `kea-dhcp4 -t` / `kea-dhcp6 -t`, and only the
-  edited values change in the file;
+- the end-to-end browser test passes for DHCPv4 and DHCPv6 (32 checks):
+  every save made by the editors is accepted by `kea-dhcp4 -t` /
+  `kea-dhcp6 -t`, only the edited values change in the file, and a wrong
+  value is marked in the form and not saved;
 - the ucode tests pass, both for the repository copy of the library and for
   the installed one;
 - **Save & Apply** was checked by hand with `kea-dhcp4` running (the daemon is
@@ -45,9 +46,10 @@ the first:
   and a DHCPv6 reservation, both files are accepted by Kea, and a second
   import finds nothing to do.
 
-On the second machine the ucode tests and all three browser tests pass, and
-Save & Apply was checked with `kea-dhcp-ddns` running. That machine has a
-static lease of its own, which the import test leaves alone.
+On the second machine the ucode tests and all three browser tests pass with
+`0.5.0-r1`; Save & Apply was checked there with `kea-dhcp-ddns` running, on
+`0.3.0`. That machine has a static lease of its own, which the import test
+leaves alone.
 
 Not exercised: DHCP clients actually obtaining leases, `kea-dhcp6` and the
 DDNS daemon running, and upgrades from `0.1.0`.
@@ -75,7 +77,7 @@ the `luci.kea.*` ucode modules:
 |--------|-----|---------|
 | `getStatus` | read | Init script state, binaries, hook libraries, config files, runtime paths, dnsmasq/odhcpd state |
 | `getServices` | read | `config service` sections of `/etc/config/kea` with enabled and running flags |
-| `getNetworkInterfaces` | read | Interfaces from `/etc/config/network` (name, device, proto, addresses) |
+| `getNetworkInterfaces` | read | Interfaces from `/etc/config/network` (name, device, proto, addresses) and whether OpenWrt serves DHCPv4 or DHCPv6 on each, from `/etc/config/dhcp` |
 | `validate` | read | `kea-* -t` for the DHCPv4, DHCPv6, DDNS and control agent configs |
 | `getConfigList` | read | The four Kea config files with size and presence |
 | `getConfig` | read | File content, byte for byte, plus validation result |
@@ -102,11 +104,13 @@ list`), by the instance names the Kea init script registers.
 ### Shared JavaScript modules: `htdocs/luci-static/resources/kea/`
 
 - `model.js`: the Kea configuration model behind both structured editors. It
-  keeps the original subnet objects and writes back only the values the user
-  changed. No DOM or RPC code; unit-tested under Node.
+  keeps the original objects and writes back only the values the user
+  changed, checks what the user typed, and compares two texts line by line.
+  No DOM or RPC code; unit-tested under Node.
 - `backend.js`: the RPC calls shared by the configuration pages and the
   save-then-apply sequence.
-- `editor.js`: the subnet editor page, instantiated for DHCPv4 and DHCPv6.
+- `dialogs.js`: the confirmation dialog and the view of pending changes.
+- `editor.js`: the editor page, instantiated for DHCPv4 and DHCPv6.
 
 ### Pages
 
@@ -116,13 +120,25 @@ list`), by the instance names the Kea init script registers.
   component table with staged enable/disable checkboxes committed by Save or
   Save & Apply; conflict table for dnsmasq and odhcpd with explicit actions.
 - **DHCPv4** and **DHCPv6** (`dhcp4.js`, `dhcp6.js`): one tab per OpenWrt
-  interface plus one per subnet that is not bound to an interface.
-  - Fields: listen toggle, device, subnet, first address pool, first prefix
-    delegation pool (DHCPv6), router and domain name (DHCPv4), DNS servers,
-    domain search, timers and lifetimes.
+  interface, one per subnet that is not bound to an interface, one per
+  subnet of a shared network, and one for the global settings.
+  - Subnet fields: listen toggle, device, subnet, router and domain name
+    (DHCPv4), DNS servers, domain search, timers and lifetimes.
+  - Every address pool of the subnet, and every prefix delegation pool
+    (DHCPv6), as a row that can be changed, added or deleted.
+  - Every other option of the subnet as a row with a name or code and a
+    value.
   - Reservations by MAC address, client ID, DUID, circuit ID or flex ID
     (DHCPv4) and DUID, MAC address or flex ID (DHCPv6). A reservation that is
     not enabled is kept in the subnet's `user-context` and ignored by Kea.
+  - Global settings: timers and lifetimes, the lease file cleanup interval,
+    and the options sent to every subnet.
+  - A value Kea would refuse is marked while it is typed, with the reason,
+    and reported by field on save. See
+    [What the editors check](#what-the-editors-check).
+  - A warning on the tab of an interface on which OpenWrt also serves DHCP
+    while dnsmasq or odhcpd runs.
+  - **Show changes** lists the lines of the file a save would change.
   - A subnet can be removed with an explicit, confirmed action.
   - The example entries of the stock Kea config are announced and removed
     only on request.
@@ -131,29 +147,55 @@ list`), by the instance names the Kea init script registers.
 - **Configuration** (`configuration.js`): raw editor for `kea-dhcp4.conf`,
   `kea-dhcp6.conf`, `kea-dhcp-ddns.conf` and `kea-ctrl-agent.conf` with
   validation output, the same Save / Save & Apply behavior, and restore from
-  backup.
+  backup. A JSON syntax error is shown while typing and such a text is not
+  sent to the router; **Show changes** lists the changed lines.
 - **Import dnsmasq** (`import-dnsmasq.js`): one row per static lease and
   protocol with its state and the reasons, checkboxes to choose what to
   import, and a confirmed import.
 
 ### What a save from the structured editors preserves
 
-The editors show a few settings of each subnet. On save, everything else is
+The editors show part of the configuration. On save, everything else is
 written back as it was:
 
-- additional pools and prefix delegation pools, and extra keys of the first;
-- options the form does not show, and extra fields (`always-send`,
-  `csv-format`, `space`) of the ones it does;
+- extra keys of a pool or prefix delegation pool (`option-data`,
+  `client-classes`, `excluded-prefix`);
+- extra fields of an option (`always-send`, `csv-format`, `space`);
 - `relay`, `client-classes`, `user-context` and any other subnet key;
 - reservation fields the form does not show (`option-data`, `next-server`,
-  `boot-file-name`, `client-classes`);
-- subnets inside `shared-networks`, and all top-level keys;
+  `boot-file-name`, `client-classes`, `user-context`);
+- the other keys of a shared network, and all top-level keys;
 - entries of `interfaces-config.interfaces` for devices that have no tab,
   including `*` and the `device/address` form;
 - the formatting of values that were not edited.
 
 A save without edits writes nothing. New subnets get the lowest ID that no
 subnet or shared network uses.
+
+### What the editors check
+
+The checks follow what Kea 3.0.4 accepts and refuses, measured with
+`kea-dhcp4 -t` and `kea-dhcp6 -t`. Only values the user changed are checked,
+so a file Kea already accepts can always be saved again.
+
+- Subnet: a prefix of the right family; not the same prefix as another
+  subnet of the file. Overlapping subnets are allowed, as in Kea.
+- Pool: a range or prefix inside the subnet, first address not after the
+  last, no overlap with another pool of the subnet.
+- Prefix delegation pool: an IPv6 prefix, lengths in range, delegated length
+  not shorter than the prefix length.
+- Reservation: an identifier in the form Kea takes for its type (MAC address
+  with colons, hexadecimal or quoted text for the others, a DUID of at least
+  three octets); addresses inside the subnet; no identifier or address used
+  by two enabled reservations of a subnet.
+- Options: a name or a numeric code. Whether the name exists and the value
+  fits is left to Kea, which knows the option definitions.
+- Timers: whole numbers of seconds. Address lists: addresses of the right
+  family.
+- Changing the subnet prefix checks all its pools and reservations again.
+
+Every save still goes through `kea-* -t` on the router, which has the last
+word.
 
 ### Import
 
@@ -176,28 +218,33 @@ subnet or shared network uses.
 
 | Test | Runs on | Covers |
 |------|---------|--------|
-| `node --test "test/js/*.test.js"` | Any machine with Node.js | The configuration model: 30 cases, plus the stock Kea configs when `KEA_STOCK_DIR` is set |
+| `node --test "test/js/*.test.js"` | Any machine with Node.js | The configuration model: 47 cases, plus the stock Kea configs when `KEA_STOCK_DIR` is set |
 | `test/run-ucode-tests.sh` | Any machine with a ucode interpreter | The backend library with a stand-in for the Kea binary: comment stripping, JSON writing, IPv4 and IPv6 helpers, save, backups, restore, retention, import classification and commit (60 cases) |
 | `test/run-ucode-tests.sh --target` | OpenWrt with the Kea daemons | The same plus 21 cases with the real Kea binaries, UCI and procd: validation, service state, init actions, API password, import from a UCI fixture. Uses a temporary root |
 | `test/browser/smoke.js` | Node.js + Playwright against a target | Every page renders without JavaScript errors |
-| `test/browser/editor.js` | Node.js + Playwright against a test target | Editors, raw editor, backups and example removal end to end, with Kea validating every save |
+| `test/browser/editor.js` | Node.js + Playwright against a test target | Editors (pools, options, global settings, shared networks, input checks, change view), raw editor, backups and example removal end to end, with Kea validating every save |
 | `test/browser/import.js` | Node.js + Playwright against a test target that has the fixture static leases | The import page end to end for both protocols, including a second import |
 
 ## Known defects and limits
 
 ### Structured editors
 
-- Only the first pool and the first prefix delegation pool of a subnet can be
-  edited. The others are preserved but not shown.
-- Subnets inside `shared-networks` are preserved but not shown.
-- Global options, option definitions, client classes and lease database
-  settings can only be edited on the Configuration page.
+- Shared networks cannot be created, renamed or removed, and a subnet
+  cannot be moved into one; their subnets are edited where they are.
+- Option definitions, client classes, hook libraries, loggers and the lease
+  database other than its cleanup interval can only be edited on the
+  Configuration page.
+- The options and `user-context` of a reservation, and the extra keys of a
+  pool, are preserved but can only be edited on the Configuration page.
+- Option values are not checked in the browser; a wrong one surfaces as
+  `kea-* -t` output.
 - Saving removes JSON comments, because the file is re-serialized. The page
   says so when the file has comments.
-- No browser-side validation of addresses, MAC addresses, DUIDs or CIDR
-  values. Mistakes surface as `kea-* -t` output.
 - A DHCPv6 subnet without an `interface` is matched to an interface tab only
   when Kea listens on exactly one interface.
+- The warning about a second DHCP server looks at the OpenWrt configuration
+  of the interface and at whether dnsmasq or odhcpd runs. It does not see a
+  DHCP server elsewhere on the network.
 
 ### Backend
 
@@ -229,8 +276,5 @@ subnet or shared network uses.
 
 - HA hook editor (only detection of `libdhcp_ha.so` exists).
 - Lease viewer through the control agent or `lease_cmds` hook.
-- Backend semantic checks: subnet overlap, pool inside subnet, reservation
-  inside subnet, duplicate reservations, HA peer URLs.
-- Diff preview before saving.
 - Browser tests and on-target tests in CI (they need a running OpenWrt).
 - Translations (only the template exists), releases, prebuilt packages.

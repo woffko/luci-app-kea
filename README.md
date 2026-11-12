@@ -4,7 +4,7 @@
 
 LuCI application for managing the ISC Kea DHCP server on OpenWrt.
 
-> **Status: alpha (0.4.0).** Usable for testing on a lab router. Not ready to
+> **Status: alpha (0.5.0).** Usable for testing on a lab router. Not ready to
 > replace a production dnsmasq/odhcpd setup yet: see
 > [Known limitations](#known-limitations).
 
@@ -29,22 +29,28 @@ Menu location: **Services > Kea DHCP**.
 - **Services**: start, stop, restart, reload and autostart for the Kea init
   service; enable or disable `kea-dhcp4`, `kea-dhcp6`, `kea-dhcp-ddns` and
   `kea-ctrl-agent`; state and explicit controls for `dnsmasq` and `odhcpd`.
-- **DHCPv4**: one tab per interface with subnet, address pool, gateway, DNS
-  servers, domain, timers and reservations by MAC address, client ID, DUID,
-  circuit ID or flex ID.
-- **DHCPv6**: one tab per interface with subnet, address pool, prefix
-  delegation pool, DNS servers, timers and reservations by DUID, MAC address
-  or flex ID.
-- **Configuration**: raw editor for the four Kea config files, with restore
-  from backup.
+- **DHCPv4**: one tab per interface or subnet with the subnet, its address
+  pools, gateway, DNS servers, domain, timers, any other DHCP option, and
+  reservations by MAC address, client ID, DUID, circuit ID or flex ID. A
+  last tab holds the global timers, the lease file cleanup interval and the
+  options for all subnets.
+- **DHCPv6**: the same with prefix delegation pools and reservations by
+  DUID, MAC address or flex ID.
+- **Configuration**: raw editor for the four Kea config files, with a JSON
+  syntax check and restore from backup.
 - **Import dnsmasq**: turns the static leases of OpenWrt (`/etc/config/dhcp`)
   into Kea reservations for DHCPv4 and DHCPv6. The page shows what would
   happen to each lease and why, and you choose what to import.
 
 The DHCPv4 and DHCPv6 pages change only what you edit. Settings they do not
-show (additional pools, other options, relay settings, client classes and so
-on) stay in the file as they were. A reservation can be switched off without
-deleting it.
+show (relay settings, client classes, hooks, extra keys of a pool or a
+reservation and so on) stay in the file as they were. A reservation can be
+switched off without deleting it.
+
+A value Kea would refuse, such as a pool outside its subnet or a MAC address
+written with dashes, is marked while you type, with the reason. **Show
+changes** lists the lines of the file a save would change. The pages warn
+when OpenWrt already serves DHCP on an interface you enable for Kea.
 
 Every config write is validated with the Kea binary (`kea-dhcp4 -t` and so on)
 before the file is replaced, and the previous file is kept in
@@ -56,7 +62,11 @@ a running Kea daemon and tells you whether it is still running afterwards.
 The DHCPv4 page. Each interface has a tab; a reservation can be switched off
 without deleting it.
 
-<img src="docs/images/dhcp4.png" alt="DHCPv4 editor with a subnet, its options and three reservations" width="820">
+<img src="docs/images/dhcp4.png" alt="DHCPv4 editor with a subnet, its pools, options and three reservations" width="820">
+
+What a save would change, before it is made.
+
+<img src="docs/images/changes.png" alt="Dialog listing the lines of the configuration file that a save would change" width="820">
 
 The import of OpenWrt static leases. Every lease gets a state and, where it
 cannot be imported, the reason.
@@ -72,13 +82,13 @@ All pages are shown in [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md).
 
 ## Known limitations
 
-- The DHCPv4 and DHCPv6 pages edit the first address pool of a subnet and a
-  fixed set of options. Everything else is preserved but has to be edited on
-  the Configuration page. Subnets inside shared networks are not shown.
+- Client classes, option definitions, hooks, loggers and shared networks
+  themselves have to be edited on the Configuration page. The DHCPv4 and
+  DHCPv6 pages preserve them, and edit the subnets inside shared networks.
 - Saving from the DHCPv4 and DHCPv6 pages removes comments from the file. The
   page tells you when the file has any.
-- Input is checked by Kea, not by the form: a mistyped address is reported
-  only when you save.
+- The value of a DHCP option is checked by Kea, not by the form: a mistake
+  there is reported when you save.
 - The import cannot convert a static lease with several MAC addresses, and
   it does not carry over per-host lease times or dnsmasq tags. It tells you
   which leases are affected.

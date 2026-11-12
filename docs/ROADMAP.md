@@ -1,6 +1,6 @@
 # Roadmap
 
-Last updated: 2026-11-11.
+Last updated: 2026-11-12.
 
 Goal: a LuCI application that manages ISC Kea on OpenWrt well enough to
 replace dnsmasq/odhcpd DHCP on a router, without losing access to Kea's JSON
@@ -134,18 +134,37 @@ its DHCPv4 half was dropped; DUIDs in the OpenWrt hex notation were rejected.
 
 ## M4: Editor completeness
 
-- [ ] Browser-side validation of addresses, CIDR values, MAC addresses, DUIDs
-      and ranges.
-- [ ] Several pools and prefix delegation pools per subnet.
-- [ ] Show and edit subnets inside `shared-networks`.
-- [ ] Global and per-subnet `option-data` editor.
-- [ ] Reservation options: `client-id`, IAID where needed, `user-context`.
-- [ ] Lease database settings.
-- [ ] Backend semantic checks: subnet overlap, pool and reservation inside the
-      subnet, duplicate reservations, conflict with dnsmasq/odhcpd on the same
-      interface.
-- [ ] Raw editor: JSON syntax check in the browser, diff preview.
-- [ ] Evaluate rebuilding the editors on `form.JSONMap` and `ui.tabs`.
+Done in `0.5.0-r1`.
+
+- [x] Browser-side validation of addresses, CIDR values, MAC addresses, DUIDs
+      and ranges. Wrong values are marked while typing and reported by tab
+      and field on save.
+- [x] Several pools and prefix delegation pools per subnet.
+- [x] Show and edit subnets inside `shared-networks`.
+- [x] Global and per-subnet `option-data` editor.
+- [x] Reservation identifiers: `client-id`, DUID, circuit ID and flex ID
+      besides the MAC address (since `0.2.0`). Kea reservations have no
+      IAID. The options and `user-context` of a reservation are preserved
+      and edited in the raw editor.
+- [x] Lease database: the lease file cleanup interval. The other keys stay
+      in the raw editor; the OpenWrt Kea packages are built without the
+      MySQL and PostgreSQL backends, so there is no backend to choose.
+- [x] Semantic checks: the same subnet twice, pool and reservation inside the
+      subnet, overlapping pools, duplicate reservations, and a warning when
+      dnsmasq or odhcpd serves the same interface. They run in the browser
+      model, not in the backend; see the working decisions.
+- [x] Raw editor: JSON syntax check in the browser, view of the changed
+      lines. The structured editors have the same view.
+- [x] Evaluate rebuilding the editors on `form.JSONMap` and `ui.tabs`. Not
+      adopted; see the working decisions.
+
+Also fixed on the way: the editors offered no way to see or change a second
+pool, so a pool that had become wrong could only be fixed in the raw editor.
+The three hand-built confirmation dialogs became one shared module.
+
+Not done: creating, renaming and removing shared networks, and editors for
+client classes and option definitions. They stay in the raw editor until
+someone needs them in a form.
 
 ## M5: High availability
 
@@ -219,6 +238,32 @@ They follow the recommendation at the time and can be revisited.
 - Backups go to `/etc/kea/backups/`, ten per config file.
 - Version numbers: packaging-only changes bump `PKG_RELEASE`; changes in
   behavior bump `PKG_VERSION`.
+
+Taken while implementing M4:
+
+- **Where the semantic checks run.** In the browser model, next to the form,
+  and not a second time in ucode. The reason for the checks is to name the
+  field that is wrong while the user is still typing; the backend cannot do
+  that. Correctness does not depend on them, because every write still
+  passes the Kea binary's own test on the router, and the import has its
+  own checks in ucode since `0.4.0`.
+- **Only changed values are checked.** The rules were measured against
+  `kea-dhcp4 -t` and `kea-dhcp6 -t` of Kea 3.0.4, but another Kea version
+  may accept more. A value the editor did not write is therefore never a
+  reason to refuse a save.
+- **`form.JSONMap` and `ui.tabs` are not used.** `form.JSONMap` maps an
+  object of flat sections with options, the shape of a UCI file. A Kea file
+  is nested several levels deep (subnets, inside them pools, options and
+  reservations, and the same again inside shared networks), an option is
+  found by name or by code, and a save must change only the edited values
+  and leave unknown keys, key order and number formatting alone. All of
+  that would remain custom code underneath, with one map per nested list on
+  top. `ui.tabs` wants every pane in the document at once; the editor draws
+  the active tab from the model instead, so that hundreds of reservation
+  inputs of other subnets are not built up front. The pages use LuCI's own
+  markup and classes for tabs, fields, tables and invalid input, and
+  `ui.showModal()` for dialogs, so they look and behave like the rest of
+  LuCI.
 
 ## Open questions
 

@@ -48,8 +48,11 @@ UCI and must edit Kea JSON.
   stay in `/etc/config/dhcp`, and the import page says why.
 - Write back only what the user changed. The editors keep the original subnet
   object and never rebuild it from the form.
-- Keep parsing, import and validation logic in backend ucode modules so it can
-  be tested without a browser.
+- Check only what the user changed. A file that Kea accepts must stay
+  savable even where the editor would be stricter.
+- Keep logic out of the pages so it can be tested without a browser: the
+  backend in ucode modules, the configuration model in a JavaScript module
+  without DOM code.
 
 ## Reservations
 
@@ -180,22 +183,46 @@ where possible, and offer an assisted fill-in. Kea must not depend on it.
 For `kea-dhcp4.conf`, `kea-dhcp6.conf`, `kea-dhcp-ddns.conf` and
 `kea-ctrl-agent.conf`:
 
-- JSON syntax check in the browser;
+- JSON syntax check in the browser while typing; a text that is not JSON is
+  not sent. A file that uses Kea's `<?include ?>` directive is not checked
+  in the browser, because only Kea can read it;
 - backend validation with the Kea binary before save;
 - backup before save and restore from backup;
-- diff preview if practical.
+- a view of the changed lines before saving.
 
-## Backend validation
+## Validation
 
-- JSON parse check;
-- Kea binary config test;
-- subnet overlap;
-- pool inside subnet;
-- reservation address inside subnet;
-- duplicate reservations;
-- DHCPv6 identity checks;
-- HA hook library present, HA peer URL format;
-- conflict with dnsmasq or odhcpd DHCP on the same interface.
+There are two layers, and the second one decides.
+
+1. **In the browser**, for the structured editors. The model checks the
+   values the user changed and names the tab and field of each mistake, so
+   the user does not have to map a Kea parser message back to a form field.
+   [STATUS.md](STATUS.md#what-the-editors-check) lists the checks. They were
+   written from measurements of what `kea-dhcp4 -t` and `kea-dhcp6 -t` of
+   Kea 3.0.4 accept and refuse, not from the documentation alone: Kea takes
+   a reservation without an address, a five-octet MAC address and
+   overlapping subnets, and refuses a MAC address written with dashes, bare
+   text as a client ID and two pools that overlap.
+2. **On the router**, for every write: a JSON parse and the Kea binary's
+   own configuration test. Nothing replaces a file without passing it.
+
+Semantic checks are not repeated in ucode. The Kea binary already refuses
+what they would refuse, and a second implementation of the same rules would
+only drift from the first.
+
+Still open:
+
+- HA hook library present and HA peer URL format, with the HA page;
+- a check that the daemon can actually start with the file, which `-t` does
+  not guarantee.
+
+### Second DHCP server on an interface
+
+The backend reports for each OpenWrt interface whether `/etc/config/dhcp`
+makes dnsmasq or odhcpd serve DHCPv4 or DHCPv6 on it. The editor warns on the
+tab of such an interface while Kea is enabled on it and dnsmasq or odhcpd is
+running. It is a warning, not a block: moving a network from dnsmasq to Kea
+passes through this state.
 
 ## Test plan
 
@@ -222,13 +249,10 @@ Covered by `test/ucode/importer.uc` and `test/ucode/target/import.uc`:
 
 ### Browser
 
-Playwright with mocked RPC responses first, then an optional run against a
-real OpenWrt target:
+Playwright against a real OpenWrt target. Done: no JavaScript errors on any
+page; the editors, the raw editor, the backups and the import end to end,
+including a refused wrong value and invalid JSON. Still to do:
 
 - overview renders package and service state;
 - services page toggles components;
-- reservation forms reject bad MAC, IP, DUID and `hostid` values;
-- import preview shows ready, disabled and warning states with reasons;
-- HA page appears only when the hook is present;
-- raw editor blocks invalid JSON;
-- no JavaScript errors on any page.
+- HA page appears only when the hook is present.

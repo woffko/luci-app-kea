@@ -5,7 +5,7 @@
 ```text
 Makefile                                      OpenWrt package definition (includes luci.mk)
 htdocs/luci-static/resources/view/kea/        LuCI JavaScript views (one per page)
-htdocs/luci-static/resources/kea/             shared modules: model, backend, editor
+htdocs/luci-static/resources/kea/             shared modules: model, backend, dialogs, editor
 root/usr/share/rpcd/ucode/luci.kea            rpcd plugin: maps ubus methods to the library
 ucode/kea/                                    backend library, installed as the luci.kea.* modules
 root/usr/share/luci/menu.d/luci-app-kea.json  menu entries
@@ -35,10 +35,25 @@ the values the form started with; on save, only values that differ from the
 starting ones are written back into a copy of that object. Unknown keys,
 their order and the formatting of untouched values survive.
 
+The lists of a subnet (pools, prefix delegation pools, options,
+reservations) work the same way one level down: each row keeps the object it
+was loaded from and its starting values, and a row that was not edited is
+written back as that object.
+
+The same rule applies to checks. A value is checked when the user changed
+it, never because it is there: a file Kea accepts must always be savable
+again. Changing a subnet prefix is the one case that checks other values,
+its pools and reservations. Every check mirrors something `kea-dhcp4 -t` or
+`kea-dhcp6 -t` refuses; before adding one, try the value against the Kea
+binary on a test target, because Kea accepts more than its documentation
+suggests.
+
 When adding a field, add it to the family description at the top of
 `model.js`, load it in `loadSubnet()`, write it in `mergeSubnet()` behind a
 `fieldChanged()` check, and add a unit test that changing it changes nothing
-else. `kea/editor.js` only renders inputs bound to the tab model.
+else. `kea/editor.js` only renders inputs bound to the tab model and asks the
+model whether a value is wrong (`fieldError()`, `poolError()` and so on) to
+mark the input.
 
 `model.js` has no DOM or RPC code so that it can be tested under Node.
 `test/js/luci-loader.js` loads it the way LuCI does.
@@ -224,7 +239,7 @@ npm install playwright
 npx playwright install chromium-headless-shell
 export BASE_URL=http://<target> LUCI_PASSWORD=<password>
 node test/browser/smoke.js       # every page renders without errors
-node test/browser/editor.js      # editors, raw editor and backups end to end
+node test/browser/editor.js      # editors, input checks, raw editor and backups end to end
 node test/browser/import.js      # static lease import end to end
 ```
 
