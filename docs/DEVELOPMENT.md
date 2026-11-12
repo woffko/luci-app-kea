@@ -245,7 +245,20 @@ ssh root@<target> 'cp /etc/config/dhcp /tmp/dhcp.before
 ssh root@<target> 'cp /tmp/dhcp.before /etc/config/dhcp'
 ```
 
-dnsmasq is not reloaded, so the fixture leases never take effect.
+dnsmasq is not reloaded, so the fixture leases never take effect. Static
+leases the target already has are left out of the import by the test.
+
+### Screenshots
+
+The pictures in `docs/images/` are taken by a script, with the fixtures
+loaded, so they show no data of the target. It has the same preconditions as
+`import.js`:
+
+```sh
+node test/browser/screenshots.js
+```
+
+Run it after a change to a page and commit the pictures that changed.
 
 ## CI
 

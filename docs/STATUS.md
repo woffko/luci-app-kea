@@ -45,10 +45,9 @@ the first:
   and a DHCPv6 reservation, both files are accepted by Kea, and a second
   import finds nothing to do.
 
-On the second machine the ucode tests, the smoke test and the editor test
-pass, and Save & Apply was checked with `kea-dhcp-ddns` running. The import
-test was not run there, because it needs fixture static leases in the
-machine's `/etc/config/dhcp`.
+On the second machine the ucode tests and all three browser tests pass, and
+Save & Apply was checked with `kea-dhcp-ddns` running. That machine has a
+static lease of its own, which the import test leaves alone.
 
 Not exercised: DHCP clients actually obtaining leases, `kea-dhcp6` and the
 DDNS daemon running, and upgrades from `0.1.0`.

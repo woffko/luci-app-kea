@@ -51,6 +51,25 @@ before the file is replaced, and the previous file is kept in
 `/etc/kea/backups/` (the ten newest per file). **Save & Apply** also reloads
 a running Kea daemon and tells you whether it is still running afterwards.
 
+## Screenshots
+
+The DHCPv4 page. Each interface has a tab; a reservation can be switched off
+without deleting it.
+
+<img src="docs/images/dhcp4.png" alt="DHCPv4 editor with a subnet, its options and three reservations" width="820">
+
+The import of OpenWrt static leases. Every lease gets a state and, where it
+cannot be imported, the reason.
+
+<img src="docs/images/import.png" alt="Import page listing static leases with their states" width="820">
+
+The Services page, with the OpenWrt DHCP services that would compete with
+Kea.
+
+<img src="docs/images/services.png" alt="Services page with the Kea init service, conflicting services and components" width="820">
+
+All pages are shown in [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md).
+
 ## Known limitations
 
 - The DHCPv4 and DHCPv6 pages edit the first address pool of a subnet and a
@@ -114,6 +133,7 @@ apk add --allow-untrusted /tmp/luci-app-kea-*.apk
 
 ## Documentation
 
+- [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md): every page.
 - [docs/STATUS.md](docs/STATUS.md): what is implemented, known defects, what
   is missing.
 - [docs/ROADMAP.md](docs/ROADMAP.md): the work plan and open questions.
