@@ -160,7 +160,7 @@ async function testImport(page) {
 	await openPage(page, "dhcp4", "Kea DHCPv4");
 	await page.locator("#view h3", { hasText: "br-lan" }).first().waitFor();
 
-	const rows = page.locator("#view table tbody tr");
+	const rows = page.locator("#view table.kea-reservations tbody tr");
 
 	assert.equal(await rows.count(), 5);
 	assert.equal(await rows.nth(4).locator("input").first().inputValue(), "spare");

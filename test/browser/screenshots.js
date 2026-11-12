@@ -20,7 +20,7 @@ const path = require("node:path");
 
 process.env.OUT_DIR = process.env.OUT_DIR || path.join(__dirname, "..", "..", "docs", "images");
 
-const { openPage, screenshot, main, readRawConfig, writeRawConfig } = require("./lib.js");
+const { openPage, screenshot, waitForModal, main, readRawConfig, writeRawConfig } = require("./lib.js");
 
 function fixture(name) {
 	return fs.readFileSync(path.join(__dirname, "..", "fixtures", name), "utf8");
@@ -32,7 +32,7 @@ const FIXTURES = { dhcp4: fixture("kea-dhcp4-rich.conf"), dhcp6: fixture("kea-dh
  * A fresh test machine has no root password, and LuCI says so on every
  * page. The banner has nothing to do with this application; leave it out.
  */
-async function capture(page, name) {
+async function capture(page, name, viewport) {
 	await page.evaluate(() => {
 		document.querySelectorAll(".alert-message").forEach((node) => {
 			if (/No password set/.test(node.textContent))
@@ -41,7 +41,7 @@ async function capture(page, name) {
 		document.scrollingElement.scrollTop = 0;
 	});
 
-	await screenshot(page, name);
+	await screenshot(page, name, viewport);
 	console.log("wrote " + name + ".png");
 }
 
@@ -66,8 +66,21 @@ main(async (page) => {
 		/* Show one reservation switched off; nothing is saved. */
 		await openPage(page, "dhcp4", "Kea DHCPv4");
 		await page.locator("#view h3", { hasText: "br-lan" }).first().waitFor();
-		await page.locator("#view table tbody tr").nth(1).locator('input[type="checkbox"]').uncheck();
+		await page.locator("#view table.kea-reservations tbody tr").nth(1).locator('input[type="checkbox"]').uncheck();
 		await capture(page, "dhcp4");
+
+		/* The view of what a save would change; nothing is saved. */
+		await page.locator("#view .cbi-value", {
+			has: page.locator("label.cbi-value-title", { hasText: /^Gateway$/ })
+		}).locator("input").fill("192.168.1.254");
+		await page.locator("#view button", { hasText: /^Show changes$/ }).click();
+		await waitForModal(page);
+		await capture(page, "changes", true);
+		await page.locator(".modal button", { hasText: /^Close$/ }).click();
+
+		await page.locator("#view .cbi-tabmenu a", { hasText: "Global settings" }).click();
+		await page.locator("#view h3", { hasText: "Global settings" }).first().waitFor();
+		await capture(page, "global");
 
 		await openPage(page, "dhcp6", "Kea DHCPv6");
 		await page.locator("#view h3", { hasText: "br-lan" }).first().waitFor();

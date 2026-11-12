@@ -43,9 +43,20 @@ async function openPage(page, route, heading) {
 	}, heading, { timeout: 30000 });
 }
 
-async function screenshot(page, name) {
+/* A picture of the whole page, or of the visible part only ("viewport"). */
+async function screenshot(page, name, viewport) {
 	if (OUT_DIR)
-		await page.screenshot({ path: path.join(OUT_DIR, name + ".png"), fullPage: true });
+		await page.screenshot({ path: path.join(OUT_DIR, name + ".png"), fullPage: !viewport });
+}
+
+/* Wait until a LuCI dialog is open and has finished fading in. */
+async function waitForModal(page) {
+	await page.waitForFunction(() => {
+		const overlay = document.querySelector("#modal_overlay");
+
+		return overlay && document.body.classList.contains("modal-overlay-active") &&
+			document.defaultView.getComputedStyle(overlay).opacity === "1";
+	}, null, { timeout: 30000 });
 }
 
 /* Start a browser, log in, run the test body, and always close the browser. */
@@ -136,6 +147,6 @@ async function writeRawConfig(page, name, content) {
 }
 
 module.exports = {
-	BASE_URL, CONFIG_FILES, openPage, screenshot, main,
+	BASE_URL, CONFIG_FILES, openPage, screenshot, waitForModal, main,
 	footerButton, expectNotification, openRawEditor, readRawConfig, writeRawConfig
 };
