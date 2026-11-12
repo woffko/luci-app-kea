@@ -3,7 +3,7 @@
 Audit date: 2026-11-11. Audited revision: `b6eedcf` (package version
 `0.1.0-r1`). The findings marked "fixed" below were resolved in `0.1.0-r2`
 (roadmap milestone M0) and re-checked with a real build and install. The
-current version is `0.2.0-r1`.
+current version is `0.3.0-r1`.
 
 ## References
 
@@ -48,15 +48,18 @@ Verification of `0.1.0-r2`:
   (`test/browser/smoke.js`);
 - `test/run-import-fixture.sh` passed on that machine.
 
-Still not done: a lint run with the LuCI ESLint configuration.
+`eslint.config.mjs` in this repository repeats the JavaScript rules of the
+LuCI ESLint configuration; the views pass it without warnings. A run with the
+configuration file of `openwrt/luci` itself is still to be done at submission
+time.
 
 ## Metadata as the build system sees it
 
 ```text
 Package: luci-app-kea
 Submenu: 3. Applications
-Version: 0.2.0-r1
-Depends: +libc +luci-base +kea-uci
+Version: 0.3.0-r1
+Depends: +libc +luci-base +kea-uci +kea-lfc
 Section: luci
 Category: LuCI
 Title: LuCI support for ISC Kea DHCP server
@@ -86,9 +89,9 @@ not conform.
 | 5 | Project URL | FAIL | `LUCI_URL` unset; the package pointed at `openwrt/luci`. | Fixed |
 | 6 | License | GAP | Valid SPDX tag, but `PKG_LICENSE_FILES` unset and `LICENSE` held only the short notice. | Fixed: full Apache-2.0 text |
 | 7 | Description | GAP | No `LUCI_DESCRIPTION`. | Fixed |
-| 8 | Dependencies | GAP | `+rpcd +rpcd-mod-file` redundant and unused. | Fixed: `+luci-base +kea-uci` |
+| 8 | Dependencies | GAP | `+rpcd +rpcd-mod-file` redundant and unused. | Fixed: `+luci-base +kea-uci`, plus `+kea-lfc` since `0.3.0` |
 | 9 | File layout | OK | Views, menu, ACL and rpcd plugin in the standard locations; plugin mode 0755 preserved. | - |
-| 10 | ucode location | GAP | `root/usr/share/luci/kea/importer.uc` is a private path. LuCI convention is `ucode/` (installed to `/usr/share/ucode/luci/`) or `root/usr/share/rpcd/ucode/`. | Open, with the backend rework (M2) |
+| 10 | ucode location | GAP | `root/usr/share/luci/kea/importer.uc` is a private path. LuCI convention is `ucode/` (installed to `/usr/share/ucode/luci/`) or `root/usr/share/rpcd/ucode/`. | Fixed in `0.3.0`: plugin in `root/usr/share/rpcd/ucode/luci.kea`, library in `ucode/kea/` |
 | 11 | Unused files | FAIL | 10 of the 16 installed view files were unused copies. | Fixed: six views with stable names |
 | 12 | Menu | GAP | Parent node repeated the Overview view. | Fixed: `firstchild` |
 | 13 | ACL | GAP | Unused `file`, `uci` and `service` grants, including write access to `/etc/kea`. | Fixed: only `luci.kea` methods |
@@ -96,7 +99,7 @@ not conform.
 | 15 | Configuration files | GAP | No `conffiles`. | Fixed: `/etc/kea/luci-reservations.json` |
 | 16 | Translations | GAP | No translation template. | Partly fixed: `po/templates/kea.pot` exists; backend messages are still untranslatable English text |
 | 17 | JavaScript conventions | GAP | Hand-made tabs and inputs instead of `form.JSONMap` / `ui.tabs`, `window.confirm()` instead of `ui.showModal()`, no LuCI validation helpers. | Partly fixed in `0.2.0`: shared code moved to modules under `resources/kea/`, new dialogs use `ui.showModal()`. The import page still uses `window.confirm()`. Widgets and validation open (M4) |
-| 18 | Tests and CI | GAP | One fixture test, which did not pass on OpenWrt. No CI. | Partly fixed: fixture test corrected; unit, backend and browser tests added. CI open (M2) |
+| 18 | Tests and CI | GAP | One fixture test, which did not pass on OpenWrt. No CI. | Fixed: unit, on-target and browser tests; GitHub Actions runs the lint, the unit tests and an SDK build |
 | 19 | Repository hygiene | GAP | Unrelated helper script, no tags or releases, no repository topics. | Helper script removed. Releases open (M7) |
 
 ## Details
@@ -117,13 +120,16 @@ submission.
 
 ### Dependencies (item 8)
 
-`luci-base` depends on `rpcd`, `rpcd-mod-file`, `rpcd-mod-luci`,
-`rpcd-mod-ucode`, `ucode`, `ucode-mod-fs`, `ucode-mod-uci`, `ucode-mod-ubus`
-and others, so `importer.uc` (which needs only `ucode` and `fs`) is covered.
+`luci-base` depends on `rpcd`, `rpcd-mod-ucode`, `ucode`, `ucode-mod-fs`,
+`ucode-mod-uci`, `ucode-mod-ubus` and others. That covers everything the
+ucode backend imports (`fs`, `uci`, `ubus`). Since `0.3.0` the backend calls
+no shell tools: the earlier reliance on `jshn`, `pgrep` and `hexdump` is gone.
 
-The shell backend also calls `jshn`, `uci` and `/lib/functions.sh` (base
-system), `pgrep` and `hexdump` (enabled in the default BusyBox configuration,
-but not guaranteed on custom builds) and `openssl` (optional).
+`kea-lfc` is a dependency because the configuration files shipped with Kea
+enable lease file cleanup (`lfc-interval`), and `kea-dhcp4` and `kea-dhcp6`
+exit at start when `/usr/sbin/kea-lfc` is missing, although `kea-dhcp4 -t`
+accepts the configuration. A reviewer may prefer to see this fixed in the
+`kea` package itself.
 
 `kea-uci` depends on
 `@(PACKAGE_kea-ctrl||PACKAGE_kea-dhcp4||PACKAGE_kea-dhcp6||PACKAGE_kea-dhcp-ddns)`.

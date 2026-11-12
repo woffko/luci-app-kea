@@ -83,19 +83,34 @@ Also fixed on the way:
 
 ## M2: Backend structure and tests
 
-- [ ] Move parsing, validation and import logic from the shell script into
-      ucode modules; consider replacing the shell plugin with an rpcd ucode
-      plugin (`/usr/share/rpcd/ucode/kea.uc`).
-- [ ] Use the procd service state instead of `pgrep`. `pgrep -f` matches
-      any process whose command line contains the daemon path.
-- [ ] Include the control agent config in `validate`.
-- [ ] Tests that run without a router: ucode unit tests for the importer,
-      the validator and the config merge.
-- [ ] RPC tests against temporary config roots: status, service toggles,
-      validation success and failure, save, backup, restore, import dry run,
-      import commit.
-- [ ] GitHub Actions: `node --check`, `shellcheck`, JSON validation, LuCI
-      ESLint configuration, and a package build with the OpenWrt SDK.
+Done in `0.3.0-r1`.
+
+- [x] Move the backend from the shell script to ucode: an rpcd ucode plugin
+      (`/usr/share/rpcd/ucode/luci.kea`) on top of a library installed as the
+      `luci.kea.*` modules. The ubus object, its methods and their replies are
+      unchanged, so the pages and the ACL were not touched.
+- [x] Use the procd service state instead of `pgrep`.
+- [x] Include the control agent config in `validate`.
+- [x] Tests that run without a router: ucode unit tests for comment
+      stripping, save, backups, restore, import classification and merge.
+- [x] Tests against temporary roots on OpenWrt: validation with the real Kea
+      binary, service state and toggles, init actions, API password, import
+      preview from UCI.
+- [x] GitHub Actions: syntax checks, ShellCheck, JSON validation, ESLint with
+      the LuCI rules, unit tests, and a package build with the OpenWrt SDK.
+- [x] Depend on `kea-lfc`.
+
+Also fixed on the way:
+
+- backups made within one second could be numbered out of order once older
+  ones had been pruned, so the newest was listed as the oldest;
+- `setService` reported success for a component that had no section in
+  `/etc/config/kea` without writing anything;
+- interfaces configured with `ipaddr` plus `netmask` were not matched to
+  their Kea subnet.
+
+Not done: running the browser tests and the on-target tests in CI. They need
+a running OpenWrt system; see M7.
 
 ## M3: Complete the dnsmasq import
 
@@ -116,9 +131,6 @@ Also fixed on the way:
       and ranges.
 - [ ] Several pools and prefix delegation pools per subnet.
 - [ ] Show and edit subnets inside `shared-networks`.
-- [ ] Warn when a config enables lease file cleanup (`lfc-interval`) and
-      `kea-lfc` is not installed: `kea-* -t` accepts such a config, but the
-      daemon does not start.
 - [ ] Global and per-subnet `option-data` editor.
 - [ ] Reservation options: `client-id`, IAID where needed, `user-context`.
 - [ ] Lease database settings.
@@ -145,6 +157,8 @@ Also fixed on the way:
 ## M7: Release and distribution
 
 - [ ] Changelog and version policy; tag `v0.x` releases.
+- [ ] Run the on-target and browser tests in CI against an OpenWrt root
+      filesystem or virtual machine.
 - [ ] Attach built packages to GitHub releases.
 - [ ] Document installation as a custom feed.
 - [ ] Prepare the submission to `openwrt/luci`: meet the extra requirements in
@@ -153,13 +167,13 @@ Also fixed on the way:
 
 ## Decisions
 
-Made by the project owner on 2026-11-11.
+Made by the project owner.
 
-1. **Maintainer.** Stays `Woffko`, without an e-mail address, for now. To be
-   revisited before an upstream submission, which requires a real name and
-   address.
-2. **Distribution.** A standalone repository for now, with a later submission
-   to `openwrt/luci` as the goal. Consequences:
+1. **Maintainer** (2026-11-11). Stays `Woffko`, without an e-mail address, for
+   now. To be revisited before an upstream submission, which requires a real
+   name and address.
+2. **Distribution** (2026-11-11). A standalone repository for now, with a
+   later submission to `openwrt/luci` as the goal. Consequences:
    - the Makefile keeps its out-of-tree form
      (`include $(TOPDIR)/feeds/luci/luci.mk`, explicit version) until the
      submission;
@@ -169,6 +183,13 @@ Made by the project owner on 2026-11-11.
      install paths for ucode, and no dependencies outside the OpenWrt feeds;
    - where a choice exists, prefer what `openwrt/luci` reviewers expect over
      what is quickest.
+3. **Backend language** (2026-11-12). ucode if it is the better choice, and it
+   is: `luci-base` and `luci-app-example` use it, it removes JSON handling in
+   shell, gives access to the procd state, and lets the logic be tested
+   without a router.
+4. **`kea-lfc`** (2026-11-12). A dependency if it is needed, and it is: the
+   configuration files shipped with Kea enable lease file cleanup, and the
+   DHCP daemons do not start without that package.
 
 ### Working decisions
 
@@ -189,10 +210,7 @@ They follow the recommendation at the time and can be revisited.
 
 1. Menu location: **Services > Kea DHCP** (current) or under **Network**?
 2. Minimum supported OpenWrt and Kea versions. Is 24.10 (opkg) in scope?
-3. Keep the shell backend, or move fully to ucode in M2?
-4. Where should import entries that cannot be applied live: the JSON staging
+3. Where should import entries that cannot be applied live: the JSON staging
    file (current), a UCI namespace, or Kea `user-context` like the disabled
    reservations?
-5. Lease viewer in the first stable release, or later?
-6. Should the package depend on, or recommend, `kea-lfc`? The stock Kea
-   configs need it to start.
+4. Lease viewer in the first stable release, or later?
