@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint and unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: JavaScript syntax
+        run: find htdocs test -name '*.js' -exec node --check {} \;
+
+      - name: Shell syntax
+        run: |
+          for file in test/*.sh tools/*.sh; do
+            sh -n "$file"
+          done
+
+      - name: ShellCheck
+        run: shellcheck test/*.sh tools/*.sh
+
+      - name: Menu and ACL are valid JSON
+        run: |
+          jq -e . root/usr/share/luci/menu.d/luci-app-kea.json > /dev/null
+          jq -e . root/usr/share/rpcd/acl.d/luci-app-kea.json > /dev/null
+
+      - name: Every RPC method used by the pages is granted by the ACL
+        run: |
+          grep -rhoE 'method: *"[A-Za-z]+"' htdocs | sed -E 's/.*"([A-Za-z]+)"/\1/' | sort -u > used.txt
+          jq -r '.["luci-app-kea"] | (.read.ubus["luci.kea"] + .write.ubus["luci.kea"])[]' \
+            root/usr/share/rpcd/acl.d/luci-app-kea.json | sort -u > granted.txt
+          diff used.txt granted.txt
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Configuration model tests
+        run: npm test
+
+  package:
+    name: Build with the OpenWrt SDK
+    runs-on: ubuntu-latest
+    env:
+      OPENWRT_VERSION: 25.12.6
+      OPENWRT_TARGET: x86/64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential gawk gettext file libncurses-dev libssl-dev \
+            python3-setuptools rsync swig unzip wget zlib1g-dev zstd
+
+      - name: Download the SDK
+        run: |
+          base="https://downloads.openwrt.org/releases/$OPENWRT_VERSION/targets/$OPENWRT_TARGET"
+          cd "$RUNNER_TEMP"
+          curl -fsSLO "$base/sha256sums"
+          sdk="$(grep -o 'openwrt-sdk-[^ ]*\.tar\.zst' sha256sums)"
+          curl -fsSLO "$base/$sdk"
+          grep -F "*$sdk" sha256sums | sha256sum -c -
+          tar --zstd -xf "$sdk"
+          mv "${sdk%.tar.zst}" sdk
+          echo "SDK=$RUNNER_TEMP/sdk" >> "$GITHUB_ENV"
+
+      - name: Prepare feeds
+        working-directory: ${{ env.SDK }}
+        run: |
+          ./scripts/feeds update base packages luci
+          ./scripts/feeds install luci-base kea
+          ln -s "$GITHUB_WORKSPACE" package/luci-app-kea
+          make defconfig
+
+      - name: Check the package metadata
+        working-directory: ${{ env.SDK }}
+        run: |
+          make --no-print-directory -r DUMP=1 TOPDIR="$PWD" INCLUDE_DIR="$PWD/include" \
+            -C package/luci-app-kea > "$RUNNER_TEMP/metadata.txt"
+          cat "$RUNNER_TEMP/metadata.txt"
+          grep -qx 'URL: https://github.com/woffko/luci-app-kea' "$RUNNER_TEMP/metadata.txt"
+          grep -q '^Depends: .*+kea-uci' "$RUNNER_TEMP/metadata.txt"
+          if grep -q 'OpenWrt LuCI community' "$RUNNER_TEMP/metadata.txt"; then
+            echo "The package names the LuCI community as maintainer." >&2
+            exit 1
+          fi
+
+      - name: Build host tools
+        working-directory: ${{ env.SDK }}
+        run: |
+          make package/feeds/luci/luci-base/host/compile -j"$(nproc)"
+          make package/feeds/base/ucode/host/compile -j"$(nproc)"
+
+      - name: Backend library tests
+        run: UCODE="$SDK/staging_dir/hostpkg/bin/ucode" test/run-ucode-tests.sh
+
+      - name: Translation template is up to date
+        run: |
+          tools/update-pot.sh "$SDK/feeds/luci"
+          git diff --exit-code -- po
+
+      - name: Build the package
+        working-directory: ${{ env.SDK }}
+        run: make -C package/luci-app-kea TOPDIR="$PWD" compile V=s
+
+      - name: Collect the package
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          cp "$SDK"/bin/packages/*/base/luci-app-kea-*.apk "$RUNNER_TEMP/out/"
+          ls -l "$RUNNER_TEMP/out"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: luci-app-kea
+          path: ${{ runner.temp }}/out/*.apk
+          if-no-files-found: error

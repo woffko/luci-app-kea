@@ -1,0 +1,15 @@
+{
+	"name": "luci-app-kea-dev",
+	"private": true,
+	"description": "Development tooling for luci-app-kea. Nothing here is part of the OpenWrt package.",
+	"license": "Apache-2.0",
+	"scripts": {
+		"lint": "eslint --max-warnings 0 htdocs test",
+		"test": "node --test \"test/js/*.test.js\""
+	},
+	"devDependencies": {
+		"@eslint/js": "^9.39.2",
+		"eslint": "^9.39.2",
+		"globals": "^17.3.0"
+	}
+}

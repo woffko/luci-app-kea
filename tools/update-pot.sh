@@ -24,7 +24,7 @@ trap 'rm -rf "$WORK"' EXIT
 # the in-tree location so the template matches what openwrt/luci generates.
 APP="$WORK/applications/luci-app-kea"
 mkdir -p "$APP"
-cp -R "$ROOT_DIR/htdocs" "$ROOT_DIR/root" "$APP/"
+cp -R "$ROOT_DIR/htdocs" "$ROOT_DIR/root" "$ROOT_DIR/ucode" "$APP/"
 
 mkdir -p "$ROOT_DIR/po/templates"
 ( cd "$WORK" && perl "$LUCI_DIR/build/i18n-scan.pl" applications/luci-app-kea ) \
