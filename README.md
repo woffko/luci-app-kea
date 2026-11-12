@@ -4,7 +4,7 @@
 
 LuCI application for managing the ISC Kea DHCP server on OpenWrt.
 
-> **Status: alpha (0.3.0).** Usable for testing on a lab router. Not ready to
+> **Status: alpha (0.4.0).** Usable for testing on a lab router. Not ready to
 > replace a production dnsmasq/odhcpd setup yet: see
 > [Known limitations](#known-limitations).
 
@@ -37,8 +37,9 @@ Menu location: **Services > Kea DHCP**.
   or flex ID.
 - **Configuration**: raw editor for the four Kea config files, with restore
   from backup.
-- **Import dnsmasq**: preview of dnsmasq static leases with warnings, and
-  import of the DHCPv4 entries that map cleanly to a Kea subnet.
+- **Import dnsmasq**: turns the static leases of OpenWrt (`/etc/config/dhcp`)
+  into Kea reservations for DHCPv4 and DHCPv6. The page shows what would
+  happen to each lease and why, and you choose what to import.
 
 The DHCPv4 and DHCPv6 pages change only what you edit. Settings they do not
 show (additional pools, other options, relay settings, client classes and so
@@ -59,8 +60,9 @@ a running Kea daemon and tells you whether it is still running afterwards.
   page tells you when the file has any.
 - Input is checked by Kea, not by the form: a mistyped address is reported
   only when you save.
-- The import writes DHCPv4 entries only. DHCPv6 entries and entries with
-  warnings are stored in `/etc/kea/luci-reservations.json` and not applied.
+- The import cannot convert a static lease with several MAC addresses, and
+  it does not carry over per-host lease times or dnsmasq tags. It tells you
+  which leases are affected.
 - No high-availability page and no lease viewer.
 - English only.
 
@@ -76,8 +78,8 @@ The full list is in [docs/STATUS.md](docs/STATUS.md).
 because the configuration files shipped with Kea enable lease file cleanup,
 and the DHCP daemons do not start without it.
 
-Tested on OpenWrt 25.12.6 x86-64 with Kea 3.0.4 (November 2026). Earlier
-versions were tested on OpenWrt 25.12.3 with Kea 3.0.2.
+Tested on OpenWrt 25.12.6 and 25.12.5 x86-64 with Kea 3.0.4 (November 2026).
+Earlier versions were tested on OpenWrt 25.12.3 with Kea 3.0.2.
 
 ## Installation
 

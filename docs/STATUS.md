@@ -1,6 +1,6 @@
 # Project Status
 
-Status date: 2026-11-12. Package version `0.3.0-r1`, alpha.
+Status date: 2026-11-12. Package version `0.4.0-r1`, alpha.
 
 This is a code-level inventory of what exists and what is missing. The work
 needed to close the gaps is ordered in [ROADMAP.md](ROADMAP.md). Packaging
@@ -17,7 +17,7 @@ issues are listed separately in [PACKAGING.md](PACKAGING.md).
 | Raw configuration editor | Done, with backups and restore |
 | DHCPv4 structured editor | Common settings; everything else in the file is preserved |
 | DHCPv6 structured editor | Common settings; everything else in the file is preserved |
-| dnsmasq static lease import | Partial, DHCPv4 only |
+| Static lease import | Done for DHCPv4 and DHCPv6 |
 | HA hook editor | Not started |
 | Lease viewer | Not started |
 | Backend semantic validation | Not started (only `kea-* -t`) |
@@ -27,10 +27,11 @@ issues are listed separately in [PACKAGING.md](PACKAGING.md).
 
 ## Verification state
 
-`0.3.0-r1` was built with the official OpenWrt 25.12.6 x86-64 SDK and
-installed with `apk`, as an upgrade from `0.2.0-r1`, on an OpenWrt 25.12.6
-x86-64 virtual machine running Kea 3.0.4 from the official package repository
-(November 2026). On that machine:
+`0.4.0-r1` was built with the official OpenWrt 25.12.6 x86-64 SDK and
+installed with `apk` on two machines running Kea 3.0.4 from the official
+package repository (November 2026): an OpenWrt 25.12.6 x86-64 virtual machine
+under QEMU, and an OpenWrt 25.12.5 x86-64 virtual machine under VMware. On
+the first:
 
 - all six pages open in a headless browser without JavaScript errors;
 - the end-to-end browser test passes for DHCPv4 and DHCPv6: every save made
@@ -40,11 +41,14 @@ x86-64 virtual machine running Kea 3.0.4 from the official package repository
   the installed one;
 - **Save & Apply** was checked by hand with `kea-dhcp4` running (the daemon is
   restarted with the new configuration) and stopped (it stays stopped);
-- the import commit was checked by hand against a config with several pools,
-  options and shared networks.
+- the import browser test passes: a dual-stack static lease becomes a DHCPv4
+  and a DHCPv6 reservation, both files are accepted by Kea, and a second
+  import finds nothing to do.
 
-The browser tests are the same ones that passed against the shell backend of
-`0.2.0`; the pages were not changed for the ucode backend.
+On the second machine the ucode tests, the smoke test and the editor test
+pass, and Save & Apply was checked with `kea-dhcp-ddns` running. The import
+test was not run there, because it needs fixture static leases in the
+machine's `/etc/config/dhcp`.
 
 Not exercised: DHCP clients actually obtaining leases, `kea-dhcp6` and the
 DDNS daemon running, and upgrades from `0.1.0`.
@@ -64,7 +68,7 @@ the `luci.kea.*` ucode modules:
 |--------|---------|
 | `config.uc` | Paths, validation with `kea-* -t`, read, save, backups, restore |
 | `service.uc` | Component and service state from procd, init actions, runtime files |
-| `importer.uc` | dnsmasq host classification and merge into the Kea config |
+| `importer.uc` | Static lease classification against the Kea configuration, and import |
 | `jsonc.uc` | JSON with `//`, `#` and `/* */` comments |
 | `net.uc` | IPv4 helpers |
 
@@ -77,13 +81,13 @@ the `luci.kea.*` ucode modules:
 | `getConfigList` | read | The four Kea config files with size and presence |
 | `getConfig` | read | File content, byte for byte, plus validation result |
 | `listBackups` | read | Backups of one config file, newest first |
-| `importDnsmasqDryRun` | read | Preview of `config host` entries from `/etc/config/dhcp` |
+| `importDnsmasqDryRun` | read | What an import of the static leases in `/etc/config/dhcp` would do |
 | `saveConfig` | write | Write to a temporary file, validate with the Kea binary, back up, replace |
 | `restoreBackup` | write | Validate a backup, back up the current file, replace it |
 | `setService` | write | Enable or disable a Kea component in UCI |
 | `setInitAction` | write | `enable`, `disable`, `start`, `stop`, `restart`, `reload` for `/etc/init.d/kea` |
 | `setConflictAction` | write | The same actions, restricted to `dnsmasq` and `odhcpd` |
-| `importDnsmasqCommit` | write | Stage all entries, merge ready DHCPv4 entries into `kea-dhcp4.conf` |
+| `importDnsmasqCommit` | write | Write the selected entries (or all ready ones) to `kea-dhcp4.conf` and `kea-dhcp6.conf` |
 
 Backups are kept in `/etc/kea/backups/` as `<config>.<UTC timestamp>.conf`,
 readable by root only. The ten newest per config file are kept. Every write
@@ -129,8 +133,9 @@ list`), by the instance names the Kea init script registers.
   `kea-dhcp6.conf`, `kea-dhcp-ddns.conf` and `kea-ctrl-agent.conf` with
   validation output, the same Save / Save & Apply behavior, and restore from
   backup.
-- **Import dnsmasq** (`import-dnsmasq.js`): preview table with status and
-  warnings, and an import button.
+- **Import dnsmasq** (`import-dnsmasq.js`): one row per static lease and
+  protocol with its state and the reasons, checkboxes to choose what to
+  import, and a confirmed import.
 
 ### What a save from the structured editors preserves
 
@@ -153,24 +158,31 @@ subnet or shared network uses.
 
 ### Import
 
-- The preview classifies each host entry as `ready` or `disabled` and lists the
-  reasons: missing or invalid MAC, missing or invalid IPv4 address, several MAC
-  addresses, missing or truncated DUID, `hostid` without prefix resolution,
-  `tag`, `match_tag`, `networkid`, `dns`, disabled source entry.
-- The commit writes every entry to `/etc/kea/luci-reservations.json`, merges
-  ready DHCPv4 entries into the Kea subnet that contains the address, and
-  validates the result with `kea-dhcp4 -t`. Re-importing updates an existing
-  reservation with the same MAC or IP.
+- Source: the `config host` sections of `/etc/config/dhcp`. One section
+  yields a DHCPv4 entry (`mac`, `ip`) and a DHCPv6 entry (`duid`, `hostid`),
+  as in OpenWrt.
+- Each entry is compared with the Kea subnets and reservations and gets a
+  state: ready, needs review, changes Kea, already in Kea, or cannot import
+  with the reason. [DESIGN.md](DESIGN.md#static-lease-import) lists them.
+- The IPv6 token (`hostid`) is combined with the prefix of the DHCPv6
+  subnet. DUIDs are accepted in the OpenWrt hex notation, with or without an
+  IAID.
+- The user chooses what to import. Both files are validated before either is
+  replaced, and each replaced file is backed up.
+- A disabled static lease is imported as a disabled reservation.
+- Nothing is kept between runs; imported leases are recognized in Kea, so a
+  second import changes nothing.
 
 ### Tests
 
 | Test | Runs on | Covers |
 |------|---------|--------|
 | `node --test "test/js/*.test.js"` | Any machine with Node.js | The configuration model: 30 cases, plus the stock Kea configs when `KEA_STOCK_DIR` is set |
-| `test/run-ucode-tests.sh` | Any machine with a ucode interpreter | The backend library with a stand-in for the Kea binary: comment stripping, save, backups, restore, retention, import classification and merge (44 cases) |
-| `test/run-ucode-tests.sh --target` | OpenWrt with `kea-dhcp-ddns` | The same plus 23 cases with the real Kea binary, UCI and procd: validation, service state, init actions, API password, import preview from a UCI fixture. Uses a temporary root |
+| `test/run-ucode-tests.sh` | Any machine with a ucode interpreter | The backend library with a stand-in for the Kea binary: comment stripping, JSON writing, IPv4 and IPv6 helpers, save, backups, restore, retention, import classification and commit (60 cases) |
+| `test/run-ucode-tests.sh --target` | OpenWrt with the Kea daemons | The same plus 21 cases with the real Kea binaries, UCI and procd: validation, service state, init actions, API password, import from a UCI fixture. Uses a temporary root |
 | `test/browser/smoke.js` | Node.js + Playwright against a target | Every page renders without JavaScript errors |
 | `test/browser/editor.js` | Node.js + Playwright against a test target | Editors, raw editor, backups and example removal end to end, with Kea validating every save |
+| `test/browser/import.js` | Node.js + Playwright against a test target that has the fixture static leases | The import page end to end for both protocols, including a second import |
 
 ## Known defects and limits
 
@@ -202,13 +214,17 @@ subnet or shared network uses.
 
 ### Import
 
-- DHCPv6 entries are previewed and staged but never written to Kea.
-- The preview does not know about Kea subnets, so an address outside every
-  subnet looks ready and is skipped only at commit.
-- No duplicate MAC, DUID or address detection across entries.
-- `valid_duid` accepts any value with two colons.
-- The staging file is rewritten on every commit, and no page reads it.
-- Entries cannot be edited before import.
+- Only top-level subnets are considered; subnets inside `shared-networks`
+  are not.
+- A host with several MAC addresses or DUIDs cannot be imported
+  automatically.
+- Per-host lease times, dnsmasq tags and the hosts file flag are not carried
+  over.
+- The import rewrites the Kea file as plain JSON and removes comments. The
+  page says so when the file has comments.
+- The import does not reload Kea.
+- `/etc/kea/luci-reservations.json`, written by versions before `0.4.0`, is
+  no longer read or written. It can be deleted.
 
 ## Not implemented
 

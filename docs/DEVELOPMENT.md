@@ -51,7 +51,8 @@ ubus method calls one function of the library in `ucode/kea/`:
 - `config.uc`: paths, validation with `kea-* -t`, read, save, backups,
   restore;
 - `service.uc`: component state from procd, init actions, runtime files;
-- `importer.uc`: dnsmasq host classification and merge;
+- `importer.uc`: static lease classification and import. `classify_all()`
+  is pure; `preview()` and `commit()` read and write the files;
 - `jsonc.uc`, `net.uc`: comment stripping and IPv4 helpers.
 
 Method names and reply shapes are what the views expect. Changing them means
@@ -224,11 +225,27 @@ npx playwright install chromium-headless-shell
 export BASE_URL=http://<target> LUCI_PASSWORD=<password>
 node test/browser/smoke.js       # every page renders without errors
 node test/browser/editor.js      # editors, raw editor and backups end to end
+node test/browser/import.js      # static lease import end to end
 ```
 
-`editor.js` rewrites `/etc/kea/kea-dhcp4.conf` and `kea-dhcp6.conf` while it
-runs and puts the originals back at the end. Run it only against a test
-target whose LAN device is `br-lan`. Set `OUT_DIR` to keep screenshots.
+`editor.js` and `import.js` rewrite `/etc/kea/kea-dhcp4.conf` and
+`kea-dhcp6.conf` while they run and put the originals back at the end. Run
+them only against a test target whose LAN is `192.168.1.1/24` on `br-lan`.
+Set `OUT_DIR` to keep screenshots; a failing test leaves `failure.png` there.
+
+`import.js` needs the static leases of
+`test/fixtures/dhcp-static-leases.uci` on the target. It has only LuCI
+access and cannot add them itself:
+
+```sh
+scp -O test/fixtures/dhcp-static-leases.uci root@<target>:/tmp/
+ssh root@<target> 'cp /etc/config/dhcp /tmp/dhcp.before
+                   cat /tmp/dhcp-static-leases.uci >> /etc/config/dhcp'
+# ... run the test ...
+ssh root@<target> 'cp /tmp/dhcp.before /etc/config/dhcp'
+```
+
+dnsmasq is not reloaded, so the fixture leases never take effect.
 
 ## CI
 
@@ -287,6 +304,7 @@ ubus call luci.kea getConfigList
 ubus call luci.kea getConfig '{"name":"dhcp4"}'
 ubus call luci.kea listBackups '{"name":"dhcp4"}'
 ubus call luci.kea importDnsmasqDryRun
+ubus call luci.kea importDnsmasqCommit '{"entries":["cfg0a1b2c:dhcp4"]}'
 ```
 
 The library can be called without rpcd:

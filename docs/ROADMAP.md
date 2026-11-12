@@ -30,7 +30,8 @@ Done in `0.1.0-r2`.
 - [x] Menu: use a `firstchild` action on the parent node.
 - [x] ACL: remove the unused `file`, `uci` and `service` grants. `getConfig`
       stays in the read group; see [PACKAGING.md](PACKAGING.md#acl-item-13).
-- [x] Declare `/etc/kea/luci-reservations.json` in `conffiles`.
+- [x] Declare `/etc/kea/luci-reservations.json` in `conffiles`. (Dropped in
+      `0.4.0` together with the file.)
 - [x] Generate `po/templates/kea.pot` with the LuCI `build/i18n-scan.pl`.
 - [x] Remove `create-and-push-github-repo.sh`.
 - [x] Build with the OpenWrt 25.12.6 SDK, install with `apk` on an OpenWrt
@@ -114,16 +115,22 @@ a running OpenWrt system; see M7.
 
 ## M3: Complete the dnsmasq import
 
-- [ ] Make the preview aware of Kea subnets and OpenWrt networks.
-- [ ] Detect duplicate MAC addresses, DUIDs and IP addresses.
-- [ ] Resolve `hostid` against the subnet prefix.
-- [ ] Write ready DHCPv6 entries to `kea-dhcp6.conf`.
-- [ ] Stricter DUID validation.
-- [ ] Edit entries before import; show and edit staged entries afterwards.
-- [ ] Merge into the staging file instead of rewriting it.
-- [ ] Split entries with several MAC addresses, or keep them disabled with a
-      clear reason.
-- [ ] Idempotency test: importing the same source twice changes nothing.
+Done in `0.4.0-r1`.
+
+- [x] Make the preview aware of Kea subnets and OpenWrt networks.
+- [x] Detect duplicate MAC addresses, DUIDs and IP addresses.
+- [x] Resolve `hostid` against the subnet prefix.
+- [x] Write ready DHCPv6 entries to `kea-dhcp6.conf`.
+- [x] Stricter DUID validation.
+- [x] Choose what to import. Entries are edited at their source, the static
+      lease in LuCI's DHCP page; the import page links to it.
+- [x] No staging file. See decision 5 below.
+- [x] Hosts with several MAC addresses stay unimported, with a clear reason.
+- [x] Idempotency test: importing the same source twice changes nothing.
+
+Also fixed on the way: a static lease that carries both `mac`/`ip` and
+`duid`/`hostid`, the usual form in OpenWrt, was treated as DHCPv6 only and
+its DHCPv4 half was dropped; DUIDs in the OpenWrt hex notation were rejected.
 
 ## M4: Editor completeness
 
@@ -190,6 +197,13 @@ Made by the project owner.
 4. **`kea-lfc`** (2026-11-12). A dependency if it is needed, and it is: the
    configuration files shipped with Kea enable lease file cleanup, and the
    DHCP daemons do not start without that package.
+5. **Static leases that cannot be imported** (2026-11-12). The owner asked
+   for a separate file or whatever is customary in OpenWrt. Such data lives
+   in UCI in OpenWrt, and it is already there: the host sections of
+   `/etc/config/dhcp`. No second copy is kept. The import page computes its
+   list from UCI and the Kea configuration each time, and
+   `/etc/kea/luci-reservations.json` is gone. A disabled static lease is
+   imported as a disabled reservation in the subnet's `user-context`.
 
 ### Working decisions
 
@@ -210,7 +224,4 @@ They follow the recommendation at the time and can be revisited.
 
 1. Menu location: **Services > Kea DHCP** (current) or under **Network**?
 2. Minimum supported OpenWrt and Kea versions. Is 24.10 (opkg) in scope?
-3. Where should import entries that cannot be applied live: the JSON staging
-   file (current), a UCI namespace, or Kea `user-context` like the disabled
-   reservations?
-4. Lease viewer in the first stable release, or later?
+3. Lease viewer in the first stable release, or later?
