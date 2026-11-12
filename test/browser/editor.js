@@ -130,8 +130,15 @@ async function openEditor(page, scenario) {
 }
 
 async function openRawEditor(page, scenario) {
+	const selector = page.locator("#view select").first();
+
 	await openPage(page, "configuration", "Kea Configuration");
-	await page.locator("#view select").first().selectOption(scenario.family);
+
+	/* Selecting the file that is already shown would make the page load it
+	 * again and replace the editor under the test's hands. */
+	if (await selector.inputValue() !== scenario.family)
+		await selector.selectOption(scenario.family);
+
 	await page.locator("#view h3", { hasText: scenario.file }).waitFor();
 }
 

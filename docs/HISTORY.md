@@ -7,6 +7,29 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-12: ucode backend, tests and CI (M2, `0.3.0-r1`)
+
+- The shell rpcd plugin is replaced by an rpcd ucode plugin
+  (`/usr/share/rpcd/ucode/luci.kea`) on top of a library in `ucode/kea/`.
+  The ubus object, its 14 methods and their replies are unchanged; the pages
+  and the ACL were not touched, and the browser tests written for `0.2.0`
+  pass unmodified.
+- Component and service state comes from procd instead of `pgrep`.
+- `validate` covers the control agent config.
+- `kea-lfc` is a dependency.
+- `setService` creates a missing `/etc/config/kea` section instead of
+  reporting success without writing.
+- Interfaces configured with `ipaddr` plus `netmask` are reported in CIDR
+  form, so their subnet is matched to the interface tab.
+- Backups made within one second keep their order after older ones are
+  pruned. The earlier numbering reused freed numbers.
+- Tests: 44 ucode cases that run on any machine with a ucode interpreter and
+  23 more that run on OpenWrt; they replace `run-backend-tests.sh` and
+  `run-import-fixture.sh`.
+- ESLint with the JavaScript rules of the LuCI repository; GitHub Actions CI
+  with lint, unit tests and an SDK build.
+- Verified on OpenWrt 25.12.6 with Kea 3.0.4, as an upgrade from `0.2.0-r1`.
+
 ## 2026-11-11: Configuration safety (M1, `0.2.0-r1`)
 
 - New shared modules under `htdocs/luci-static/resources/kea/`: `model.js`

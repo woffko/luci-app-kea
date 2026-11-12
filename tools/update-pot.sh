@@ -15,8 +15,8 @@ if [ -z "$LUCI_DIR" ] || [ ! -f "$LUCI_DIR/build/i18n-scan.pl" ]; then
 	exit 1
 fi
 
-LUCI_DIR="$(CDPATH= cd -- "$LUCI_DIR" && pwd)"
-ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+LUCI_DIR="$(CDPATH='' cd -- "$LUCI_DIR" && pwd)"
+ROOT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
@@ -24,7 +24,7 @@ trap 'rm -rf "$WORK"' EXIT
 # the in-tree location so the template matches what openwrt/luci generates.
 APP="$WORK/applications/luci-app-kea"
 mkdir -p "$APP"
-cp -R "$ROOT_DIR/htdocs" "$ROOT_DIR/root" "$APP/"
+cp -R "$ROOT_DIR/htdocs" "$ROOT_DIR/root" "$ROOT_DIR/ucode" "$APP/"
 
 mkdir -p "$ROOT_DIR/po/templates"
 ( cd "$WORK" && perl "$LUCI_DIR/build/i18n-scan.pl" applications/luci-app-kea ) \

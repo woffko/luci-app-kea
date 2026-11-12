@@ -1,6 +1,6 @@
 # Project Status
 
-Status date: 2026-11-11. Package version `0.2.0-r1`, alpha.
+Status date: 2026-11-12. Package version `0.3.0-r1`, alpha.
 
 This is a code-level inventory of what exists and what is missing. The work
 needed to close the gaps is ordered in [ROADMAP.md](ROADMAP.md). Packaging
@@ -11,7 +11,7 @@ issues are listed separately in [PACKAGING.md](PACKAGING.md).
 | Area | State |
 |------|-------|
 | Package skeleton, menu, ACL | Done |
-| rpcd backend (`luci.kea`, 14 methods) | Done as a single shell script |
+| rpcd backend (`luci.kea`, 14 methods) | Done, in ucode |
 | Overview page | Done |
 | Services page | Done |
 | Raw configuration editor | Done, with backups and restore |
@@ -21,25 +21,30 @@ issues are listed separately in [PACKAGING.md](PACKAGING.md).
 | HA hook editor | Not started |
 | Lease viewer | Not started |
 | Backend semantic validation | Not started (only `kea-* -t`) |
-| Automated tests | Unit tests, backend tests, browser tests; no CI yet |
-| CI, releases, translations | Not started |
+| Automated tests | Unit tests (JavaScript and ucode), on-target tests, browser tests |
+| CI | GitHub Actions: lint, unit tests, SDK package build |
+| Releases, translations | Not started |
 
 ## Verification state
 
-`0.2.0-r1` was built with the official OpenWrt 25.12.6 x86-64 SDK and
-installed with `apk` on an OpenWrt 25.12.6 x86-64 virtual machine running
-Kea 3.0.4 from the official package repository (November 2026). On that
-machine:
+`0.3.0-r1` was built with the official OpenWrt 25.12.6 x86-64 SDK and
+installed with `apk`, as an upgrade from `0.2.0-r1`, on an OpenWrt 25.12.6
+x86-64 virtual machine running Kea 3.0.4 from the official package repository
+(November 2026). On that machine:
 
 - all six pages open in a headless browser without JavaScript errors;
 - the end-to-end browser test passes for DHCPv4 and DHCPv6: every save made
   by the editors is accepted by `kea-dhcp4 -t` / `kea-dhcp6 -t`, and only the
   edited values change in the file;
-- the backend tests and the import fixture test pass;
+- the ucode tests pass, both for the repository copy of the library and for
+  the installed one;
 - **Save & Apply** was checked by hand with `kea-dhcp4` running (the daemon is
   restarted with the new configuration) and stopped (it stays stopped);
 - the import commit was checked by hand against a config with several pools,
   options and shared networks.
+
+The browser tests are the same ones that passed against the shell backend of
+`0.2.0`; the pages were not changed for the ucode backend.
 
 Not exercised: DHCP clients actually obtaining leases, `kea-dhcp6` and the
 DDNS daemon running, and upgrades from `0.1.0`.
@@ -49,16 +54,26 @@ Kea 3.0.2.
 
 ## Implemented
 
-### Backend: `root/usr/libexec/rpcd/luci.kea`
+### Backend
 
-A POSIX shell rpcd plugin using `jshn` and `/lib/functions.sh`.
+`root/usr/share/rpcd/ucode/luci.kea` is an rpcd ucode plugin. It only maps
+the ubus methods below to the library in `ucode/kea/`, which is installed as
+the `luci.kea.*` ucode modules:
+
+| Module | Content |
+|--------|---------|
+| `config.uc` | Paths, validation with `kea-* -t`, read, save, backups, restore |
+| `service.uc` | Component and service state from procd, init actions, runtime files |
+| `importer.uc` | dnsmasq host classification and merge into the Kea config |
+| `jsonc.uc` | JSON with `//`, `#` and `/* */` comments |
+| `net.uc` | IPv4 helpers |
 
 | Method | ACL | Purpose |
 |--------|-----|---------|
 | `getStatus` | read | Init script state, binaries, hook libraries, config files, runtime paths, dnsmasq/odhcpd state |
 | `getServices` | read | `config service` sections of `/etc/config/kea` with enabled and running flags |
 | `getNetworkInterfaces` | read | Interfaces from `/etc/config/network` (name, device, proto, addresses) |
-| `validate` | read | `kea-* -t` for the DHCPv4, DHCPv6 and DDNS configs |
+| `validate` | read | `kea-* -t` for the DHCPv4, DHCPv6, DDNS and control agent configs |
 | `getConfigList` | read | The four Kea config files with size and presence |
 | `getConfig` | read | File content, byte for byte, plus validation result |
 | `listBackups` | read | Backups of one config file, newest first |
@@ -78,8 +93,8 @@ Before `start`, `restart` and `reload` the backend creates `/var/run/kea`,
 `/var/lib/kea` and, if missing, `/etc/kea/kea-api-password` with 24 random
 bytes. It refuses the action if no random source is available.
 
-`root/usr/share/luci/kea/importer.uc` is a ucode helper used only by
-`importDnsmasqCommit`.
+Whether a component is running is taken from procd (`ubus call service
+list`), by the instance names the Kea init script registers.
 
 ### Shared JavaScript modules: `htdocs/luci-static/resources/kea/`
 
@@ -152,8 +167,8 @@ subnet or shared network uses.
 | Test | Runs on | Covers |
 |------|---------|--------|
 | `node --test "test/js/*.test.js"` | Any machine with Node.js | The configuration model: 30 cases, plus the stock Kea configs when `KEA_STOCK_DIR` is set |
-| `test/run-import-fixture.sh` | OpenWrt | `importDnsmasqDryRun` against `test/fixtures/dhcp-static-leases.uci` |
-| `test/run-backend-tests.sh` | OpenWrt with `kea-dhcp-ddns` | Save, validation, backups, restore, retention, service state, API password; uses a temporary root |
+| `test/run-ucode-tests.sh` | Any machine with a ucode interpreter | The backend library with a stand-in for the Kea binary: comment stripping, save, backups, restore, retention, import classification and merge (44 cases) |
+| `test/run-ucode-tests.sh --target` | OpenWrt with `kea-dhcp-ddns` | The same plus 23 cases with the real Kea binary, UCI and procd: validation, service state, init actions, API password, import preview from a UCI fixture. Uses a temporary root |
 | `test/browser/smoke.js` | Node.js + Playwright against a target | Every page renders without JavaScript errors |
 | `test/browser/editor.js` | Node.js + Playwright against a test target | Editors, raw editor, backups and example removal end to end, with Kea validating every save |
 
@@ -175,14 +190,12 @@ subnet or shared network uses.
 
 ### Backend
 
-- Running state is detected with `pgrep -f`, which matches any process whose
-  command line contains the daemon path, not only the daemon.
 - `kea-* -t` accepts configurations that the daemon then refuses to start
-  with. The stock configs enable lease file cleanup (`lfc-interval`), and the
-  DHCP daemons do not start unless the `kea-lfc` package is installed. Save &
-  Apply reports a daemon that is gone after the reload, but nothing warns
-  before.
-- `validate` skips the control agent config.
+  with. Save & Apply reports a daemon that is gone after the reload, but
+  nothing warns before.
+- The plugin runs inside `rpcd`, so a call blocks other LuCI requests for
+  the second or two that `kea-* -t` or an init action takes. `luci-base`
+  runs init actions the same way.
 - Backend error messages and import warnings are English only.
 - Files named `*.bak.luci` and `*.bak.import` left by `0.1.0` are not listed
   as backups and are not cleaned up.
@@ -204,5 +217,5 @@ subnet or shared network uses.
 - Backend semantic checks: subnet overlap, pool inside subnet, reservation
   inside subnet, duplicate reservations, HA peer URLs.
 - Diff preview before saving.
-- CI.
+- Browser tests and on-target tests in CI (they need a running OpenWrt).
 - Translations (only the template exists), releases, prebuilt packages.

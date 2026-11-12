@@ -1,8 +1,10 @@
 # luci-app-kea
 
+[![CI](https://github.com/woffko/luci-app-kea/actions/workflows/ci.yml/badge.svg)](https://github.com/woffko/luci-app-kea/actions/workflows/ci.yml)
+
 LuCI application for managing the ISC Kea DHCP server on OpenWrt.
 
-> **Status: alpha (0.2.0).** Usable for testing on a lab router. Not ready to
+> **Status: alpha (0.3.0).** Usable for testing on a lab router. Not ready to
 > replace a production dnsmasq/odhcpd setup yet: see
 > [Known limitations](#known-limitations).
 
@@ -67,19 +69,21 @@ The full list is in [docs/STATUS.md](docs/STATUS.md).
 ## Requirements
 
 - OpenWrt with LuCI.
-- `kea-uci` and at least one of `kea-dhcp4`, `kea-dhcp6`, `kea-dhcp-ddns`,
-  `kea-ctrl` from the OpenWrt packages feed.
-- `kea-lfc`, unless you turn off lease file cleanup: the configuration files
-  shipped with Kea enable it, and the DHCP daemons do not start without that
-  package.
+- At least one of `kea-dhcp4`, `kea-dhcp6`, `kea-dhcp-ddns`, `kea-ctrl` from
+  the OpenWrt packages feed.
+
+`kea-uci` and `kea-lfc` are installed as dependencies. `kea-lfc` is needed
+because the configuration files shipped with Kea enable lease file cleanup,
+and the DHCP daemons do not start without it.
 
 Tested on OpenWrt 25.12.6 x86-64 with Kea 3.0.4 (November 2026). Earlier
 versions were tested on OpenWrt 25.12.3 with Kea 3.0.2.
 
 ## Installation
 
-There are no prebuilt packages yet. Build the package in an OpenWrt tree that
-has the `luci` and `packages` feeds installed:
+There are no releases yet. Every CI run on `main` attaches a built package
+as an artifact; to build it yourself, use an OpenWrt tree that has the `luci`
+and `packages` feeds installed:
 
 ```sh
 cd /path/to/openwrt

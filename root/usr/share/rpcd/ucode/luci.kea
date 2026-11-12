@@ -1,0 +1,117 @@
+// SPDX-License-Identifier: Apache-2.0
+
+'use strict';
+
+import { cursor } from 'uci';
+import * as config from 'luci.kea.config';
+import * as service from 'luci.kea.service';
+import * as importer from 'luci.kea.importer';
+
+// rpcd plugin for luci-app-kea. The work is done by the luci.kea.* modules;
+// this file only maps ubus methods to them. Method names and reply shapes
+// are what the LuCI views expect and must stay stable.
+
+const ctx = config.context();
+
+function dhcp_hosts() {
+	let hosts = [];
+
+	cursor(ctx.uci_dir, ctx.uci_savedir).foreach('dhcp', 'host', s => push(hosts, s));
+
+	return hosts;
+}
+
+const methods = {
+	getStatus: {
+		call: function() {
+			return { status: service.status(ctx) };
+		}
+	},
+
+	getServices: {
+		call: function() {
+			return { services: service.services(ctx) };
+		}
+	},
+
+	getNetworkInterfaces: {
+		call: function() {
+			return { interfaces: { items: service.network_interfaces(ctx) } };
+		}
+	},
+
+	validate: {
+		call: function() {
+			return { validation: config.validate_all(ctx) };
+		}
+	},
+
+	getConfigList: {
+		call: function() {
+			return { configs: { items: config.list(ctx) } };
+		}
+	},
+
+	getConfig: {
+		args: { name: 'name' },
+		call: function(request) {
+			return config.read(ctx, request.args.name);
+		}
+	},
+
+	saveConfig: {
+		args: { name: 'name', content: 'content' },
+		call: function(request) {
+			return config.save(ctx, request.args.name, request.args.content);
+		}
+	},
+
+	listBackups: {
+		args: { name: 'name' },
+		call: function(request) {
+			return config.list_backups(ctx, request.args.name);
+		}
+	},
+
+	restoreBackup: {
+		args: { name: 'name', id: 'id' },
+		call: function(request) {
+			return config.restore(ctx, request.args.name, request.args.id);
+		}
+	},
+
+	importDnsmasqDryRun: {
+		call: function() {
+			return { import: { mode: 'dry-run', entries: importer.preview(dhcp_hosts()) } };
+		}
+	},
+
+	importDnsmasqCommit: {
+		call: function() {
+			return importer.commit(ctx, dhcp_hosts());
+		}
+	},
+
+	setService: {
+		args: { name: 'name', enabled: true },
+		call: function(request) {
+			return service.set_service(ctx, request.args.name, request.args.enabled);
+		}
+	},
+
+	setInitAction: {
+		args: { action: 'action' },
+		call: function(request) {
+			return service.init_action(ctx, request.args.action);
+		}
+	},
+
+	setConflictAction: {
+		args: { name: 'name', action: 'action' },
+		call: function(request) {
+			return service.conflict_action(ctx, request.args.name, request.args.action);
+		}
+	}
+};
+
+return { 'luci.kea': methods };
