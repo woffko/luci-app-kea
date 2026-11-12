@@ -28,6 +28,12 @@ var callNetworkInterfaces = rpc.declare({
 	expect: { interfaces: {} }
 });
 
+var callStatus = rpc.declare({
+	object: "luci.kea",
+	method: "getStatus",
+	expect: { status: {} }
+});
+
 var callServices = rpc.declare({
 	object: "luci.kea",
 	method: "getServices",
@@ -85,6 +91,10 @@ function isRunning(services, name) {
 return baseclass.extend({
 	getConfig: function(name) {
 		return L.resolveDefault(callGetConfig(name), {});
+	},
+
+	getStatus: function() {
+		return L.resolveDefault(callStatus(), {});
 	},
 
 	getInterfaces: function() {

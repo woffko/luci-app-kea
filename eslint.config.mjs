@@ -33,6 +33,7 @@ export default [
 				view: 'readonly',
 				/* modules of this application */
 				backend: 'readonly',
+				dialogs: 'readonly',
 				editor: 'readonly',
 				model: 'readonly'
 			},
@@ -62,7 +63,8 @@ export default [
 			globals: {
 				...globals.node,
 				/* evaluated inside the page by Playwright */
-				document: 'readonly'
+				document: 'readonly',
+				L: 'readonly'
 			}
 		},
 		rules: {

@@ -4,13 +4,15 @@
 "require ui";
 "require kea.model as model";
 "require kea.backend as backend";
+"require kea.dialogs as dialogs";
 
 /*
  * Structured subnet editor shared by the DHCPv4 and DHCPv6 pages.
  *
- * The page shows one tab per OpenWrt interface plus one per Kea subnet that
- * is not bound to an interface. Inputs write straight into the tab model;
- * kea.model merges the changed values back into the Kea configuration.
+ * The page shows one tab per OpenWrt interface, one per Kea subnet that is
+ * not bound to an interface or belongs to a shared network, and one for the
+ * global settings. Inputs write straight into the model of kea.model, which
+ * checks them and merges the changed values back into the configuration.
  */
 
 var ID_TYPE_LABELS = {
@@ -34,6 +36,9 @@ var PAGES = {
 	}
 };
 
+/* The index of the tab bar entry for the global settings. */
+var GLOBAL = "global";
+
 function field(label, child, description) {
 	return E("div", { "class": "cbi-value" }, [
 		E("label", { "class": "cbi-value-title" }, label),
@@ -44,8 +49,17 @@ function field(label, child, description) {
 	]);
 }
 
-/* Text input bound to object[key]. */
-function textInput(object, key, placeholder, type) {
+/* Mark an input as wrong, with the reason as its tooltip, or clear the mark. */
+function mark(node, message) {
+	node.classList.toggle("cbi-input-invalid", !!message);
+	node.title = message || "";
+}
+
+/*
+ * Text input bound to object[key]. "check" returns a message while the
+ * value is wrong; it runs when the user types, not on values as loaded.
+ */
+function textInput(object, key, placeholder, type, check) {
 	return E("input", {
 		"class": "cbi-input-text",
 		"type": type || "text",
@@ -54,6 +68,9 @@ function textInput(object, key, placeholder, type) {
 		"placeholder": placeholder || "",
 		"input": function(ev) {
 			object[key] = ev.target.value.trim();
+
+			if (check)
+				mark(ev.target, check());
 		}
 	});
 }
@@ -71,25 +88,65 @@ function checkbox(object, key, onChange) {
 	});
 }
 
-function confirmModal(title, message, confirmLabel, action) {
-	ui.showModal(title, [
-		E("p", message),
-		E("div", { "class": "right" }, [
-			E("button", { "class": "btn", "click": ui.hideModal }, _("Cancel")),
-			" ",
-			E("button", {
-				"class": "btn cbi-button-negative important",
-				"click": function() {
-					ui.hideModal();
-					action();
-				}
-			}, confirmLabel)
-		])
-	]);
-}
-
 function notice(kind, children) {
 	return E("div", { "class": "alert-message " + kind }, children);
+}
+
+function deleteButton(onClick) {
+	return E("button", {
+		"class": "btn cbi-button cbi-button-remove",
+		"click": function(ev) {
+			ev.preventDefault();
+			onClick();
+		}
+	}, _("Delete"));
+}
+
+/*
+ * A table of editable rows with an "add" button. "renderRow" returns the
+ * cells of one row; the delete cell is added here.
+ */
+function rowTable(options) {
+	var body = E("tbody", {});
+	var draw = function() {
+		var rows = options.rows.map(function(row) {
+			return E("tr", { "class": "tr" }, options.renderRow(row).map(function(cell) {
+				return E("td", { "class": "td left" }, cell);
+			}).concat([ E("td", { "class": "td right" }, deleteButton(function() {
+				options.rows.splice(options.rows.indexOf(row), 1);
+				draw();
+			})) ]));
+		});
+
+		if (!rows.length)
+			rows = [ E("tr", { "class": "tr" }, E("td", {
+				"class": "td left",
+				"colspan": String(options.titles.length + 1)
+			}, options.empty)) ];
+
+		body.replaceChildren.apply(body, rows);
+	};
+
+	draw();
+
+	return E("div", { "class": "cbi-section" }, [
+		E("h3", options.title),
+		options.description ? E("div", { "class": "cbi-section-descr" }, options.description) : "",
+		E("table", { "class": "table " + options.name }, [
+			E("thead", {}, E("tr", { "class": "tr table-titles" }, options.titles.concat([ "" ]).map(function(title) {
+				return E("th", { "class": "th left" }, title);
+			}))),
+			body
+		]),
+		E("div", { "class": "cbi-section-create" }, E("button", {
+			"class": "btn cbi-button cbi-button-add",
+			"click": function(ev) {
+				ev.preventDefault();
+				options.rows.push(options.create());
+				draw();
+			}
+		}, options.add))
+	]);
 }
 
 function createView(familyName) {
@@ -101,7 +158,8 @@ function createView(familyName) {
 		load: function() {
 			return Promise.all([
 				backend.getConfig(familyName),
-				backend.getInterfaces()
+				backend.getInterfaces(),
+				backend.getStatus()
 			]);
 		},
 
@@ -113,7 +171,10 @@ function createView(familyName) {
 			this.config = parsed.config;
 			this.hasComments = parsed.hasComments;
 			this.tabs = parsed.error ? [] : model.buildTabs(familyName, parsed.config, this.interfaces);
-			this.activeIndex = Math.min(this.activeIndex || 0, Math.max(this.tabs.length - 1, 0));
+			this.global = parsed.error ? null : model.buildGlobal(familyName, parsed.config);
+
+			if (this.active !== GLOBAL)
+				this.active = Math.min(this.active || 0, Math.max(this.tabs.length - 1, 0));
 		},
 
 		reload: function() {
@@ -169,180 +230,248 @@ function createView(familyName) {
 			this.noticesNode.replaceChildren.apply(this.noticesNode, nodes);
 		},
 
-		/* ---- tabs ---- */
+		/* ---- tab bar ---- */
 
 		renderTabBar: function() {
 			var self = this;
-
-			this.tabBarNode.replaceChildren.apply(this.tabBarNode, this.tabs.map(function(tab, index) {
-				return E("button", {
-					"class": "btn cbi-button " + (index === self.activeIndex ? "cbi-button-apply" : ""),
-					"style": "margin-right: .35rem; margin-bottom: .35rem" +
-						(tab.removed ? "; text-decoration: line-through" : ""),
+			var entry = function(key, label, removed) {
+				return E("li", { "class": key === self.active ? "cbi-tab" : "cbi-tab-disabled" }, E("a", {
+					"href": "#",
+					"style": removed ? "text-decoration: line-through" : null,
 					"click": function(ev) {
 						ev.preventDefault();
-						self.activeIndex = index;
+						self.active = key;
 						self.renderTabBar();
 						self.renderTab();
 					}
-				}, tab.label);
-			}));
+				}, label));
+			};
+			var entries = this.tabs.map(function(tab, index) {
+				return entry(index, tab.label, tab.removed);
+			});
+
+			if (!this.parseError)
+				entries.push(entry(GLOBAL, _("Global settings"), false));
+
+			this.tabBarNode.replaceChildren(
+				E("ul", { "class": "cbi-tabmenu" }, entries),
+				E("div", { "class": "right", "style": "margin: .5rem 0" }, this.parseError ? "" : E("button", {
+					"class": "btn cbi-button",
+					"click": function(ev) {
+						ev.preventDefault();
+						self.showChanges();
+					}
+				}, _("Show changes")))
+			);
+		},
+
+		/* ---- a subnet tab ---- */
+
+		/*
+		 * OpenWrt answers DHCP on this interface too, and Kea is about to.
+		 * Two servers on one network hand out conflicting leases.
+		 */
+		renderConflict: function(tab, node) {
+			var conflicts = this.status.conflicts || {};
+			var running = (conflicts.dnsmasq && conflicts.dnsmasq.running) ||
+				(conflicts.odhcpd && conflicts.odhcpd.running);
+
+			if (tab.enabled && tab.served && running)
+				node.replaceChildren(notice("warning", E("p", _("OpenWrt also serves DHCP on this interface (dnsmasq or odhcpd). Two DHCP servers on one network hand out conflicting leases. Switch the OpenWrt service off for this interface, or stop it on the Services page, before Kea answers here."))));
+			else
+				node.replaceChildren();
 		},
 
 		renderFields: function(tab) {
-			var nodes = [
-				field(_("Enable"), E("label", {}, [ checkbox(tab, "enabled"), " ", page.enable ])),
-				field(_("Interface"), textInput(tab, "device", "br-lan")),
-				field(_("Subnet"), textInput(tab, "subnet", isV4 ? "192.168.1.0/24" : "fd00:1234:abcd:1::/64"))
+			var self = this;
+			var conflictNode = E("div", {});
+			var check = function(name) {
+				return function() {
+					return model.fieldError(familyName, tab, name);
+				};
+			};
+			var input = function(name, placeholder, type) {
+				return field(model.label(name), textInput(tab, name, placeholder, type, check(name)));
+			};
+			var nodes;
+
+			this.renderConflict(tab, conflictNode);
+
+			nodes = [
+				conflictNode,
+				field(_("Enable"), E("label", {}, [ checkbox(tab, "enabled", function() {
+					self.renderConflict(tab, conflictNode);
+				}), " ", page.enable ])),
+				input("device", "br-lan"),
+				input("subnet", isV4 ? "192.168.1.0/24" : "fd00:1234:abcd:1::/64")
 			];
 
-			if (isV4) {
+			if (isV4)
 				nodes.push(
-					field(_("Address Pool"), E("span", {}, [
-						textInput(tab, "poolStart", "192.168.1.100"),
-						" ", _("to"), " ",
-						textInput(tab, "poolEnd", "192.168.1.199")
-					])),
-					field(_("Gateway"), textInput(tab, "router", "192.168.1.1")),
-					field(_("DNS Servers"), textInput(tab, "dnsServers", "192.168.1.1, 1.1.1.1")),
-					field(_("Domain Name"), textInput(tab, "domainName", "lan")),
-					field(_("Domain Search"), textInput(tab, "domainSearch", "lan, example.org"))
+					input("router", "192.168.1.1"),
+					input("dnsServers", "192.168.1.1, 1.1.1.1"),
+					input("domainName", "lan"),
+					input("domainSearch", "lan, example.org")
 				);
-			}
-			else {
+			else
 				nodes.push(
-					field(_("Address Pool"), textInput(tab, "pool", "fd00:1234:abcd:1::100 - fd00:1234:abcd:1::ffff")),
-					field(_("Prefix Delegation"), E("span", {}, [
-						textInput(tab, "pdPrefix", "fd00:1234:abcd:100::"),
-						" ",
-						textInput(tab, "pdPrefixLen", "56", "number"),
-						" ",
-						textInput(tab, "pdDelegatedLen", "64", "number")
-					]), _("Prefix, prefix length, and delegated prefix length.")),
-					field(_("DNS Servers"), textInput(tab, "dnsServers", "fd00:1234:abcd:1::1, 2001:4860:4860::8888")),
-					field(_("Domain Search"), textInput(tab, "domainSearch", "lan, example.org"))
+					input("dnsServers", "fd00:1234:abcd:1::1, 2001:4860:4860::8888"),
+					input("domainSearch", "lan, example.org")
 				);
-			}
 
 			nodes.push(
-				field(_("Renew Timer"), textInput(tab, "renewTimer", tab.defaults.renewTimer, "number")),
-				field(_("Rebind Timer"), textInput(tab, "rebindTimer", tab.defaults.rebindTimer, "number"))
+				input("renewTimer", tab.defaults.renewTimer, "number"),
+				input("rebindTimer", tab.defaults.rebindTimer, "number")
 			);
 
 			if (!isV4)
-				nodes.push(field(_("Preferred Lifetime"), textInput(tab, "preferredLifetime", tab.defaults.preferredLifetime, "number")));
+				nodes.push(input("preferredLifetime", tab.defaults.preferredLifetime, "number"));
 
-			nodes.push(field(_("Valid Lifetime"), textInput(tab, "validLifetime", tab.defaults.validLifetime, "number"),
+			nodes.push(field(model.label("validLifetime"),
+				textInput(tab, "validLifetime", tab.defaults.validLifetime, "number", check("validLifetime")),
 				_("Timers are in seconds. Empty fields use the global Kea value shown as placeholder.")));
 
 			return nodes;
 		},
 
-		renderReservationRow: function(tab, row, body) {
-			var self = this;
-			var cells = [
-				E("td", { "class": "td left" }, textInput(row, "hostname")),
-				E("td", { "class": "td left" }, [
-					E("select", {
-						"class": "cbi-input-select",
-						"change": function(ev) {
-							row.type = ev.target.value;
-						}
-					}, family.idTypes.map(function(type) {
-						return E("option", {
-							"value": type,
-							"selected": row.type === type ? "selected" : null
-						}, ID_TYPE_LABELS[type]);
-					})),
-					" ",
-					textInput(row, "identity", isV4 ? "00:11:22:33:44:55" : "00:03:00:01:...")
-				])
-			];
-
-			if (isV4) {
-				cells.push(E("td", { "class": "td left" }, textInput(row, "address", "192.168.1.10")));
-			}
-			else {
-				cells.push(
-					E("td", { "class": "td left" }, textInput(row, "addresses", "fd00:1234:abcd:1::100")),
-					E("td", { "class": "td left" }, textInput(row, "prefixes", "fd00:1234:abcd:100::/64"))
-				);
-			}
-
-			cells.push(
-				E("td", { "class": "td left" }, checkbox(row, "enabled")),
-				E("td", { "class": "td right" }, E("button", {
-					"class": "btn cbi-button cbi-button-remove",
-					"click": function(ev) {
-						ev.preventDefault();
-						tab.reservations.splice(tab.reservations.indexOf(row), 1);
-						self.renderReservationRows(tab, body);
-					}
-				}, _("Delete")))
-			);
-
-			return E("tr", { "class": "tr" }, cells);
+		renderPools: function(tab) {
+			return rowTable({
+				name: "kea-pools",
+				title: _("Address Pools"),
+				titles: [ _("Range or prefix") ],
+				rows: tab.pools,
+				empty: _("No address pools: Kea hands out no dynamic addresses in this subnet."),
+				add: _("Add Pool"),
+				create: function() {
+					return model.newPool();
+				},
+				renderRow: function(row) {
+					return [ textInput(row, "pool",
+						isV4 ? "192.168.1.100 - 192.168.1.199" : "fd00:1234:abcd:1::100 - fd00:1234:abcd:1::ffff",
+						null, function() {
+							return model.poolError(familyName, tab, row);
+						}) ];
+				}
+			});
 		},
 
-		renderReservationRows: function(tab, body) {
-			var self = this;
-			var rows = tab.reservations.map(function(row) {
-				return self.renderReservationRow(tab, row, body);
+		renderPdPools: function(tab) {
+			return rowTable({
+				name: "kea-pd-pools",
+				title: _("Prefix Delegation"),
+				titles: [ _("Prefix"), _("Prefix length"), _("Delegated length") ],
+				rows: tab.pdPools,
+				empty: _("No prefix delegation pools."),
+				add: _("Add Prefix Pool"),
+				create: function() {
+					return model.newPdPool();
+				},
+				renderRow: function(row) {
+					var check = function() {
+						return model.pdPoolError(row);
+					};
+
+					return [
+						textInput(row, "prefix", "fd00:1234:abcd:100::", null, check),
+						textInput(row, "prefixLen", "56", "number", check),
+						textInput(row, "delegatedLen", "64", "number", check)
+					];
+				}
 			});
+		},
 
-			if (!rows.length)
-				rows = [ E("tr", { "class": "tr" }, [
-					E("td", { "class": "td left", "colspan": isV4 ? "5" : "6" }, _("No static reservations."))
-				]) ];
-
-			body.replaceChildren.apply(body, rows);
+		renderOptions: function(rows, description) {
+			return rowTable({
+				name: "kea-options",
+				title: _("Other Options"),
+				description: description,
+				titles: [ _("Name or code"), _("Value") ],
+				rows: rows,
+				empty: _("No other options."),
+				add: _("Add Option"),
+				create: function() {
+					return model.newOption();
+				},
+				renderRow: function(row) {
+					return [
+						textInput(row, "name", "ntp-servers", null, function() {
+							return model.optionError(row);
+						}),
+						textInput(row, "data", "192.168.1.1")
+					];
+				}
+			});
 		},
 
 		renderReservations: function(tab) {
-			var self = this;
-			var body = E("tbody", {});
 			var titles = [ _("Hostname"), _("Identifier") ];
+			var check = function(row, name) {
+				return function() {
+					return model.reservationError(familyName, tab, row, name);
+				};
+			};
 
 			if (isV4)
 				titles.push(_("IPv4 Address"));
 			else
 				titles.push(_("IPv6 Addresses"), _("Prefixes"));
 
-			titles.push(_("Enabled"), "");
+			titles.push(_("Enabled"));
 
-			this.renderReservationRows(tab, body);
+			return rowTable({
+				name: "kea-reservations",
+				title: _("Static Reservations"),
+				description: _("A reservation that is not enabled is kept in the configuration file but not used by Kea."),
+				titles: titles,
+				rows: tab.reservations,
+				empty: _("No static reservations."),
+				add: _("Add Reservation"),
+				create: function() {
+					return model.newReservation(familyName);
+				},
+				renderRow: function(row) {
+					var identity = textInput(row, "identity", isV4 ? "00:11:22:33:44:55" : "00:03:00:01:...",
+						null, check(row, "identity"));
+					var cells = [
+						textInput(row, "hostname"),
+						[
+							E("select", {
+								"class": "cbi-input-select",
+								"change": function(ev) {
+									row.type = ev.target.value;
 
-			return E("div", { "class": "cbi-section" }, [
-				E("h3", _("Static Reservations")),
-				E("div", { "class": "cbi-section-descr" },
-					_("A reservation that is not enabled is kept in the configuration file but not used by Kea.")),
-				E("table", { "class": "table" }, [
-					E("thead", {}, E("tr", { "class": "tr table-titles" }, titles.map(function(title, index) {
-						return E("th", {
-							"class": "th " + (index === titles.length - 1 ? "right" : "left")
-						}, title);
-					}))),
-					body
-				]),
-				E("div", { "class": "cbi-section-create" }, E("button", {
-					"class": "btn cbi-button cbi-button-add",
-					"click": function(ev) {
-						ev.preventDefault();
-						tab.reservations.push(model.newReservation(familyName));
-						self.renderReservationRows(tab, body);
-					}
-				}, _("Add Reservation")))
-			]);
+									if (row.identity !== "")
+										mark(identity, model.reservationError(familyName, tab, row, "identity"));
+								}
+							}, family.idTypes.map(function(type) {
+								return E("option", {
+									"value": type,
+									"selected": row.type === type ? "selected" : null
+								}, ID_TYPE_LABELS[type]);
+							})),
+							" ",
+							identity
+						]
+					];
+
+					if (isV4)
+						cells.push(textInput(row, "address", "192.168.1.10", null, check(row, "address")));
+					else
+						cells.push(
+							textInput(row, "addresses", "fd00:1234:abcd:1::100", null, check(row, "addresses")),
+							textInput(row, "prefixes", "fd00:1234:abcd:100::/64", null, check(row, "prefixes"))
+						);
+
+					cells.push(checkbox(row, "enabled"));
+
+					return cells;
+				}
+			});
 		},
 
-		renderTab: function() {
+		renderSubnet: function(tab) {
 			var self = this;
-			var tab = this.tabs[this.activeIndex];
-
-			if (!tab) {
-				this.editorNode.replaceChildren();
-				return;
-			}
+			var nodes;
 
 			if (tab.removed) {
 				this.editorNode.replaceChildren(E("div", { "class": "cbi-section" }, [
@@ -363,14 +492,14 @@ function createView(familyName) {
 				return;
 			}
 
-			this.editorNode.replaceChildren(
+			nodes = [
 				E("div", { "class": "cbi-section" }, [ E("h3", tab.label) ].concat(
 					this.renderFields(tab),
 					tab.source ? [ field("", E("button", {
 						"class": "btn cbi-button cbi-button-remove",
 						"click": function(ev) {
 							ev.preventDefault();
-							confirmModal(_("Remove subnet"),
+							dialogs.confirm(_("Remove subnet"),
 								_("Remove this subnet with all its pools, options and reservations from the Kea configuration? Nothing is written until you save."),
 								_("Remove subnet"),
 								function() {
@@ -381,15 +510,76 @@ function createView(familyName) {
 						}
 					}, _("Remove subnet"))) ] : []
 				)),
+				this.renderPools(tab)
+			];
+
+			if (!isV4)
+				nodes.push(this.renderPdPools(tab));
+
+			nodes.push(
+				this.renderOptions(tab.options,
+					_("DHCP options of this subnet that have no field above. Use the option name or its numeric code.")),
 				this.renderReservations(tab)
 			);
+
+			this.editorNode.replaceChildren.apply(this.editorNode, nodes);
+		},
+
+		/* ---- the global settings tab ---- */
+
+		renderGlobal: function() {
+			var global = this.global;
+			var check = function(name) {
+				return function() {
+					return model.fieldError(familyName, global, name);
+				};
+			};
+			var input = function(name, placeholder) {
+				return field(model.label(name), textInput(global, name, placeholder, "number", check(name)));
+			};
+			var nodes = [
+				E("h3", _("Global settings")),
+				E("div", { "class": "cbi-section-descr" },
+					_("Values for every subnet that does not set its own.")),
+				input("renewTimer", "900"),
+				input("rebindTimer", "1800")
+			];
+
+			if (!isV4)
+				nodes.push(input("preferredLifetime", "3000"));
+
+			nodes.push(
+				input("validLifetime", "3600"),
+				field(model.label("lfcInterval"),
+					textInput(global, "lfcInterval", "3600", "number", check("lfcInterval")),
+					_("How often, in seconds, the lease file is compacted; 0 turns it off. Needs the kea-lfc package.") +
+						(global.leaseType && global.leaseType !== "memfile" ?
+							" " + _("The lease database is not a memfile, so this setting has no effect.") : ""))
+			);
+
+			this.editorNode.replaceChildren(
+				E("div", { "class": "cbi-section" }, nodes),
+				this.renderOptions(global.options,
+					_("DHCP options sent to the clients of every subnet. Use the option name or its numeric code."))
+			);
+		},
+
+		renderTab: function() {
+			if (this.parseError)
+				this.editorNode.replaceChildren();
+			else if (this.active === GLOBAL)
+				this.renderGlobal();
+			else if (this.tabs[this.active])
+				this.renderSubnet(this.tabs[this.active]);
+			else
+				this.editorNode.replaceChildren();
 		},
 
 		/* ---- saving ---- */
 
 		/* Merge the form into the configuration; null if the form has errors. */
 		buildConfig: function() {
-			var result = model.applyTabs(familyName, this.config, this.tabs);
+			var result = model.applyTabs(familyName, this.config, this.tabs, this.global);
 
 			if (result.errors) {
 				ui.addNotification(null, E("pre", {
@@ -399,6 +589,16 @@ function createView(familyName) {
 			}
 
 			return result.config;
+		},
+
+		showChanges: function() {
+			var config = this.buildConfig();
+
+			if (config)
+				dialogs.showChanges(
+					model.lineDiff(model.serialize(this.config), model.serialize(config)),
+					this.hasComments ?
+						_("Compared without the comments of the file, which a save removes.") : null);
 		},
 
 		write: function(config, apply) {
@@ -440,7 +640,7 @@ function createView(familyName) {
 		removeSamples: function() {
 			var self = this;
 
-			confirmModal(_("Remove example entries"),
+			dialogs.confirm(_("Remove example entries"),
 				_("Remove the example subnet, example global options and example client class shipped with Kea, and save the configuration together with your current changes?"),
 				_("Remove and save"),
 				function() {
@@ -465,9 +665,10 @@ function createView(familyName) {
 
 		render: function(data) {
 			this.interfaces = data[1] || [];
-			this.activeIndex = 0;
+			this.status = data[2] || {};
+			this.active = 0;
 			this.noticesNode = E("div", {});
-			this.tabBarNode = E("div", { "class": "cbi-section" });
+			this.tabBarNode = E("div", {});
 			this.editorNode = E("div", {});
 
 			this.setConfig(data[0] || {});
