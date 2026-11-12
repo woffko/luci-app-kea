@@ -3,7 +3,7 @@
 Audit date: 2026-11-11. Audited revision: `b6eedcf` (package version
 `0.1.0-r1`). The findings marked "fixed" below were resolved in `0.1.0-r2`
 (roadmap milestone M0) and re-checked with a real build and install. The
-current version is `0.3.0-r1`.
+current version is `0.4.0-r1`.
 
 ## References
 
@@ -58,7 +58,7 @@ time.
 ```text
 Package: luci-app-kea
 Submenu: 3. Applications
-Version: 0.3.0-r1
+Version: 0.4.0-r1
 Depends: +libc +luci-base +kea-uci +kea-lfc
 Section: luci
 Category: LuCI
@@ -96,9 +96,9 @@ not conform.
 | 12 | Menu | GAP | Parent node repeated the Overview view. | Fixed: `firstchild` |
 | 13 | ACL | GAP | Unused `file`, `uci` and `service` grants, including write access to `/etc/kea`. | Fixed: only `luci.kea` methods |
 | 14 | Post-install | OK | The `luci.mk` default clears the LuCI caches and reloads `rpcd`. | - |
-| 15 | Configuration files | GAP | No `conffiles`. | Fixed: `/etc/kea/luci-reservations.json` |
+| 15 | Configuration files | GAP | No `conffiles`. | Not needed since `0.4.0`: the package owns no persistent file. Its backups live in `/etc/kea/`, which the Kea packages declare |
 | 16 | Translations | GAP | No translation template. | Partly fixed: `po/templates/kea.pot` exists; backend messages are still untranslatable English text |
-| 17 | JavaScript conventions | GAP | Hand-made tabs and inputs instead of `form.JSONMap` / `ui.tabs`, `window.confirm()` instead of `ui.showModal()`, no LuCI validation helpers. | Partly fixed in `0.2.0`: shared code moved to modules under `resources/kea/`, new dialogs use `ui.showModal()`. The import page still uses `window.confirm()`. Widgets and validation open (M4) |
+| 17 | JavaScript conventions | GAP | Hand-made tabs and inputs instead of `form.JSONMap` / `ui.tabs`, `window.confirm()` instead of `ui.showModal()`, no LuCI validation helpers. | Partly fixed in `0.2.0`: shared code moved to modules under `resources/kea/`, new dialogs use `ui.showModal()`. The import page follows since `0.4.0`. Widgets and validation open (M4) |
 | 18 | Tests and CI | GAP | One fixture test, which did not pass on OpenWrt. No CI. | Fixed: unit, on-target and browser tests; GitHub Actions runs the lint, the unit tests and an SDK build |
 | 19 | Repository hygiene | GAP | Unrelated helper script, no tags or releases, no repository topics. | Helper script removed. Releases open (M7) |
 

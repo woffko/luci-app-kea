@@ -49,4 +49,29 @@ test('interface_addresses covers both forms of /etc/config/network', () => {
 	equal(net.interface_addresses(null, null), '');
 });
 
+test('IPv6 addresses are parsed, compared and made canonical', () => {
+	equal(net.ipv6_canonical('FD00:0001:0000:0000:0000:0000:0000:0010'), 'fd00:1::10');
+	equal(net.ipv6_canonical('192.168.1.1'), null);
+	equal(net.ipv6_canonical('nope'), null);
+	equal(net.parse_cidr6('fd00:1::/64').prefix, 64);
+	equal(net.parse_cidr6('fd00:1::'), null);
+	equal(net.parse_cidr6('fd00:1::/129'), null);
+	equal(net.ip6_in_subnet('fd00:1::10', 'fd00:1::/64'), true);
+	equal(net.ip6_in_subnet('fd00:2::10', 'fd00:1::/64'), false);
+	equal(net.ip6_in_subnet('fd00:1:0:80::1', 'fd00:1::/57'), false);
+	equal(net.ip6_in_subnet('fd00:1:0:7f::1', 'fd00:1::/57'), true);
+	equal(net.ip6_in_subnet('fd00:1::10', 'nope'), false);
+});
+
+test('an IPv6 token is combined with the subnet prefix', () => {
+	equal(net.token_address('fd00:1::/64', '23'), 'fd00:1::23');
+	equal(net.token_address('fd00:1::/64', 'AABBCCDDEEFF0011'), 'fd00:1::aabb:ccdd:eeff:11');
+	equal(net.token_address('fd00:1:2:3::/56', '1'), 'fd00:1:2::1');
+	equal(net.token_address('fd00:1::/48', 'beef'), 'fd00:1::beef');
+	equal(net.token_address('fd00:1::/72', '1'), null, 'the prefix leaves no room for a 64-bit token');
+	equal(net.token_address('fd00:1::/64', 'xyz'), null);
+	equal(net.token_address('fd00:1::/64', '11223344556677889'), null, 'more than 64 bits');
+	equal(net.token_address('fd00:1::/64', ''), null);
+});
+
 done();

@@ -7,6 +7,26 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-12: Static lease import completed (M3, `0.4.0-r1`)
+
+- The import reads static leases the way OpenWrt writes them: one host
+  section yields a DHCPv4 entry (`mac`, `ip`) and a DHCPv6 entry (`duid`,
+  `hostid`). Until now such a section was treated as DHCPv6 only and its
+  DHCPv4 half was lost, and hex DUIDs without colons were rejected.
+- Entries are compared with the Kea subnets and reservations: ready, needs
+  review, changes Kea, already in Kea, or cannot import with the reason.
+- DHCPv6 reservations are written to `kea-dhcp6.conf`; the IPv6 token is
+  combined with the subnet prefix.
+- Duplicate identifiers and addresses are detected.
+- The user selects what to import. Both files are validated before either is
+  replaced.
+- No staging file: `/etc/kea/luci-reservations.json` is no longer read or
+  written, and the package has no `conffiles` any more. A disabled static
+  lease becomes a disabled reservation.
+- The backend writes JSON in the same layout as the editors.
+- Tests: 81 ucode cases (60 without a router), a browser test of the import.
+- Verified on OpenWrt 25.12.6 (QEMU) and 25.12.5 (VMware) with Kea 3.0.4.
+
 ## 2026-11-12: ucode backend, tests and CI (M2, `0.3.0-r1`)
 
 - The shell rpcd plugin is replaced by an rpcd ucode plugin

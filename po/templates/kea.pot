@@ -22,13 +22,17 @@ msgstr ""
 msgid "Add Reservation"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:101
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:210
 msgid "Address"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:201
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:214
 msgid "Address Pool"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:32
+msgid "Already in Kea"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:334
@@ -51,7 +55,16 @@ msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:78
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:106
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:107
 msgid "Cancel"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:33
+msgid "Cannot import"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:31
+msgid "Changes Kea"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:20
@@ -77,6 +90,10 @@ msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/overview.js:86
 msgid "Configuration Files"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:276
+msgid "DHCP and DNS"
 msgstr ""
 
 #: applications/luci-app-kea/root/usr/share/luci/menu.d/luci-app-kea.json:29
@@ -161,10 +178,6 @@ msgstr ""
 msgid "Failed to save the Kea configuration."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:97
-msgid "Family"
-msgstr ""
-
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:21
 msgid "Flex ID"
 msgstr ""
@@ -175,6 +188,10 @@ msgstr ""
 
 #: applications/luci-app-kea/root/usr/share/rpcd/acl.d/luci-app-kea.json:3
 msgid "Grant access to Kea DHCP LuCI application"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:210
+msgid "Host"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:304
@@ -190,31 +207,31 @@ msgid "IPv6 Addresses"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:304
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:100
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:210
 msgid "Identifier"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:131
-msgid "Import Ready Entries"
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:120
+msgid "Import"
 msgstr ""
 
 #: applications/luci-app-kea/root/usr/share/luci/menu.d/luci-app-kea.json:53
 msgid "Import dnsmasq"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:118
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:270
 msgid "Import dnsmasq Static Leases"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:49
-msgid "Import failed."
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:242
+msgid "Import selected"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:41
-msgid "Import ready dnsmasq static leases into Kea?"
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:104
+msgid "Import static leases"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:56
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:134
 msgid "Imported"
 msgstr ""
 
@@ -238,7 +255,7 @@ msgstr ""
 msgid "Installed"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/overview.js:76
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/overview.js:75
 msgid "Installed Components"
 msgstr ""
 
@@ -305,16 +322,16 @@ msgstr ""
 msgid "Kea service settings saved. Start Kea manually when ready."
 msgstr ""
 
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:211
+msgid "Kea subnet"
+msgstr ""
+
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:360
 msgid "Keep the subnet"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:208
 msgid "Loading..."
-msgstr ""
-
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/overview.js:73
-msgid "LuCI import staging file exists"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:17
@@ -334,8 +351,8 @@ msgstr ""
 msgid "Missing"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:99
-msgid "Name"
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:30
+msgid "Needs review"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/overview.js:19
@@ -359,8 +376,8 @@ msgid ""
 "No backups yet. A backup is made each time this file is changed from LuCI."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:113
-msgid "No dnsmasq static leases were found."
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:220
+msgid "No static leases were found in /etc/config/dhcp."
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:295
@@ -373,6 +390,10 @@ msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:162
 msgid "Not configured"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:211
+msgid "Notes"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:74
@@ -411,12 +432,29 @@ msgstr ""
 msgid "Present"
 msgstr ""
 
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:210
+msgid "Protocol"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:29
+msgid "Ready"
+msgstr ""
+
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:229
 msgid "Rebind Timer"
 msgstr ""
 
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:251
+msgid "Refresh"
+msgstr ""
+
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:321
 msgid "Reload"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:144
+msgid ""
+"Reload or restart Kea on the Services page to apply the new reservations."
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:445
@@ -501,16 +539,8 @@ msgstr ""
 msgid "Services"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:58
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:136
 msgid "Skipped"
-msgstr ""
-
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:96
-msgid "Source"
-msgstr ""
-
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:59
-msgid "Staged"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:315
@@ -522,7 +552,7 @@ msgstr ""
 msgid "Static Reservations"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:98
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:211
 msgid "Status"
 msgstr ""
 
@@ -559,6 +589,17 @@ msgid ""
 "file as plain JSON and removes them."
 msgstr ""
 
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:129
+msgid "The import failed."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:272
+msgid ""
+"The static leases of OpenWrt (the host entries that dnsmasq and odhcpd read "
+"from /etc/config/dhcp) can be written to Kea as reservations. This page "
+"stores nothing: the list shows what an import would do right now."
+msgstr ""
+
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:433
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:81
 msgid "There are no changes to save."
@@ -572,12 +613,6 @@ msgid ""
 "subnet that does not override them."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:119
-msgid ""
-"This is a dry-run preview. Entries that cannot be safely represented as Kea "
-"reservations are marked disabled with warnings."
-msgstr ""
-
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:351
 msgid "This subnet will be removed from the Kea configuration when you save."
 msgstr ""
@@ -586,6 +621,10 @@ msgstr ""
 msgid ""
 "Timers are in seconds. Empty fields use the global Kea value shown as "
 "placeholder."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:274
+msgid "To change an entry, edit the static lease and reload this page:"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:433
@@ -597,7 +636,7 @@ msgstr ""
 msgid "Unavailable"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:57
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:135
 msgid "Updated"
 msgstr ""
 
@@ -616,8 +655,10 @@ msgstr ""
 msgid "Validation"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:102
-msgid "Warnings"
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:105
+msgid ""
+"Write the selected static leases to the Kea configuration as reservations? "
+"The current files are backed up first. Kea is not reloaded."
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/overview.js:19
@@ -685,12 +726,22 @@ msgid ""
 "together"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:64
-msgid "skipped"
-msgstr ""
-
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:903
 msgid "subnet is required"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:169
+msgid "the file cannot be parsed. Fix it on the Configuration page first."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:173
+msgid ""
+"the file contains comments. An import rewrites it as plain JSON and removes "
+"them."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:166
+msgid "the file does not exist, so these static leases cannot be imported."
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:179
@@ -703,4 +754,8 @@ msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:203
 msgid "to"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:193
+msgid "unnamed"
 msgstr ""

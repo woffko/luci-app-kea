@@ -30,7 +30,10 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const { openPage, screenshot, main } = require("./lib.js");
+const {
+	openPage, screenshot, main, footerButton, expectNotification, openRawEditor,
+	readRawConfig, writeRawConfig
+} = require("./lib.js");
 const { loadModule } = require("../js/luci-loader.js");
 
 const model = loadModule("kea.model");
@@ -43,7 +46,6 @@ const SCENARIOS = [
 	{
 		family: "dhcp4",
 		heading: "Kea DHCPv4",
-		file: "kea-dhcp4.conf",
 		fixture: fixture("kea-dhcp4-rich.conf"),
 		shown: { "Subnet": "192.168.1.0/24", "Gateway": "192.168.1.1", "Domain Name": "lan" },
 		edit: { label: "Gateway", value: "192.168.1.254" },
@@ -59,7 +61,6 @@ const SCENARIOS = [
 	{
 		family: "dhcp6",
 		heading: "Kea DHCPv6",
-		file: "kea-dhcp6.conf",
 		fixture: fixture("kea-dhcp6-rich.conf"),
 		shown: { "Subnet": "fd00:1::/64", "DNS Servers": "fd00:1::1, fd00:1::2", "Preferred Lifetime": "1800" },
 		edit: { label: "DNS Servers", value: "fd00:1::53" },
@@ -99,60 +100,15 @@ function ok(message) {
 	console.log("ok " + (++step) + " - " + message);
 }
 
-/* LuCI renders "Save & Apply" as a dropdown and the others as buttons. */
-function footerButton(page, label) {
-	if (label === "Save & Apply")
-		return page.locator(".cbi-page-actions .cbi-dropdown li[selected]");
-
-	return page.locator(".cbi-page-actions button", { hasText: new RegExp("^" + label + "$") });
-}
-
 function fieldInput(page, label) {
 	return page.locator(".cbi-value", {
 		has: page.locator("label.cbi-value-title", { hasText: new RegExp("^" + label + "$") })
 	}).locator("input").first();
 }
 
-/* Wait for a LuCI notification containing the text, then dismiss them all. */
-async function expectNotification(page, text) {
-	await page.locator(".alert-message", { hasText: text }).first()
-		.waitFor({ timeout: 30000 });
-
-	await page.evaluate(() => {
-		document.querySelectorAll("#maincontent > .alert-message, #view ~ .alert-message")
-			.forEach((node) => node.remove());
-	});
-}
-
 async function openEditor(page, scenario) {
 	await openPage(page, scenario.family, scenario.heading);
 	await page.locator("#view h3", { hasText: "br-lan" }).first().waitFor();
-}
-
-async function openRawEditor(page, scenario) {
-	const selector = page.locator("#view select").first();
-
-	await openPage(page, "configuration", "Kea Configuration");
-
-	/* Selecting the file that is already shown would make the page load it
-	 * again and replace the editor under the test's hands. */
-	if (await selector.inputValue() !== scenario.family)
-		await selector.selectOption(scenario.family);
-
-	await page.locator("#view h3", { hasText: scenario.file }).waitFor();
-}
-
-async function readRawConfig(page, scenario) {
-	await openRawEditor(page, scenario);
-
-	return page.locator("#view textarea").inputValue();
-}
-
-async function writeRawConfig(page, scenario, content) {
-	await openRawEditor(page, scenario);
-	await page.locator("#view textarea").fill(content);
-	await footerButton(page, "Save").click();
-	await expectNotification(page, "configuration saved");
 }
 
 function parse(content) {
@@ -167,8 +123,8 @@ async function testEditor(page, scenario) {
 	const name = scenario.family;
 	const rows = page.locator("#view table tbody tr");
 
-	await writeRawConfig(page, scenario, scenario.fixture);
-	assert.equal(await readRawConfig(page, scenario), scenario.fixture);
+	await writeRawConfig(page, scenario.family, scenario.fixture);
+	assert.equal(await readRawConfig(page, scenario.family), scenario.fixture);
 	ok(name + ": raw editor saved the fixture and Kea accepted it");
 
 	await openEditor(page, scenario);
@@ -190,7 +146,7 @@ async function testEditor(page, scenario) {
 	const expected = parse(scenario.fixture);
 
 	scenario.expected(expected);
-	assert.deepEqual(parse(await readRawConfig(page, scenario)), expected);
+	assert.deepEqual(parse(await readRawConfig(page, scenario.family)), expected);
 	ok(name + ": only the edited option and the disabled reservation changed in the file");
 
 	await openEditor(page, scenario);
@@ -203,7 +159,7 @@ async function testEditor(page, scenario) {
 	await expectNotification(page, "no changes to save");
 	ok(name + ": saving without changes writes nothing");
 
-	await openRawEditor(page, scenario);
+	await openRawEditor(page, scenario.family);
 
 	const backups = page.locator("#view .cbi-section", { hasText: "Backups" });
 
@@ -211,14 +167,14 @@ async function testEditor(page, scenario) {
 	await backups.locator("button", { hasText: /^Restore$/ }).click();
 	await page.locator(".modal button", { hasText: /^Restore$/ }).click();
 	await expectNotification(page, "backup restored");
-	assert.equal(await readRawConfig(page, scenario), scenario.fixture);
+	assert.equal(await readRawConfig(page, scenario.family), scenario.fixture);
 	ok(name + ": restoring the newest backup brought the fixture back byte for byte");
 }
 
 async function testExampleRemoval(page, scenario) {
 	const removeButton = page.locator("#view button", { hasText: /^Remove example entries$/ });
 
-	await writeRawConfig(page, scenario, JSON.stringify(WITH_EXAMPLES, null, "\t") + "\n");
+	await writeRawConfig(page, scenario.family, JSON.stringify(WITH_EXAMPLES, null, "\t") + "\n");
 	await openEditor(page, scenario);
 	await removeButton.waitFor();
 	assert.equal(await page.locator("#view button", { hasText: "192.0.2.0/24" }).count(), 0);
@@ -231,7 +187,7 @@ async function testExampleRemoval(page, scenario) {
 	const kept = model.clone(WITH_EXAMPLES);
 
 	kept.Dhcp4.subnet4[1]["option-data"] = [ { name: "routers", data: "192.168.1.1" } ];
-	assert.deepEqual(parse(await readRawConfig(page, scenario)), kept);
+	assert.deepEqual(parse(await readRawConfig(page, scenario.family)), kept);
 	ok("dhcp4: an ordinary save keeps the example entries");
 
 	await openEditor(page, scenario);
@@ -240,7 +196,7 @@ async function testExampleRemoval(page, scenario) {
 	await page.locator(".modal button", { hasText: /^Remove and save$/ }).click();
 	await expectNotification(page, "configuration saved");
 
-	const cleaned = parse(await readRawConfig(page, scenario));
+	const cleaned = parse(await readRawConfig(page, scenario.family));
 
 	assert.deepEqual(cleaned, {
 		Dhcp4: {
@@ -269,9 +225,9 @@ async function testExampleRemoval(page, scenario) {
 
 main(async (page) => {
 	for (const scenario of SCENARIOS) {
-		const original = await readRawConfig(page, scenario);
+		const original = await readRawConfig(page, scenario.family);
 
-		assert.ok(original.length > 0, "the target has a " + scenario.file);
+		assert.ok(original.length > 0, "the target has a " + scenario.family + " config");
 
 		try {
 			await testEditor(page, scenario);
@@ -280,11 +236,11 @@ main(async (page) => {
 				await testExampleRemoval(page, scenario);
 		}
 		finally {
-			if (await readRawConfig(page, scenario) !== original)
-				await writeRawConfig(page, scenario, original);
+			if (await readRawConfig(page, scenario.family) !== original)
+				await writeRawConfig(page, scenario.family, original);
 		}
 
-		assert.equal(await readRawConfig(page, scenario), original);
+		assert.equal(await readRawConfig(page, scenario.family), original);
 		ok(scenario.family + ": the original configuration is back in place");
 	}
 

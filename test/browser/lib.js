@@ -78,4 +78,64 @@ function main(body) {
 	});
 }
 
-module.exports = { BASE_URL, openPage, screenshot, main };
+/* ---- helpers for tests that change configuration files ---- */
+
+/* The Kea config files as the Configuration page names them. */
+const CONFIG_FILES = {
+	dhcp4: "kea-dhcp4.conf",
+	dhcp6: "kea-dhcp6.conf",
+	dhcp_ddns: "kea-dhcp-ddns.conf",
+	ctrl_agent: "kea-ctrl-agent.conf"
+};
+
+/* LuCI renders "Save & Apply" as a dropdown and the others as buttons. */
+function footerButton(page, label) {
+	if (label === "Save & Apply")
+		return page.locator(".cbi-page-actions .cbi-dropdown li[selected]");
+
+	return page.locator(".cbi-page-actions button", { hasText: new RegExp("^" + label + "$") });
+}
+
+/* Wait for a LuCI notification containing the text, then dismiss them all. */
+async function expectNotification(page, text) {
+	await page.locator(".alert-message", { hasText: text }).first()
+		.waitFor({ timeout: 30000 });
+
+	await page.evaluate(() => {
+		document.querySelectorAll("#maincontent > .alert-message, #view ~ .alert-message")
+			.forEach((node) => node.remove());
+	});
+}
+
+async function openRawEditor(page, name) {
+	const selector = page.locator("#view select").first();
+
+	await openPage(page, "configuration", "Kea Configuration");
+
+	/* Selecting the file that is already shown would make the page load it
+	 * again and replace the editor under the test's hands. */
+	if (await selector.inputValue() !== name)
+		await selector.selectOption(name);
+
+	await page.locator("#view h3", { hasText: CONFIG_FILES[name] }).waitFor();
+}
+
+/* Read a config file through the Configuration page. */
+async function readRawConfig(page, name) {
+	await openRawEditor(page, name);
+
+	return page.locator("#view textarea").inputValue();
+}
+
+/* Replace a config file through the Configuration page. */
+async function writeRawConfig(page, name, content) {
+	await openRawEditor(page, name);
+	await page.locator("#view textarea").fill(content);
+	await footerButton(page, "Save").click();
+	await expectNotification(page, "configuration saved");
+}
+
+module.exports = {
+	BASE_URL, CONFIG_FILES, openPage, screenshot, main,
+	footerButton, expectNotification, openRawEditor, readRawConfig, writeRawConfig
+};

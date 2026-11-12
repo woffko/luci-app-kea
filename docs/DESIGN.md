@@ -43,9 +43,9 @@ UCI and must edit Kea JSON.
 - Never stop dnsmasq or odhcpd implicitly. Show conflicts and give explicit
   controls.
 - Keep Kea JSON valid at all times. A reservation the user disabled is moved
-  into the subnet's `user-context`, where Kea ignores it. Import entries that
-  cannot be expressed as a valid reservation live in a LuCI-owned staging
-  file, not in the Kea config.
+  into the subnet's `user-context`, where Kea ignores it. Static leases that
+  cannot be expressed as a valid reservation are not copied anywhere: they
+  stay in `/etc/config/dhcp`, and the import page says why.
 - Write back only what the user changed. The editors keep the original subnet
   object and never rebuild it from the form.
 - Keep parsing, import and validation logic in backend ucode modules so it can
@@ -75,75 +75,83 @@ Disabled reservations are stored like this and shown in the editor with the
 }
 ```
 
-## dnsmasq static lease import
+## Static lease import
 
-Source: `config host` sections in `/etc/config/dhcp`. Relevant options: `name`,
-`mac`, `ip`, `duid`, `hostid`, `leasetime`, `tag`, `match_tag`, `networkid`,
-`broadcast`, `dns`, `enable`.
+Source: the `config host` sections of `/etc/config/dhcp`, as dnsmasq and
+odhcpd read them. One section describes a host for both protocols:
 
-### Workflow
+```text
+config host
+	option name 'laptop'
+	list mac '02:00:00:00:00:AA'      DHCPv4 identifier (a list in UCI)
+	option ip '192.168.1.77'          DHCPv4 address
+	list duid '00030001020000000aaa'  DHCPv6 identifier, hex, optionally %IAID
+	option hostid '77'                IPv6 token: the low 64 bits of the address
+```
 
-1. Read `/etc/config/dhcp`.
-2. Read `/etc/config/network` to discover subnet prefixes.
-3. Read the existing Kea config.
-4. Build a dry-run import model.
-5. Show a preview table before writing anything.
-6. Mark each entry as ready, disabled with warning, duplicate/conflict, or
-   unsupported.
-7. Allow editing entries before import.
-8. Write only valid enabled entries to the Kea config.
-9. Store invalid and disabled entries in the staging file.
-10. Validate the Kea config before saving.
-11. Create a backup before writing.
+Other options that matter: `enable`, `leasetime`, `tag`, `match_tag`,
+`networkid`, `instance`, `broadcast`, `dns`.
+
+### No second copy
+
+The import keeps nothing between runs. Static leases already live in UCI,
+which is where OpenWrt keeps such data, so a staging file would only be a
+copy that can drift. Each time the page is opened, the backend builds the
+list from the UCI sections and the current Kea configuration:
+
+1. Read the host sections, the OpenWrt interfaces and both Kea files.
+2. Turn each section into up to two entries, one per protocol.
+3. Compare each entry with the Kea subnets and their reservations.
+4. Show the result. Nothing is written.
+5. On import, write the selected entries to `kea-dhcp4.conf` and
+   `kea-dhcp6.conf`. Both files are validated before either is replaced, and
+   each is backed up.
+
+To change an entry, the user edits the static lease in LuCI's own DHCP page.
+A lease that was imported is recognized in Kea on the next run, so importing
+twice changes nothing.
 
 ### Mapping
 
 ```text
-IPv4:  mac    -> hw-address
-       ip     -> ip-address
-       name   -> hostname
+DHCPv4:  mac     -> hw-address
+         ip      -> ip-address
+         name    -> hostname
 
-IPv6:  duid   -> duid / client-id
-       hostid -> IPv6 address suffix, only if the subnet prefix is known
-       ip     -> explicit IPv6 reservation, if present
-       name   -> hostname
+DHCPv6:  duid    -> duid (normalized to colon-separated octets)
+         hostid  -> ip-addresses: [ <subnet prefix> + token ]
+         name    -> hostname
 ```
 
-### Entries imported as disabled, with a warning
+The subnet for a token is the only DHCPv6 subnet of `/64` or shorter, or, if
+there are several, the one bound to the interface that the host's IPv4
+address belongs to.
 
-- missing identifier (`mac`, `duid`);
-- IPv4 entry without an address;
-- IPv4 address outside every known Kea/OpenWrt subnet;
-- DHCPv6 entry with `hostid` but no resolvable subnet prefix;
-- DHCPv6 entry with an invalid or truncated DUID or client ID (for example
-  `00`);
-- several MAC addresses in one entry, until split;
-- `tag`, `match_tag`, `networkid`, `broadcast` or custom option behavior;
-- duplicate IP address;
-- duplicate MAC address or DUID;
-- invalid hostname;
-- source entry disabled in UCI.
+### Entry states
 
-### Staging file
+| State | Meaning | Selected by default |
+|-------|---------|---------------------|
+| Ready | Becomes a reservation as it is | yes |
+| Needs review | Valid, but something is not carried over (lease time, tags, the hosts file flag, an IAID), or the static lease is disabled | no |
+| Changes Kea | Kea has a reservation for this client with another address or hostname | no |
+| Already in Kea | Nothing to do | - |
+| Cannot import | Cannot be expressed as a reservation; the reason is shown | - |
 
-`/etc/kea/luci-reservations.json` keeps, per entry:
+Reasons for "Cannot import":
 
-- original UCI section name and raw values;
-- normalized values;
-- target family (`dhcp4` or `dhcp6`);
-- target subnet ID and prefix;
-- enabled state;
-- warnings and errors, with field names;
-- import timestamp;
-- whether the entry has been written to the Kea config.
+- no MAC address or no DUID (dnsmasq can match a host by name, Kea cannot);
+- no address, an invalid address, or `ip 'ignore'`;
+- an invalid or truncated DUID (for example `00`), an invalid token;
+- several MAC addresses or DUIDs for one address: Kea reserves an address for
+  one identifier;
+- an address outside every Kea subnet, or no subnet to place a token in;
+- an address that Kea already reserves for another client;
+- two static leases with the same identifier or the same address;
+- a missing or unparsable Kea configuration file.
 
-### Warning display
-
-- warning icon in the import table;
-- entry disabled by default;
-- invalid fields highlighted in the edit dialog, with the reason on hover or
-  focus;
-- the entry can be fixed and enabled.
+A disabled static lease that the user selects is imported as a disabled
+reservation, in the subnet's `user-context`, where the DHCP editors show it
+switched off.
 
 ## High availability page
 
@@ -193,18 +201,17 @@ For `kea-dhcp4.conf`, `kea-dhcp6.conf`, `kea-dhcp-ddns.conf` and
 
 ### Importer
 
-- valid IPv4 static lease;
-- IPv4 lease outside every subnet;
-- duplicate IPv4 address; duplicate MAC address;
-- several MAC addresses in one entry;
-- missing IP address;
-- disabled UCI host entry;
-- valid DHCPv6 DUID with `hostid`;
-- `hostid` without a known prefix;
-- truncated DUID or client ID `00`;
-- duplicate DUID/IAID;
-- unsupported dnsmasq tags and options;
-- re-import of the same source creates no duplicates.
+Covered by `test/ucode/importer.uc` and `test/ucode/target/import.uc`:
+
+- a dual-stack section yields two reservations;
+- every "Cannot import" reason above;
+- settings that are not carried over;
+- a reservation Kea already has, a changed address, a changed hostname;
+- duplicates among the static leases;
+- token placement with one and with several DHCPv6 subnets;
+- import of a selection, of a disabled lease, of an update;
+- a second import changes nothing;
+- if Kea rejects one file, neither is replaced.
 
 ### Backend RPC, with temporary config roots
 
