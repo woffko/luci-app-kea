@@ -61,6 +61,11 @@ async function withSession(body) {
 		await login(page);
 		await body(page);
 	}
+	catch (err) {
+		/* Keep what the page looked like when the test failed. */
+		await screenshot(page, "failure").catch(() => {});
+		throw err;
+	}
 	finally {
 		await browser.close();
 	}
