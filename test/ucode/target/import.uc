@@ -1,66 +1,92 @@
 'use strict';
 
-// Import preview from a UCI fixture, read the way the rpcd plugin reads
-// /etc/config/dhcp. Needs the ucode "uci" module, so it runs on OpenWrt.
+// Import preview and commit from a UCI fixture, read the way the rpcd plugin
+// reads /etc/config/dhcp, and validated by the real Kea binaries. Needs the
+// ucode "uci" module, kea-dhcp4 and kea-dhcp6, so it runs on OpenWrt.
 
 import * as fs from 'fs';
 import { cursor } from 'uci';
 import { test, equal, tmpdir, rm_rf, fixture, done } from '../lib.uc';
+import * as config from 'luci.kea.config';
 import * as importer from 'luci.kea.importer';
+import { parse } from 'luci.kea.jsonc';
 
 const root = tmpdir();
+const ctx = config.context({ root, run_dir: root + '/run' });
+const interfaces = [ { name: 'lan', device: 'br-lan', ipaddr: '192.168.1.1/24' } ];
 
-fs.writefile(root + '/dhcp', fs.readfile(fixture('dhcp-static-leases.uci')));
+config.mkdir_p(root + '/uci', 0o755);
+config.mkdir_p(ctx.conf_dir, 0o755);
+fs.writefile(root + '/uci/dhcp', fs.readfile(fixture('dhcp-static-leases.uci')));
+fs.writefile(config.path(ctx, 'dhcp4'), fs.readfile(fixture('kea-dhcp4-rich.conf')));
+fs.writefile(config.path(ctx, 'dhcp6'), fs.readfile(fixture('kea-dhcp6-rich.conf')));
 
 let hosts = [];
 
-cursor(root).foreach('dhcp', 'host', s => push(hosts, s));
+cursor(root + '/uci').foreach('dhcp', 'host', s => push(hosts, s));
 
-let entries = {};
+function entries() {
+	let result = {};
 
-for (let entry in importer.preview(hosts))
-	entries[entry.source] = entry;
+	for (let entry in importer.preview(ctx, hosts, interfaces).entries)
+		result[entry.key] = entry;
 
-test('all five host sections are read', () => {
-	equal(sort(keys(entries)),
-		[ 'dhcpv6_duid', 'dhcpv6_truncated_duid', 'missing_mac', 'tagged_dnsmasq_only', 'valid_ipv4' ]);
+	return result;
+}
+
+test('UCI lists and options are read as the import expects', () => {
+	equal(length(hosts), 8);
+	equal(hosts[0].mac, [ '02:00:00:00:00:AA' ]);
+	equal(hosts[0].duid, [ '00030001020000000aaa' ]);
+	equal(hosts[3].mac, [ '02:00:00:00:00:b1', '02:00:00:00:00:b2' ]);
 });
 
-test('the valid IPv4 host is ready', () => {
-	let entry = entries.valid_ipv4;
+test('every static lease of the fixture is classified', () => {
+	let found = entries();
+	let statuses = {};
 
-	equal(entry.family, 'dhcp4');
-	equal(entry.status, 'ready');
-	equal(entry.mac, '12:00:78:59:29:8c');
-	equal(entry.ip, '10.0.77.118');
-	equal(entry.warnings, []);
+	for (let key, entry in found)
+		statuses[key] = entry.status;
+
+	equal(statuses, {
+		'dual:dhcp4': 'ready',
+		'dual:dhcp6': 'ready',
+		'printer:dhcp4': 'review',
+		'known:dhcp4': 'present',
+		'docked:dhcp4': 'blocked',
+		'elsewhere:dhcp4': 'blocked',
+		'off:dhcp4': 'review',
+		'truncated:dhcp6': 'blocked',
+		'byname:dhcp4': 'blocked'
+	});
+	equal(found['dual:dhcp6'].address, 'fd00:1::77');
+	equal(found['truncated:dhcp6'].notes, [ 'invalid or truncated DUID' ]);
 });
 
-test('the host without a MAC address is disabled', () => {
-	equal(entries.missing_mac.status, 'disabled');
-	equal(entries.missing_mac.warnings, [ 'missing MAC address' ]);
+test('Kea accepts both files after the import', () => {
+	let result = importer.commit(ctx, hosts, interfaces, [ 'dual:dhcp4', 'dual:dhcp6', 'off:dhcp4', 'printer:dhcp4' ]);
+
+	equal(result.result, true, result.validation);
+	equal(result.imported, 4);
+	equal(config.read(ctx, 'dhcp4').valid, true);
+	equal(config.read(ctx, 'dhcp6').valid, true);
+
+	let subnet6 = parse(fs.readfile(config.path(ctx, 'dhcp6'))).config.Dhcp6.subnet6[0];
+
+	equal(subnet6.reservations[3],
+		{ duid: '00:03:00:01:02:00:00:00:0a:aa', 'ip-addresses': [ 'fd00:1::77' ], hostname: 'laptop' });
 });
 
-test('the full DHCPv6 DUID is preserved', () => {
-	let entry = entries.dhcpv6_duid;
+test('a second import finds nothing left to do', () => {
+	let found = entries();
 
-	equal(entry.family, 'dhcp6');
-	equal(entry.status, 'ready');
-	equal(entry.duid, '00:04:e6:f8:c8:8f:a8:5f:d8:18:25:59:60:2d:e4:b5:fc:2e');
-});
+	for (let key in [ 'dual:dhcp4', 'dual:dhcp6', 'off:dhcp4', 'printer:dhcp4' ])
+		equal(found[key].status, 'present', key);
 
-test('the truncated DUID is rejected', () => {
-	equal(entries.dhcpv6_truncated_duid.status, 'disabled');
-	equal(entries.dhcpv6_truncated_duid.warnings,
-		[ 'missing, invalid, or truncated DHCPv6 DUID/client-id' ]);
-});
+	let result = importer.commit(ctx, hosts, interfaces);
 
-test('dnsmasq-only tag and DNS behavior need manual review', () => {
-	equal(entries.tagged_dnsmasq_only.status, 'disabled');
-	equal(entries.tagged_dnsmasq_only.warnings, [
-		'dnsmasq tag import is not implemented yet',
-		'dns hostfile side effect is not represented in Kea reservation'
-	]);
+	equal(result.changed, false);
+	equal(result.imported, 0);
 });
 
 rm_rf(root);

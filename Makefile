@@ -4,7 +4,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-kea
-PKG_VERSION:=0.3.0
+PKG_VERSION:=0.4.0
 PKG_RELEASE:=1
 
 PKG_LICENSE:=Apache-2.0
@@ -19,10 +19,6 @@ LUCI_URL:=https://github.com/woffko/luci-app-kea
 LUCI_MAINTAINER:=$(PKG_MAINTAINER)
 LUCI_DEPENDS:=+luci-base +kea-uci +kea-lfc
 LUCI_PKGARCH:=all
-
-define Package/luci-app-kea/conffiles
-/etc/kea/luci-reservations.json
-endef
 
 include $(TOPDIR)/feeds/luci/luci.mk
 

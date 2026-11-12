@@ -82,13 +82,15 @@ const methods = {
 
 	importDnsmasqDryRun: {
 		call: function() {
-			return { import: { mode: 'dry-run', entries: importer.preview(dhcp_hosts()) } };
+			return { import: importer.preview(ctx, dhcp_hosts(), service.network_interfaces(ctx)) };
 		}
 	},
 
 	importDnsmasqCommit: {
-		call: function() {
-			return importer.commit(ctx, dhcp_hosts());
+		args: { entries: [] },
+		call: function(request) {
+			return importer.commit(ctx, dhcp_hosts(), service.network_interfaces(ctx),
+				request.args.entries);
 		}
 	},
 

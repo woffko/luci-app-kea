@@ -231,8 +231,6 @@ export function status(ctx) {
 		binaries[name] = { installed: !!fs.access(bin, 'x'), path: bin };
 	}
 
-	configs.staging = { exists: config.is_file(ctx.staging_file), path: ctx.staging_file };
-
 	for (let name in CONFLICT_SERVICES)
 		conflicts[name] = {
 			installed: init_installed(ctx, name),
@@ -244,7 +242,6 @@ export function status(ctx) {
 	return {
 		init_installed: init_installed(ctx, 'kea'),
 		init_enabled: init_enabled(ctx, 'kea'),
-		staging_exists: config.is_file(ctx.staging_file),
 		runtime: {
 			run_dir: config.is_dir(ctx.run_dir),
 			run_dir_path: ctx.run_dir,

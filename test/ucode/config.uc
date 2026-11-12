@@ -87,6 +87,16 @@ test('content the validator rejects changes nothing', () => {
 	equal(fs.lsdir(ctx.conf_dir), [ 'backups', 'kea-dhcp4.conf' ]);
 });
 
+test('check validates content without touching the file or making a backup', () => {
+	equal(config.check(ctx, 'dhcp4', body(9)), { valid: true, output: 'accepted dhcp4' });
+	equal(config.check(ctx, 'dhcp4', '{ broken').valid, false);
+	equal(config.check(ctx, 'nope', body(9)).valid, false);
+	equal(config.check(ctx, 'dhcp4', null).valid, false);
+	equal(fs.readfile(file), body(2));
+	equal(backups(), [ '20261111T163833Z' ]);
+	equal(fs.lsdir(ctx.conf_dir), [ 'backups', 'kea-dhcp4.conf' ]);
+});
+
 test('save refuses unknown names and non-string content', () => {
 	equal(config.save(ctx, '../x', body(1)), { result: false, error: 'invalid config name' });
 	equal(config.save(ctx, 'dhcp4', null), { result: false, error: 'invalid config content' });

@@ -4,283 +4,480 @@ import * as fs from 'fs';
 import { test, equal, ok, tmpdir, rm_rf, fixture, done } from './lib.uc';
 import * as config from 'luci.kea.config';
 import * as importer from 'luci.kea.importer';
-import { parse } from 'luci.kea.jsonc';
+import { parse, stringify } from 'luci.kea.jsonc';
 
-function host(values) {
-	return { '.name': 'cfg1', ...values };
+const rich4 = fs.readfile(fixture('kea-dhcp4-rich.conf'));
+const rich6 = fs.readfile(fixture('kea-dhcp6-rich.conf'));
+const interfaces = [
+	{ name: 'lan', device: 'br-lan', ipaddr: '192.168.1.1/24' },
+	{ name: 'guest', device: 'br-guest', ipaddr: '192.168.50.1/24' }
+];
+
+// A fresh environment: the two rich fixtures and two OpenWrt interfaces.
+function env() {
+	return { dhcp4: parse(rich4).config, dhcp6: parse(rich6).config, interfaces };
 }
 
-function warnings(values) {
-	return importer.classify(host(values)).warnings;
+function host(name, values) {
+	return { '.name': name, ...values };
 }
 
-/* ---- classification ------------------------------------------------------ */
+// Classify hosts and index the entries by key.
+function classify(hosts, environment) {
+	let result = {};
 
-test('a complete IPv4 host is ready', () => {
-	equal(importer.classify(host({ name: 'printer', mac: '12:00:78:59:29:8c', ip: '10.0.77.118' })), {
-		source: 'cfg1',
+	for (let entry in importer.classify_all(hosts, environment ?? env()))
+		result[entry.key] = entry;
+
+	return result;
+}
+
+function one(values, environment) {
+	return classify([ host('h', values) ], environment);
+}
+
+/* ---- one section, two protocols ------------------------------------------ */
+
+test('a dual-stack section yields a DHCPv4 and a DHCPv6 entry', () => {
+	let entries = one({
+		name: 'laptop',
+		mac: [ '02:00:00:00:00:AA' ],
+		ip: '192.168.1.77',
+		duid: [ '00030001020000000aaa' ],
+		hostid: '77'
+	});
+
+	equal(sort(keys(entries)), [ 'h:dhcp4', 'h:dhcp6' ]);
+	equal(importer.to_public(entries['h:dhcp4']), {
+		key: 'h:dhcp4',
+		source: 'h',
 		family: 'dhcp4',
 		status: 'ready',
-		enabled: true,
-		name: 'printer',
-		mac: '12:00:78:59:29:8c',
-		ip: '10.0.77.118',
-		duid: '',
-		hostid: '',
-		tag: '',
-		networkid: '',
-		warnings: []
+		selectable: true,
+		selected: true,
+		disabled: false,
+		name: 'laptop',
+		identifier_type: 'hw-address',
+		identifier: '02:00:00:00:00:aa',
+		address: '192.168.1.77',
+		subnet: '192.168.1.0/24',
+		notes: []
 	});
+	equal(entries['h:dhcp6'].status, 'ready');
+	equal(entries['h:dhcp6'].identifier_type, 'duid');
+	equal(entries['h:dhcp6'].identifier, '00:03:00:01:02:00:00:00:0a:aa');
+	equal(entries['h:dhcp6'].address, 'fd00:1::77');
+	equal(entries['h:dhcp6'].subnet, 'fd00:1::/64');
 });
 
-test('IPv4 problems disable the entry with a reason', () => {
-	equal(warnings({ ip: '10.0.0.1' }), [ 'missing MAC address' ]);
-	equal(warnings({ mac: '12:00:78:59:29:8c' }), [ 'missing IPv4 address' ]);
-	equal(warnings({ mac: '12:00:78:59:29:8c', ip: '10.0.0.300' }), [ 'invalid IPv4 address' ]);
-	equal(warnings({ mac: '12-00-78-59-29-8c', ip: '10.0.0.1' }), [ 'invalid MAC address' ]);
-
-	let entry = importer.classify(host({ ip: '10.0.0.1' }));
-
-	equal(entry.status, 'disabled');
-	equal(entry.enabled, false);
+test('a section with only IPv4 or only IPv6 data yields one entry', () => {
+	equal(keys(one({ mac: '02:00:00:00:00:aa', ip: '192.168.1.77' })), [ 'h:dhcp4' ]);
+	equal(keys(one({ duid: '00030001020000000aaa', hostid: '77' })), [ 'h:dhcp6' ]);
+	equal(keys(one({ name: 'empty' })), [ 'h:dhcp4' ]);
+	equal(one({ name: 'empty' })['h:dhcp4'].status, 'blocked');
 });
 
-test('a MAC list, as UCI stores it, needs manual review', () => {
-	let entry = importer.classify(host({
-		mac: [ '12:00:78:59:29:8c', '12:00:78:59:29:8d' ],
-		ip: '10.0.0.1'
-	}));
+test('an IPv6 address in "ip" belongs to the DHCPv6 entry', () => {
+	let entries = one({ duid: '00:03:00:01:02:00:00:00:0a:aa', ip: 'FD00:1::EA4D' });
 
-	equal(entry.mac, '12:00:78:59:29:8c 12:00:78:59:29:8d');
-	equal(entry.warnings, [ 'multiple MAC addresses need manual review' ]);
+	equal(keys(entries), [ 'h:dhcp6' ]);
+	equal(entries['h:dhcp6'].status, 'ready');
+	equal(entries['h:dhcp6'].address, 'fd00:1::ea4d');
 });
 
-test('a disabled source entry stays disabled', () => {
-	equal(warnings({ mac: '12:00:78:59:29:8c', ip: '10.0.0.1', enable: '0' }),
-		[ 'source dnsmasq host entry is disabled' ]);
-	equal(warnings({ mac: '12:00:78:59:29:8c', ip: '10.0.0.1', enable: 'on' }), []);
-});
+/* ---- DHCPv4 ------------------------------------------------------------- */
 
-test('a DUID or hostid makes the entry DHCPv6', () => {
-	let entry = importer.classify(host({
-		name: 'nut',
-		duid: '00:04:e6:f8:c8:8f:a8:5f:d8:18:25:59:60:2d:e4:b5:fc:2e',
-		ip: 'fd00:1234:abcd:1::ea4d'
-	}));
+function blocked4(values, environment) {
+	let entry = one(values, environment)['h:dhcp4'];
 
-	equal(entry.family, 'dhcp6');
-	equal(entry.status, 'ready');
-	equal(entry.duid, '00:04:e6:f8:c8:8f:a8:5f:d8:18:25:59:60:2d:e4:b5:fc:2e');
-});
+	equal(entry.status, 'blocked');
+	equal(entry.selectable, false);
+	equal(entry.selected, false);
 
-test('truncated DUIDs and unresolved host IDs are rejected', () => {
-	for (let duid in [ '00', '*', '00:01' ])
-		equal(warnings({ duid, ip: 'fd00::1' }),
-			[ 'missing, invalid, or truncated DHCPv6 DUID/client-id' ], duid);
-
-	equal(warnings({ duid: '00:01:02:03' }), [ 'missing DHCPv6 address or hostid' ]);
-	equal(warnings({ duid: '00:01:02:03', hostid: '23' }),
-		[ 'DHCPv6 hostid requires subnet prefix resolution before import' ]);
-	equal(warnings({ hostid: '23' }), [
-		'missing, invalid, or truncated DHCPv6 DUID/client-id',
-		'DHCPv6 hostid requires subnet prefix resolution before import'
-	]);
-});
-
-test('dnsmasq-only options are reported', () => {
-	equal(warnings({
-		mac: '12:00:78:59:29:8d',
-		ip: '10.0.77.120',
-		tag: 'special',
-		match_tag: 'known',
-		networkid: 'lan',
-		dns: '1'
-	}), [
-		'dnsmasq tag import is not implemented yet',
-		'dnsmasq match_tag import is not implemented yet',
-		'dnsmasq networkid import is not implemented yet',
-		'dns hostfile side effect is not represented in Kea reservation'
-	]);
-});
-
-/* ---- merge --------------------------------------------------------------- */
-
-function ready(name, mac, ip) {
-	return importer.classify({ '.name': name, name, mac, ip });
+	return entry.notes;
 }
 
-test('merge adds ready IPv4 entries to the subnet that contains the address', () => {
-	let conf = {
-		Dhcp4: {
-			subnet4: [
-				{ id: 1, subnet: '192.168.1.0/24', relay: { 'ip-addresses': [ '192.168.1.254' ] } },
-				{ id: 2, subnet: '10.0.0.0/8', reservations: [ { 'hw-address': '02:00:00:00:00:01', 'ip-address': '10.0.0.5' } ] }
-			]
-		}
-	};
-	let result = importer.merge(conf, [
-		ready('laptop', '02:00:00:00:00:aa', '192.168.1.77'),
-		ready('server', '02:00:00:00:00:bb', '10.1.2.3'),
-		ready('elsewhere', '02:00:00:00:00:cc', '172.16.9.9'),
-		importer.classify({ '.name': 'v6', duid: '00:01:02:03', ip: 'fd00::1' }),
-		importer.classify({ '.name': 'broken', ip: '192.168.1.5' })
+test('DHCPv4 entries that cannot become a reservation are blocked with the reason', () => {
+	equal(blocked4({ ip: '192.168.1.5' }), [ 'no MAC address' ]);
+	equal(blocked4({ name: 'pc', ip: '192.168.1.5' }),
+		[ 'no MAC address (dnsmasq matches this host by its name, Kea cannot)' ]);
+	equal(blocked4({ mac: '02:00:00:00:00:aa' }), [ 'no IPv4 address' ]);
+	equal(blocked4({ mac: '02:00:00:00:00:aa', ip: '192.168.1.300' }), [ 'invalid IPv4 address' ]);
+	equal(blocked4({ mac: '02-00-00-00-00-aa', ip: '192.168.1.5' }), [ 'invalid MAC address' ]);
+	equal(blocked4({ mac: '02:00:00:00:00:aa', ip: 'ignore' }),
+		[ 'dnsmasq ignores this host; a Kea reservation cannot express that' ]);
+	equal(blocked4({ mac: [ '02:00:00:00:00:b1', '02:00:00:00:00:b2' ], ip: '192.168.1.90' }),
+		[ 'several MAC addresses share one address; Kea reserves an address for one identifier' ]);
+});
+
+test('an address outside every Kea subnet is blocked, with a hint when OpenWrt knows the network', () => {
+	equal(blocked4({ mac: '02:00:00:00:00:aa', ip: '172.16.9.9' }),
+		[ 'the address is outside every Kea DHCPv4 subnet' ]);
+	equal(blocked4({ mac: '02:00:00:00:00:aa', ip: '192.168.50.9' }),
+		[ 'the address is outside every Kea DHCPv4 subnet; create the subnet for interface guest on the DHCPv4 page first' ]);
+});
+
+test('a missing Kea configuration blocks the entries of that protocol only', () => {
+	let entries = one({
+		mac: '02:00:00:00:00:aa', ip: '192.168.1.77', duid: '00030001020000000aaa', hostid: '77'
+	}, { dhcp4: null, dhcp6: parse(rich6).config, interfaces });
+
+	equal(entries['h:dhcp4'].notes, [ 'the Kea DHCPv4 configuration is missing or cannot be parsed' ]);
+	equal(entries['h:dhcp6'].status, 'ready');
+});
+
+test('dnsmasq settings that Kea cannot express ask for a review', () => {
+	let entry = one({
+		mac: '02:00:00:00:00:aa',
+		ip: '192.168.1.77',
+		tag: [ 'special' ],
+		match_tag: [ 'known' ],
+		networkid: 'lan',
+		leasetime: '12h',
+		instance: 'main',
+		dns: '1',
+		broadcast: '1'
+	})['h:dhcp4'];
+
+	equal(entry.status, 'review');
+	equal(entry.selectable, true);
+	equal(entry.selected, false);
+	equal(entry.notes, [
+		'the dnsmasq tag is not carried over',
+		'the dnsmasq tag match is not carried over',
+		'the dnsmasq network ID is not carried over',
+		'the per-host lease time is not carried over',
+		'the dnsmasq instance is not carried over',
+		'the hosts file entry (dns) is not carried over',
+		'the broadcast flag is not carried over'
 	]);
+});
+
+test('a disabled static lease can be imported as a disabled reservation', () => {
+	let entry = one({ mac: '02:00:00:00:00:aa', ip: '192.168.1.77', enable: '0' })['h:dhcp4'];
+
+	equal(entry.status, 'review');
+	equal(entry.disabled, true);
+	equal(entry.notes, [ 'the static lease is disabled; it is imported as a disabled reservation' ]);
+});
+
+/* ---- what Kea already has ------------------------------------------------ */
+
+test('a reservation Kea already has is reported as present', () => {
+	let entry = one({ name: 'nas', mac: '02:00:00:00:00:01', ip: '192.168.1.10' })['h:dhcp4'];
+
+	equal(entry.status, 'present');
+	equal(entry.selectable, false);
+	equal(entry.notes, [ 'already reserved in Kea' ]);
+
+	/* A lease without a name does not ask to drop the hostname Kea has. */
+	equal(one({ mac: '02:00:00:00:00:01', ip: '192.168.1.10' })['h:dhcp4'].status, 'present');
+});
+
+test('a different address or hostname for a known client is an update the user must select', () => {
+	let moved = one({ name: 'nas', mac: '02:00:00:00:00:01', ip: '192.168.1.20' })['h:dhcp4'];
+
+	equal(moved.status, 'update');
+	equal(moved.selectable, true);
+	equal(moved.selected, false);
+	equal(moved.notes, [ 'Kea reserves 192.168.1.10 for this client; the import changes it to 192.168.1.20' ]);
+
+	let renamed = one({ name: 'storage', mac: '02:00:00:00:00:01', ip: '192.168.1.10' })['h:dhcp4'];
+
+	equal(renamed.status, 'update');
+	equal(renamed.notes, [ 'the import sets the hostname of the existing reservation to storage' ]);
+});
+
+test('an address reserved for another client is not taken over', () => {
+	equal(blocked4({ mac: '02:00:00:00:00:aa', ip: '192.168.1.11' }),
+		[ 'the address is already reserved in Kea for 01:02:00:00:00:00:02' ]);
+});
+
+test('a client stored as a disabled reservation is not imported again', () => {
+	let environment = env();
+
+	environment.dhcp4.Dhcp4.subnet4[0]['user-context']['luci-app-kea'] = {
+		'disabled-reservations': [ { 'hw-address': '02:00:00:00:00:AA', 'ip-address': '192.168.1.77' } ]
+	};
+
+	let entry = one({ mac: '02:00:00:00:00:aa', ip: '192.168.1.77' }, environment)['h:dhcp4'];
+
+	equal(entry.status, 'present');
+	equal(entry.notes, [ 'already stored in Kea as a disabled reservation' ]);
+});
+
+/* ---- duplicates ---------------------------------------------------------- */
+
+test('hosts that share a MAC address or an address block each other', () => {
+	let entries = classify([
+		host('a', { name: 'one', mac: '02:00:00:00:00:aa', ip: '192.168.1.77' }),
+		host('b', { name: 'two', mac: '02:00:00:00:00:aa', ip: '192.168.1.78' }),
+		host('c', { name: 'three', mac: '02:00:00:00:00:cc', ip: '192.168.1.79' }),
+		host('d', { mac: '02:00:00:00:00:dd', ip: '192.168.1.79' }),
+		host('e', { name: 'fine', mac: '02:00:00:00:00:ee', ip: '192.168.1.80' })
+	]);
+
+	equal(entries['a:dhcp4'].notes, [ 'same MAC address as host two' ]);
+	equal(entries['b:dhcp4'].notes, [ 'same MAC address as host one' ]);
+	equal(entries['c:dhcp4'].notes, [ 'same address as host d' ]);
+	equal(entries['d:dhcp4'].notes, [ 'same address as host three' ]);
+	equal(entries['e:dhcp4'].status, 'ready');
+});
+
+/* ---- DHCPv6 ------------------------------------------------------------- */
+
+test('DUIDs are read in the OpenWrt notation and normalized', () => {
+	equal(importer.parse_duid('00030001020000000AAA'), { duid: '00:03:00:01:02:00:00:00:0a:aa', iaid: '' });
+	equal(importer.parse_duid('00:03:00:01:02:00:00:00:0a:aa'), { duid: '00:03:00:01:02:00:00:00:0a:aa', iaid: '' });
+	equal(importer.parse_duid('00030001020000000aaa%1f'), { duid: '00:03:00:01:02:00:00:00:0a:aa', iaid: '1f' });
+
+	for (let bad in [ '', '00', '0001', '000', 'zz0102', '00030001%1%2', '*' ])
+		equal(importer.parse_duid(bad), null, bad);
+});
+
+test('DHCPv6 problems are blocked with the reason', () => {
+	let notes = values => one(values)['h:dhcp6'].notes;
+
+	equal(notes({ hostid: '77' }), [ 'no DUID' ]);
+	equal(notes({ duid: '00', hostid: '77' }), [ 'invalid or truncated DUID' ]);
+	equal(notes({ duid: [ '00030001020000000aaa', '00030001020000000bbb' ], hostid: '77' }),
+		[ 'several DUIDs share one address; Kea reserves an address for one identifier' ]);
+	equal(notes({ duid: '00030001020000000aaa' }), [ 'no IPv6 token (hostid) or address' ]);
+	equal(notes({ duid: '00030001020000000aaa', hostid: 'xyz' }), [ 'invalid IPv6 token' ]);
+	equal(notes({ duid: '00030001020000000aaa', ip: 'fd00:9::1' }),
+		[ 'the address is outside every Kea DHCPv6 subnet' ]);
+});
+
+test('an IAID is dropped with a note', () => {
+	let entry = one({ duid: '00030001020000000aaa%1f', hostid: '77' })['h:dhcp6'];
+
+	equal(entry.status, 'review');
+	equal(entry.identifier, '00:03:00:01:02:00:00:00:0a:aa');
+	equal(entry.notes, [ 'the IAID is not carried over; Kea reserves by DUID only' ]);
+});
+
+test('the IPv6 token is placed in the only subnet, or in the one of the host\'s interface', () => {
+	let two = env();
+
+	push(two.dhcp6.Dhcp6.subnet6, { id: 9, subnet: 'fd00:50::/64', 'interface': 'br-guest' });
+
+	let lan = one({ mac: '02:00:00:00:00:aa', ip: '192.168.1.77', duid: '00030001020000000aaa', hostid: '77' }, two);
+	let guest = one({ mac: '02:00:00:00:00:ab', ip: '192.168.50.9', duid: '00030001020000000aab', hostid: 'ab' }, two);
+	let unknown = one({ duid: '00030001020000000aac', hostid: 'ac' }, two);
+
+	equal(lan['h:dhcp6'].address, 'fd00:1::77');
+	equal(guest['h:dhcp6'].address, 'fd00:50::ab');
+	equal(guest['h:dhcp6'].subnet, 'fd00:50::/64');
+	equal(unknown['h:dhcp6'].notes,
+		[ 'several Kea DHCPv6 subnets exist; cannot tell which one this host belongs to' ]);
+
+	let none = env();
+
+	none.dhcp6.Dhcp6.subnet6 = [ { id: 1, subnet: 'fd00:1::/80' } ];
+	equal(one({ duid: '00030001020000000aaa', hostid: '77' }, none)['h:dhcp6'].notes,
+		[ 'no Kea DHCPv6 subnet of /64 or shorter to place the IPv6 token in' ]);
+});
+
+test('DHCPv6 reservations Kea already has are recognized by DUID, in either notation', () => {
+	let present = one({ name: 'nas', duid: '00030001020000000001', ip: 'fd00:1::10' })['h:dhcp6'];
+	let added = one({ name: 'nas', duid: '00030001020000000001', hostid: '99' })['h:dhcp6'];
+
+	equal(present.status, 'present');
+	equal(added.status, 'update');
+	equal(added.notes, [ 'Kea has a reservation for this client without this address; the import adds it' ]);
+});
+
+/* ---- commit -------------------------------------------------------------- */
+
+const root = tmpdir();
+let accept = { dhcp4: true, dhcp6: true };
+let now = 1794415113;
+
+const ctx = config.context({
+	root,
+	run_dir: root + '/run',
+	clock: () => now,
+	validator: name => accept[name] ? { valid: true, output: 'ok' } : { valid: false, output: 'Kea says no' }
+});
+
+const file4 = config.path(ctx, 'dhcp4');
+const file6 = config.path(ctx, 'dhcp6');
+const hosts = [
+	host('dual', { name: 'laptop', mac: [ '02:00:00:00:00:AA' ], ip: '192.168.1.77', duid: [ '00030001020000000aaa' ], hostid: '77' }),
+	host('printer', { name: 'printer', mac: [ '02:00:00:00:00:ab' ], ip: '192.168.1.78', leasetime: '12h' }),
+	host('known', { name: 'nas', mac: [ '02:00:00:00:00:01' ], ip: '192.168.1.10' }),
+	host('elsewhere', { name: 'far', mac: [ '02:00:00:00:00:c1' ], ip: '172.16.9.9' }),
+	host('off', { name: 'spare', mac: [ '02:00:00:00:00:d1' ], ip: '192.168.1.91', enable: '0' })
+];
+
+function reset() {
+	rm_rf(ctx.conf_dir);
+	config.mkdir_p(ctx.conf_dir, 0o755);
+	fs.writefile(file4, rich4);
+	fs.writefile(file6, rich6);
+	accept = { dhcp4: true, dhcp6: true };
+}
+
+function statuses() {
+	let result = {};
+
+	for (let entry in importer.preview(ctx, hosts, interfaces).entries)
+		result[entry.key] = entry.status;
+
+	return result;
+}
+
+test('preview reports the state of both files and classifies against them', () => {
+	reset();
+
+	let preview = importer.preview(ctx, hosts, interfaces);
+
+	equal(preview.mode, 'dry-run');
+	equal(preview.files.dhcp4, { path: file4, exists: true, parsed: true, has_comments: true, error: null });
+	equal(statuses(), {
+		'dual:dhcp4': 'ready',
+		'dual:dhcp6': 'ready',
+		'printer:dhcp4': 'review',
+		'known:dhcp4': 'present',
+		'elsewhere:dhcp4': 'blocked',
+		'off:dhcp4': 'review'
+	});
+	equal(fs.readfile(file4), rich4, 'a preview writes nothing');
+});
+
+test('preview copes with a missing and a broken file', () => {
+	reset();
+	fs.unlink(file6);
+	fs.writefile(file4, '{ broken');
+
+	let preview = importer.preview(ctx, hosts, interfaces);
+
+	equal(preview.files.dhcp6.exists, false);
+	equal(preview.files.dhcp4.parsed, false);
+	ok(preview.files.dhcp4.error, 'the parser error is reported');
+	equal(filter(preview.entries, entry => entry.status != 'blocked'), []);
+});
+
+test('commit without a selection imports every ready entry into both files', () => {
+	reset();
+
+	let result = importer.commit(ctx, hosts, interfaces);
 
 	equal(result, {
 		result: true,
 		changed: true,
 		imported: 2,
 		updated: 0,
-		skipped: 3,
-		staged: 5,
-		skipped_entries: [
-			{ source: 'elsewhere', reason: 'no matching Kea DHCPv4 subnet for 172.16.9.9' },
-			{ source: 'v6', reason: 'only DHCPv4 direct Kea import is implemented' },
-			{ source: 'broken', reason: 'entry is disabled or has warnings' }
-		]
+		skipped: 0,
+		skipped_entries: [],
+		backups: { dhcp4: '20261111T163833Z', dhcp6: '20261111T163833Z' }
 	});
-	equal(conf.Dhcp4.subnet4[0], {
-		id: 1,
-		subnet: '192.168.1.0/24',
-		relay: { 'ip-addresses': [ '192.168.1.254' ] },
-		reservations: [ { 'hw-address': '02:00:00:00:00:aa', 'ip-address': '192.168.1.77', hostname: 'laptop' } ]
-	});
-	equal(length(conf.Dhcp4.subnet4[1].reservations), 2);
-});
 
-test('merge updates the reservation with the same MAC or IP and keeps its other fields', () => {
-	let conf = {
-		Dhcp4: {
-			subnet4: [ {
-				id: 1,
-				subnet: '192.168.1.0/24',
-				reservations: [
-					{ 'hw-address': '02:00:00:00:00:aa', 'ip-address': '192.168.1.10', hostname: 'old', 'option-data': [ { name: 'routers', data: '192.168.1.2' } ] },
-					{ 'hw-address': '02:00:00:00:00:bb', 'ip-address': '192.168.1.11', hostname: 'gone' }
-				]
-			} ]
-		}
-	};
-	let result = importer.merge(conf, [
-		ready('new', '02:00:00:00:00:aa', '192.168.1.77'),
-		importer.classify({ '.name': 'anon', mac: '02:00:00:00:00:cc', ip: '192.168.1.11' })
-	]);
+	let before4 = parse(rich4).config;
+	let after4 = parse(fs.readfile(file4)).config;
 
-	equal(result.imported, 0);
-	equal(result.updated, 2);
-	equal(conf.Dhcp4.subnet4[0].reservations, [
-		{ 'hw-address': '02:00:00:00:00:aa', 'ip-address': '192.168.1.77', hostname: 'new', 'option-data': [ { name: 'routers', data: '192.168.1.2' } ] },
-		{ 'hw-address': '02:00:00:00:00:cc', 'ip-address': '192.168.1.11' }
-	]);
-});
-
-test('merge of nothing ready changes nothing', () => {
-	let conf = { Dhcp4: { subnet4: [ { id: 1, subnet: '192.168.1.0/24' } ] } };
-	let result = importer.merge(conf, [ importer.classify({ '.name': 'broken', ip: '192.168.1.5' }) ]);
-
-	equal(result.changed, false);
-	equal(conf, { Dhcp4: { subnet4: [ { id: 1, subnet: '192.168.1.0/24' } ] } });
-});
-
-/* ---- commit -------------------------------------------------------------- */
-
-const root = tmpdir();
-let accept = true;
-
-const ctx = config.context({
-	root,
-	run_dir: root + '/run',
-	clock: () => 1794415113,
-	validator: () => accept ? { valid: true, output: 'ok' } : { valid: false, output: 'Kea says no' }
-});
-
-const file = config.path(ctx, 'dhcp4');
-const rich = fs.readfile(fixture('kea-dhcp4-rich.conf'));
-const hosts = [
-	{ '.name': 'laptop', name: 'laptop', mac: '02:00:00:00:00:aa', ip: '192.168.1.77' },
-	{ '.name': 'elsewhere', name: 'elsewhere', mac: '02:00:00:00:00:bb', ip: '172.16.9.9' },
-	{ '.name': 'broken', ip: '192.168.1.5' }
-];
-
-test('commit reports a missing or unparsable config', () => {
-	equal(importer.commit(ctx, hosts),
-		{ result: false, error: 'DHCPv4 config file does not exist', path: file });
-
-	config.mkdir_p(ctx.conf_dir, 0o755);
-	fs.writefile(file, '{ broken');
-
-	let result = importer.commit(ctx, hosts);
-
-	equal(result.result, false);
-	equal(result.error, 'DHCPv4 config cannot be parsed');
-	equal(fs.readfile(file), '{ broken');
-});
-
-test('commit writes ready entries and leaves the rest of the config alone', () => {
-	fs.writefile(file, rich);
-
-	let result = importer.commit(ctx, hosts);
-
-	equal(result.result, true);
-	equal(result.imported, 1);
-	equal(result.skipped, 2);
-	equal(result.staged, 3);
-
-	let before = parse(rich).config;
-	let after = parse(fs.readfile(file)).config;
-
-	equal(after.Dhcp4.subnet4[0].reservations[3],
+	equal(pop(after4.Dhcp4.subnet4[0].reservations),
 		{ 'hw-address': '02:00:00:00:00:aa', 'ip-address': '192.168.1.77', hostname: 'laptop' });
+	equal(after4, before4, 'nothing else changed in the DHCPv4 file');
 
-	splice(after.Dhcp4.subnet4[0].reservations, 3, 1);
-	equal(after, before, 'nothing but the new reservation changed');
+	let before6 = parse(rich6).config;
+	let after6 = parse(fs.readfile(file6)).config;
+
+	equal(pop(after6.Dhcp6.subnet6[0].reservations),
+		{ duid: '00:03:00:01:02:00:00:00:0a:aa', 'ip-addresses': [ 'fd00:1::77' ], hostname: 'laptop' });
+	equal(after6, before6, 'nothing else changed in the DHCPv6 file');
+
+	equal(fs.readfile(file4), stringify(parse(fs.readfile(file4)).config),
+		'the file is written in the layout the editors use');
 });
 
-test('commit backs up the previous file and records every entry', () => {
-	equal(fs.readfile(ctx.backup_dir + '/kea-dhcp4.20261111T163833Z.conf'), rich);
+test('importing again changes nothing', () => {
+	let written4 = fs.readfile(file4);
+	let written6 = fs.readfile(file6);
 
-	let staging = json(fs.readfile(ctx.staging_file));
+	equal(statuses()['dual:dhcp4'], 'present');
+	equal(statuses()['dual:dhcp6'], 'present');
 
-	equal(staging.version, 1);
-	equal(map(staging.entries, entry => entry.source), [ 'laptop', 'elsewhere', 'broken' ]);
-	equal(staging.last_result.imported, 1);
-});
+	let result = importer.commit(ctx, hosts, interfaces);
 
-test('importing the same hosts again updates instead of duplicating', () => {
-	let result = importer.commit(ctx, hosts);
-
-	equal(result.imported, 0);
-	equal(result.updated, 1);
-	equal(length(parse(fs.readfile(file)).config.Dhcp4.subnet4[0].reservations), 4);
-});
-
-test('commit with nothing to write leaves the file untouched, comments included', () => {
-	fs.writefile(file, rich);
-
-	let result = importer.commit(ctx, [ hosts[1], hosts[2] ]);
-
-	equal(result.result, true);
 	equal(result.changed, false);
-	equal(fs.readfile(file), rich);
-	equal(json(fs.readfile(ctx.staging_file)).last_result.skipped, 2);
+	equal(result.imported, 0);
+	equal(result.backups, {});
+	equal(fs.readfile(file4), written4);
+	equal(fs.readfile(file6), written6);
 });
 
-test('commit does not write a config Kea rejects', () => {
-	fs.writefile(file, rich);
-	fs.unlink(ctx.staging_file);
-	accept = false;
+test('commit imports exactly the selected entries and explains what it skipped', () => {
+	reset();
 
-	let result = importer.commit(ctx, hosts);
+	let result = importer.commit(ctx, hosts, interfaces,
+		[ 'printer:dhcp4', 'off:dhcp4', 'elsewhere:dhcp4', 'known:dhcp4', 'nobody:dhcp4', 'printer:dhcp4' ]);
 
-	accept = true;
+	equal(result.imported, 2);
+	equal(result.skipped_entries, [
+		{ key: 'elsewhere:dhcp4', reason: 'blocked: the address is outside every Kea DHCPv4 subnet' },
+		{ key: 'known:dhcp4', reason: 'present: already reserved in Kea' },
+		{ key: 'nobody:dhcp4', reason: 'no such entry' }
+	]);
+	equal(fs.readfile(file6), rich6, 'the DHCPv6 file was not touched');
+
+	let subnet = parse(fs.readfile(file4)).config.Dhcp4.subnet4[0];
+
+	equal(subnet.reservations[3],
+		{ 'hw-address': '02:00:00:00:00:ab', 'ip-address': '192.168.1.78', hostname: 'printer' });
+	equal(length(subnet.reservations), 4);
+	equal(subnet['user-context'], {
+		site: 'home',
+		'luci-app-kea': {
+			'disabled-reservations': [
+				{ 'hw-address': '02:00:00:00:00:d1', 'ip-address': '192.168.1.91', hostname: 'spare' }
+			]
+		}
+	});
+	equal(statuses()['off:dhcp4'], 'present', 'the disabled reservation is recognized next time');
+});
+
+test('a selected update changes the existing reservation in place', () => {
+	reset();
+
+	let moved = [ host('known', { name: 'storage', mac: [ '02:00:00:00:00:01' ], ip: '192.168.1.20' }) ];
+	let result = importer.commit(ctx, moved, interfaces, [ 'known:dhcp4' ]);
+
+	equal(result.updated, 1);
+	equal(result.imported, 0);
+
+	let reservations = parse(fs.readfile(file4)).config.Dhcp4.subnet4[0].reservations;
+
+	equal(reservations[0], { 'hw-address': '02:00:00:00:00:01', 'ip-address': '192.168.1.20', hostname: 'storage' });
+	equal(length(reservations), 3);
+});
+
+test('each replaced file is backed up', () => {
+	reset();
+	importer.commit(ctx, hosts, interfaces);
+	now += 60;
+
+	let again = [ host('extra', { name: 'extra', mac: [ '02:00:00:00:00:ee' ], ip: '192.168.1.99' }) ];
+	let result = importer.commit(ctx, again, interfaces);
+
+	equal(result.backups, { dhcp4: '20261111T163933Z' });
+	ok(index(fs.readfile(ctx.backup_dir + '/kea-dhcp4.20261111T163933Z.conf'), '02:00:00:00:00:aa') > 0);
+});
+
+test('if Kea rejects one file, neither file is replaced', () => {
+	reset();
+	accept.dhcp6 = false;
+
+	let result = importer.commit(ctx, hosts, interfaces);
 
 	equal(result, {
 		result: false,
-		error: 'imported DHCPv4 config failed validation',
+		error: 'the imported DHCPv6 configuration failed validation',
 		validation: 'Kea says no'
 	});
-	equal(fs.readfile(file), rich);
-	equal(config.is_file(ctx.staging_file), false);
+	equal(fs.readfile(file4), rich4);
+	equal(fs.readfile(file6), rich6);
+	equal(fs.lsdir(ctx.conf_dir), [ 'kea-dhcp4.conf', 'kea-dhcp6.conf' ]);
 });
 
 rm_rf(root);

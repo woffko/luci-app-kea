@@ -176,12 +176,11 @@ test('status reports installed parts and running conflicts', () => {
 
 	equal(status.init_installed, true);
 	equal(status.init_enabled, true);
-	equal(status.staging_exists, false);
 	equal(status.runtime.lease_dir, true);
 	equal(status.runtime.api_password, true, 'the reload attempt above prepared it again');
 	equal(sort(keys(status.binaries)), [ 'ctrl_agent', 'dhcp4', 'dhcp6', 'dhcp_ddns', 'lfc', 'shell' ]);
 	equal(status.binaries.dhcp4.path, '/usr/sbin/kea-dhcp4');
-	equal(sort(keys(status.configs)), [ 'ctrl_agent', 'dhcp4', 'dhcp6', 'dhcp_ddns', 'staging' ]);
+	equal(sort(keys(status.configs)), [ 'ctrl_agent', 'dhcp4', 'dhcp6', 'dhcp_ddns' ]);
 	equal(status.conflicts.dnsmasq, { installed: true, enabled: true, running: true, init: '/etc/init.d/dnsmasq' });
 	equal(status.conflicts.odhcpd, { installed: false, enabled: false, running: false, init: '/etc/init.d/odhcpd' });
 	equal(type(status.hooks.ha), 'bool');

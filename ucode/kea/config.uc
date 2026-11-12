@@ -58,7 +58,6 @@ export function context(options) {
 		conf_dir: root + '/etc/kea',
 		backup_dir: root + '/etc/kea/backups',
 		backup_keep: 10,
-		staging_file: root + '/etc/kea/luci-reservations.json',
 		api_password: root + '/etc/kea/kea-api-password',
 		lease_dir: root + '/var/lib/kea',
 		init_dir: root + '/etc/init.d',
@@ -334,6 +333,28 @@ export function list_backups(ctx, name) {
 			size: fs.stat(backup_path(ctx, name, id))?.size ?? 0
 		}))
 	};
+};
+
+// Validate content without touching the config file. Returns
+// { valid, output }.
+export function check(ctx, name, content) {
+	if (!CONFIGS[name] || type(content) != 'string')
+		return { valid: false, output: 'invalid config name or content' };
+
+	let tmp = path(ctx, name) + '.luci-check';
+
+	mkdir_p(ctx.conf_dir, 0o755);
+
+	if (!write_private(tmp, content)) {
+		fs.unlink(tmp);
+		return { valid: false, output: 'failed to write temporary config' };
+	}
+
+	let result = validate_file(ctx, name, tmp);
+
+	fs.unlink(tmp);
+
+	return result;
 };
 
 // Validate new content, back up the current file and replace it. The file

@@ -69,8 +69,7 @@ return view.extend({
 
 			renderObjectTable(_("Runtime"), [
 				[ _("Init script installed"), boolLabel(status.init_installed) ],
-				[ _("Init autostart enabled"), boolLabel(status.init_enabled) ],
-				[ _("LuCI import staging file exists"), boolLabel(status.staging_exists) ]
+				[ _("Init autostart enabled"), boolLabel(status.init_enabled) ]
 			]),
 
 			renderObjectTable(_("Installed Components"), [
@@ -78,6 +77,7 @@ return view.extend({
 				[ "kea-dhcp6", boolLabel(binaries.dhcp6 && binaries.dhcp6.installed) ],
 				[ "kea-dhcp-ddns", boolLabel(binaries.dhcp_ddns && binaries.dhcp_ddns.installed) ],
 				[ "kea-ctrl-agent", boolLabel(binaries.ctrl_agent && binaries.ctrl_agent.installed) ],
+				[ "kea-lfc", boolLabel(binaries.lfc && binaries.lfc.installed) ],
 				[ "kea-shell", boolLabel(binaries.shell && binaries.shell.installed) ],
 				[ "HA hook", boolLabel(hooks.ha) ],
 				[ "Lease commands hook", boolLabel(hooks.lease_cmds) ]
