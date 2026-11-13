@@ -103,6 +103,13 @@ main(async (page) => {
 		await page.locator("#view h3", { hasText: "br-lan" }).first().waitFor();
 		await capture(page, "dhcp6");
 
+		await openPage(page, "leases", "Kea Leases");
+
+		if (await page.locator("#view td", { hasText: /^nas$/ }).count() === 0)
+			throw new Error("the lease fixture is missing: run test/make-lease-fixture.sh on the target");
+
+		await capture(page, "leases");
+
 		await openPage(page, "configuration", "Kea Configuration");
 		await page.locator("#view textarea").waitFor();
 		await capture(page, "configuration");
