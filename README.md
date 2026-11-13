@@ -4,7 +4,7 @@
 
 LuCI application for managing the ISC Kea DHCP server on OpenWrt.
 
-> **Status: alpha (0.6.0).** Usable for testing on a lab router. Not ready to
+> **Status: alpha (0.7.0).** Usable for testing on a lab router. Not ready to
 > replace a production dnsmasq/odhcpd setup yet: see
 > [Known limitations](#known-limitations).
 
@@ -24,8 +24,9 @@ It is developed as a standalone package for now, with a later submission to
 
 Menu location: **Services > Kea DHCP**.
 
-- **Overview**: installed Kea components and hooks, config files, validation
-  result.
+- **Overview**: Kea version, installed components and hooks, config files,
+  the result of checking each file, and the recent Kea messages of the
+  system log.
 - **Services**: start, stop, restart, reload and autostart for the Kea init
   service; enable or disable `kea-dhcp4`, `kea-dhcp6`, `kea-dhcp-ddns` and
   `kea-ctrl-agent`; state and explicit controls for `dnsmasq` and `odhcpd`.
@@ -40,6 +41,8 @@ Menu location: **Services > Kea DHCP**.
   `kea-hook-ha` is installed. Hot standby, load balancing or passive backup,
   the peers with their roles, the timers, and every other parameter of the
   hook as JSON.
+- **Leases**: the DHCPv4 and DHCPv6 leases in use, with remaining time,
+  read from the lease files of Kea.
 - **Configuration**: raw editor for the four Kea config files, with a JSON
   syntax check and restore from backup.
 - **Import dnsmasq**: turns the static leases of OpenWrt (`/etc/config/dhcp`)
@@ -100,7 +103,8 @@ All pages are shown in [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md).
 - High availability: one relationship per daemon; the form shows the
   configuration, not whether the partner is reachable. Each router is
   configured on its own.
-- No lease viewer.
+- The Leases page is read only: it cannot remove a lease, and it does not
+  show leases that ran out.
 - English only.
 
 The full list is in [docs/STATUS.md](docs/STATUS.md).

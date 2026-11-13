@@ -7,6 +7,21 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-13: Runtime visibility (M6, `0.7.0-r1`)
+
+- A Leases page: the DHCPv4 and DHCPv6 leases in use, read from the lease
+  files of the memfile backend in the order Kea loads them. No hook library
+  and no control channel is needed.
+- Overview shows the Kea version and the last Kea messages of the system
+  log, and folds the output of a successful configuration check.
+- Two new read-only backend methods, `getLeases` and `getLog`.
+- The lease file format was taken from the Kea 3.0.4 sources and checked
+  with a DHCP client on a virtual interface pair: its DHCPv4 address, DHCPv6
+  address and delegated prefix appeared on the page.
+- Tests: 11 host cases and 3 on-target cases for the new module, a browser
+  test of the page with a lease fixture.
+- Verified on OpenWrt 25.12.6 (QEMU) and 25.12.5 (VMware) with Kea 3.0.4.
+
 ## 2026-11-13: High availability (M5, `0.6.0-r1`)
 
 - A "High availability" tab in the DHCPv4 and DHCPv6 editors, offered when

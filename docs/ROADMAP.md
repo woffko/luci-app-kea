@@ -198,8 +198,18 @@ and basic authentication, and the state of the running service.
 
 ## M6: Runtime visibility
 
-- [ ] Kea version and recent log lines on the Overview page.
-- [ ] Lease viewer through the control agent and the `lease_cmds` hook.
+Done in `0.7.0-r1`.
+
+- [x] Kea version and recent log lines on the Overview page.
+- [x] Lease viewer. It reads the lease files instead of asking the daemon
+      through the control agent and the `lease_cmds` hook; see the working
+      decisions.
+
+Also changed on the way: the Overview page folds the output Kea prints for
+a file it accepts, which had grown to a screen per file.
+
+Not done: removing a lease from the page, and the history of leases that
+are no longer in use.
 
 ## M7: Release and distribution
 
@@ -259,6 +269,20 @@ They follow the recommendation at the time and can be revisited.
 - Backups go to `/etc/kea/backups/`, ten per config file.
 - Version numbers: packaging-only changes bump `PKG_RELEASE`; changes in
   behavior bump `PKG_VERSION`.
+
+Taken while implementing M6:
+
+- **Leases come from the lease files, not from the control channel.** The
+  OpenWrt Kea packages are built with the memfile backend only, so the
+  files are where the leases are. Reading them needs no hook library, no
+  control agent and no API password, changes nothing in the configuration,
+  and works while the daemon is stopped. The format and the order in which
+  Kea loads the files were taken from the Kea 3.0.4 sources and checked
+  against files written for a real client. The price: the page cannot
+  remove a lease, which would need the `lease_cmds` hook.
+- **The log is the system log.** The configuration files shipped with Kea
+  on OpenWrt log to syslog, and `logread` needs no knowledge of log file
+  paths.
 
 Taken while implementing M5:
 

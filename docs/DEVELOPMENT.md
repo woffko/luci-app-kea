@@ -239,6 +239,8 @@ sh test/run-ucode-tests.sh --target --installed   # the library of the installed
 ```
 
 They work in a temporary root and do not touch `/etc/kea` or `/etc/config`.
+One of them writes a line tagged `kea-dhcp4` to the system log, to have a
+Kea message to find there.
 
 The browser tests drive LuCI on a target. They need Node.js with the
 `playwright` package:
@@ -250,6 +252,7 @@ export BASE_URL=http://<target> LUCI_PASSWORD=<password>
 node test/browser/smoke.js       # every page renders without errors
 node test/browser/editor.js      # editors, input checks, raw editor and backups end to end
 node test/browser/ha.js          # high availability tab end to end
+node test/browser/leases.js      # Leases page, version and log on Overview
 node test/browser/import.js      # static lease import end to end
 ```
 
@@ -277,11 +280,29 @@ leases the target already has are left out of the import by the test.
 target; without them the editors do not offer the tab. It saves without
 applying, so no daemon is started or reloaded.
 
+`leases.js` needs lease files with known content on the target:
+
+```sh
+scp -O test/make-lease-fixture.sh root@<target>:/tmp/
+ssh root@<target> 'sh /tmp/make-lease-fixture.sh'
+# ... run the test ...
+ssh root@<target> 'sh /tmp/make-lease-fixture.sh --remove'
+```
+
+The script writes leases that expire within the hour. It refuses to run
+while a Kea DHCP daemon is running, or where lease files already hold
+leases, so it cannot destroy real ones. Lease files that hold only their
+header line are overwritten and removed afterwards; Kea writes them again
+when it starts.
+
 ### Screenshots
 
 The pictures in `docs/images/` are taken by a script, with the fixtures
-loaded, so they show no data of the target. It has the same preconditions as
-`import.js`:
+loaded, so the configuration, the leases and the static leases they show are
+not those of the target. The log on the Overview picture is the real system
+log of the target, so take the pictures on a test machine. The script needs
+the preconditions of `import.js`, `leases.js` and `ha.js` together: the
+fixture static leases, the lease fixture and the `kea-hook-ha` package.
 
 ```sh
 node test/browser/screenshots.js

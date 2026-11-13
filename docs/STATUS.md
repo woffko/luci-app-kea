@@ -1,6 +1,6 @@
 # Project Status
 
-Status date: 2026-11-13. Package version `0.6.0-r1`, alpha.
+Status date: 2026-11-13. Package version `0.7.0-r1`, alpha.
 
 This is a code-level inventory of what exists and what is missing. The work
 needed to close the gaps is ordered in [ROADMAP.md](ROADMAP.md). Packaging
@@ -11,15 +11,15 @@ issues are listed separately in [PACKAGING.md](PACKAGING.md).
 | Area | State |
 |------|-------|
 | Package skeleton, menu, ACL | Done |
-| rpcd backend (`luci.kea`, 14 methods) | Done, in ucode |
-| Overview page | Done |
+| rpcd backend (`luci.kea`, 16 methods) | Done, in ucode |
+| Overview page | Done, with the Kea version and its recent log messages |
 | Services page | Done |
 | Raw configuration editor | Done, with syntax check, change view, backups and restore |
 | DHCPv4 structured editor | Subnets, pools, options, reservations, global settings; everything else in the file is preserved |
 | DHCPv6 structured editor | The same, plus prefix delegation pools |
 | Static lease import | Done for DHCPv4 and DHCPv6 |
 | High availability | Done for one relationship, as a tab of the DHCPv4 and DHCPv6 editors |
-| Lease viewer | Not started |
+| Lease viewer | Done, read from the lease files |
 | Input checks | In the browser, for what the editors write; the Kea binary on every save, with hooks loaded for the DHCP daemons |
 | Automated tests | Unit tests (JavaScript and ucode), on-target tests, browser tests |
 | CI | GitHub Actions: lint, unit tests, SDK package build |
@@ -27,13 +27,19 @@ issues are listed separately in [PACKAGING.md](PACKAGING.md).
 
 ## Verification state
 
-`0.6.0-r1` was built with the official OpenWrt 25.12.6 x86-64 SDK and
+`0.7.0-r1` was built with the official OpenWrt 25.12.6 x86-64 SDK and
 installed with `apk` on two machines running Kea 3.0.4 from the official
 package repository (November 2026): an OpenWrt 25.12.6 x86-64 virtual machine
 under QEMU, and an OpenWrt 25.12.5 x86-64 virtual machine under VMware. On
 the first:
 
-- all six pages open in a headless browser without JavaScript errors;
+- all seven pages open in a headless browser without JavaScript errors;
+- leases a DHCP client really obtained are shown: `kea-dhcp4` and
+  `kea-dhcp6` served a virtual interface pair, and the DHCPv4 address, the
+  DHCPv6 address and the delegated prefix of the client appeared on the
+  Leases page, its exchange with the servers in the log on Overview;
+- the leases browser test passes with lease files that hold leases in use
+  next to leases that ran out, were released or were replaced;
 - the end-to-end browser test passes for DHCPv4 and DHCPv6 (33 checks):
   every save made by the editors is accepted by `kea-dhcp4 -T` /
   `kea-dhcp6 -T`, only the edited values change in the file, and a wrong
@@ -53,14 +59,14 @@ the first:
   and a DHCPv6 reservation, both files are accepted by Kea, and a second
   import finds nothing to do.
 
-On the second machine the ucode tests and all four browser tests pass with
-`0.6.0-r1`; Save & Apply was checked there with `kea-dhcp-ddns` running, on
+On the second machine the ucode tests and all five browser tests pass with
+`0.7.0-r1`; Save & Apply was checked there with `kea-dhcp-ddns` running, on
 `0.3.0`. That machine has a static lease of its own, which the import test
 leaves alone.
 
-Not exercised: DHCP clients actually obtaining leases, two Kea servers
-exchanging leases, `kea-dhcp6` and the DDNS daemon running, and upgrades
-from `0.1.0`.
+Not exercised: clients on a real network, two Kea servers exchanging
+leases, the lease file cleanup running while the page reads the files, the
+DDNS daemon serving updates, and upgrades from `0.1.0`.
 
 The first runtime tests were made in May 2026 on OpenWrt 25.12.3 with
 Kea 3.0.2.
@@ -77,13 +83,16 @@ the `luci.kea.*` ucode modules:
 |--------|---------|
 | `config.uc` | Paths, validation with the Kea binary, read, save, backups, restore |
 | `service.uc` | Component and service state from procd, init actions, runtime files |
+| `runtime.uc` | Kea version, Kea messages of the system log, leases from the lease files |
 | `importer.uc` | Static lease classification against the Kea configuration, and import |
 | `jsonc.uc` | JSON with `//`, `#` and `/* */` comments |
 | `net.uc` | IPv4 helpers |
 
 | Method | ACL | Purpose |
 |--------|-----|---------|
-| `getStatus` | read | Init script state, binaries, hook libraries, config files, runtime paths, dnsmasq/odhcpd state |
+| `getStatus` | read | Kea version, init script state, binaries, hook libraries, config files, runtime paths, dnsmasq/odhcpd state |
+| `getLeases` | read | The DHCPv4 and DHCPv6 leases in use, from the lease files of the daemons |
+| `getLog` | read | The last Kea messages of the system log, split into time, daemon, severity and text |
 | `getServices` | read | `config service` sections of `/etc/config/kea` with enabled and running flags |
 | `getNetworkInterfaces` | read | Interfaces from `/etc/config/network` (name, device, proto, addresses) and whether OpenWrt serves DHCPv4 or DHCPv6 on each, from `/etc/config/dhcp` |
 | `validate` | read | The Kea binary's own check of the DHCPv4, DHCPv6, DDNS and control agent configs |
@@ -134,8 +143,12 @@ that a hook failed to load.
 
 ### Pages
 
-- **Overview** (`overview.js`): runtime state, installed components and hooks,
-  config file presence, validation output.
+- **Overview** (`overview.js`): Kea version, runtime state, installed
+  components and hooks, config file presence, the result of checking each
+  file, and the last thirty messages of the Kea daemons in the system log.
+- **Leases** (`leases.js`): the DHCPv4 and DHCPv6 leases in use, with
+  address or delegated prefix, MAC address, client ID or DUID, hostname,
+  subnet, remaining time and state. Refreshed every ten seconds.
 - **Services** (`services.js`): init service table with actions; Kea
   component table with staged enable/disable checkboxes committed by Save or
   Save & Apply; conflict table for dnsmasq and odhcpd with explicit actions.
@@ -252,11 +265,12 @@ last word.
 | Test | Runs on | Covers |
 |------|---------|--------|
 | `node --test "test/js/*.test.js"` | Any machine with Node.js | The configuration model (47 cases, plus the stock Kea configs when `KEA_STOCK_DIR` is set) and the high availability model (20 cases) |
-| `test/run-ucode-tests.sh` | Any machine with a ucode interpreter | The backend library with a stand-in for the Kea binary: comment stripping, JSON writing, IPv4 and IPv6 helpers, save, backups, restore, retention, how the Kea binary is called and its refusal reported, import classification and commit (63 cases) |
-| `test/run-ucode-tests.sh --target` | OpenWrt with the Kea daemons | The same plus 22 cases with the real Kea binaries, UCI and procd: validation, a hook checking its parameters (needs `kea-hook-ha`), service state, init actions, API password, import from a UCI fixture. Uses a temporary root |
+| `test/run-ucode-tests.sh` | Any machine with a ucode interpreter | The backend library with a stand-in for the Kea binary: comment stripping, JSON writing, IPv4 and IPv6 helpers, save, backups, restore, retention, how the Kea binary is called and its refusal reported, import classification and commit, lease files, log lines, version (74 cases) |
+| `test/run-ucode-tests.sh --target` | OpenWrt with the Kea daemons | The same plus 25 cases with the real Kea binaries, UCI and procd: validation, a hook checking its parameters (needs `kea-hook-ha`), service state, init actions, API password, import from a UCI fixture, version and system log. Uses a temporary root, except that one test line is written to the system log |
 | `test/browser/smoke.js` | Node.js + Playwright against a target | Every page renders without JavaScript errors |
 | `test/browser/editor.js` | Node.js + Playwright against a test target | Editors (pools, options, global settings, shared networks, input checks, change view), raw editor, backups and example removal end to end, with Kea validating every save |
 | `test/browser/ha.js` | Node.js + Playwright against a test target that has `kea-hook-ha` | The high availability tab end to end for both protocols, with Kea loading the hook on every save |
+| `test/browser/leases.js` | Node.js + Playwright against a test target that has the lease fixture | The Leases page for both protocols, and the version and log on Overview |
 | `test/browser/import.js` | Node.js + Playwright against a test target that has the fixture static leases | The import page end to end for both protocols, including a second import |
 
 ## Known defects and limits
@@ -297,6 +311,24 @@ last word.
 - No fill-in from `ha-cluster`: the OpenWrt 25.12 repositories have no such
   package to test against.
 
+### Leases and log
+
+- Leases are read from the lease files of the memfile backend. A daemon
+  that keeps its leases in memory only (`persist` false) has nothing to
+  show; the page says so.
+- The page shows leases in use and declined addresses. Leases that ran out
+  or were released are left out, and so is their history.
+- Read only: a lease cannot be removed from the page. That needs the lease
+  commands hook and the control channel of the daemon.
+- On OpenWrt the lease files are in `/var/lib/kea`, which is in memory, so
+  Kea itself forgets its leases at a reboot unless the configuration names
+  another place.
+- The log on Overview is the system log. Messages are missing there when
+  the loggers of the configuration write to a file, and after the ring
+  buffer of the system log has moved on.
+- At most 2000 leases per protocol are sent to the browser, and a lease
+  file above 8 MB is not read.
+
 ### Backend
 
 - The Kea binary's check does not guarantee that the daemon starts: a port
@@ -327,6 +359,5 @@ last word.
 
 ## Not implemented
 
-- Lease viewer through the control agent or `lease_cmds` hook.
 - Browser tests and on-target tests in CI (they need a running OpenWrt).
 - Translations (only the template exists), releases, prebuilt packages.

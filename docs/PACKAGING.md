@@ -3,7 +3,7 @@
 Audit date: 2026-11-11. Audited revision: `b6eedcf` (package version
 `0.1.0-r1`). The findings marked "fixed" below were resolved in `0.1.0-r2`
 (roadmap milestone M0) and re-checked with a real build and install. The
-current version is `0.6.0-r1`.
+current version is `0.7.0-r1`.
 
 ## References
 
@@ -58,7 +58,7 @@ time.
 ```text
 Package: luci-app-kea
 Submenu: 3. Applications
-Version: 0.6.0-r1
+Version: 0.7.0-r1
 Depends: +libc +luci-base +kea-uci +kea-lfc
 Section: luci
 Category: LuCI
@@ -163,6 +163,10 @@ files, which can hold secrets (TSIG keys in `kea-dhcp-ddns.conf`, control
 agent credentials). It stays in the read group: LuCI read access already
 exposes comparable secrets stored in UCI, and the DHCP pages need the method
 to display anything. Revisit if reviewers of an upstream submission object.
+
+`getLeases` and `getLog`, added in `0.7.0`, are read-level as well. They
+return the addresses, MAC addresses and host names of DHCP clients, which
+LuCI read access already shows for dnsmasq and odhcpd on its status pages.
 
 ### Translations (item 16)
 

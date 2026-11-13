@@ -1,13 +1,14 @@
 # Screenshots
 
-Taken with version `0.6.0` on OpenWrt 25.12.6 with Kea 3.0.4, using the test
+Taken with version `0.7.0` on OpenWrt 25.12.6 with Kea 3.0.4, using the test
 fixtures of this repository as configuration. `test/browser/screenshots.js`
 regenerates them; see [DEVELOPMENT.md](DEVELOPMENT.md#screenshots).
 
 ## Overview
 
-Installed Kea components, configuration files, and the result of validating
-each file with its Kea daemon.
+The Kea version, installed components, configuration files, the result of
+checking each file with its Kea daemon, and the recent Kea messages of the
+system log: here a DHCPv4 and a DHCPv6 client being served.
 
 ![Overview page](images/overview.png)
 
@@ -57,6 +58,13 @@ The same editor for DHCPv6, with prefix delegation pools and reservations by
 DUID, MAC address and flex ID.
 
 ![DHCPv6 editor](images/dhcp6.png)
+
+## Leases
+
+The leases in use, from the lease files of Kea. The declined address is one
+a client refused because it found it taken.
+
+![Leases page](images/leases.png)
 
 ## Configuration
 

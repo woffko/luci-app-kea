@@ -236,6 +236,41 @@ Optional integration with `ha-cluster` (detect it, read peers and node names,
 offer a fill-in) stays open: the OpenWrt 25.12 repositories have no such
 package. Kea must not depend on it.
 
+## Runtime view
+
+What Kea is doing, without changing anything.
+
+- **Version**: asked from the first installed daemon (`kea-dhcp4 -v`).
+- **Log**: the Kea messages of the system log (`logread`), the last thirty,
+  split into time, daemon, severity and text. `logread` counts before it
+  filters and takes no alternatives in its pattern, so the backend filters
+  and cuts the tail itself.
+- **Leases**: read from the lease files of the memfile backend.
+
+### Lease files
+
+Taken from the Kea 3.0.4 sources (`memfile_lease_mgr.cc`, `csv_file.cc`) and
+checked against files Kea wrote for a test client.
+
+- A lease file is a journal. Every change of a lease appends a row; the
+  last row for an address is the one that counts. For DHCPv6 the address
+  and the lease type together name a lease.
+- The columns are found by the names in the header line, so a column added
+  by a later Kea version does not shift the others.
+- A comma inside a value is written as `&#x2c`.
+- State 0 is a lease in use, 1 an address a client declined, 2 a lease that
+  ran out and was reclaimed, 3 a released lease, 4 a registered address. A
+  released lease is first written with a lifetime of 0.
+- The page shows states 0, 1 and 4 with a lifetime above 0 that has not run
+  out, counted from the clock of the router.
+- The lease file cleanup works with several files. Kea loads the result of
+  the last cleanup (`.completed`), or its two inputs (`.2`, then `.1`) when
+  it did not finish, and then the file it is writing. The backend reads
+  them in the same order.
+- The file name comes from `lease-database` in the configuration, with the
+  default of the daemon (`kea-leases4.csv`, `kea-leases6.csv`) in
+  `/var/lib/kea`.
+
 ## Raw editor
 
 For `kea-dhcp4.conf`, `kea-dhcp6.conf`, `kea-dhcp-ddns.conf` and
