@@ -223,7 +223,7 @@ are no longer in use.
 - [ ] Document installation as a custom feed.
 - [ ] Prepare the submission to `openwrt/luci`: meet the extra requirements in
       [PACKAGING.md](PACKAGING.md), including a maintainer with a real name
-      and e-mail address.
+      and e-mail address. Put off by the owner; see decision 6.
 
 ## Decisions
 
@@ -257,6 +257,10 @@ Made by the project owner.
    list from UCI and the Kea configuration each time, and
    `/etc/kea/luci-reservations.json` is gone. A disabled static lease is
    imported as a disabled reservation in the subnet's `user-context`.
+6. **Submission to `openwrt/luci`** (2026-11-13). Not for now. The
+   repository stays standalone. New work keeps following the LuCI
+   conventions of decision 2, so that a submission stays possible later
+   without rework.
 
 ### Working decisions
 
@@ -334,4 +338,3 @@ Taken while implementing M4:
 
 1. Menu location: **Services > Kea DHCP** (current) or under **Network**?
 2. Minimum supported OpenWrt and Kea versions. Is 24.10 (opkg) in scope?
-3. Lease viewer in the first stable release, or later?
