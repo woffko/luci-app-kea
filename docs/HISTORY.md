@@ -7,6 +7,16 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-13: Changelog, version rules, installation from CI (M7, part)
+
+- `CHANGELOG.md` with every version since `0.1.0-r1`, written for users of
+  the package.
+- `docs/RELEASING.md`: how versions are numbered, what stays stable within
+  0.x, what to update with a version, and the steps of a release.
+- The README explains how to install the package that CI builds.
+- Open in M7, for the owner: tags and releases, tests on a target in CI, a
+  custom feed, the submission to `openwrt/luci`.
+
 ## 2026-11-13: Runtime visibility (M6, `0.7.0-r1`)
 
 - A Leases page: the DHCPv4 and DHCPv6 leases in use, read from the lease

@@ -23,7 +23,8 @@ issues are listed separately in [PACKAGING.md](PACKAGING.md).
 | Input checks | In the browser, for what the editors write; the Kea binary on every save, with hooks loaded for the DHCP daemons |
 | Automated tests | Unit tests (JavaScript and ucode), on-target tests, browser tests |
 | CI | GitHub Actions: lint, unit tests, SDK package build |
-| Releases, translations | Not started |
+| Releases | Changelog and version rules exist; nothing tagged or released |
+| Translations | Not started (only the template exists) |
 
 ## Verification state
 
@@ -360,4 +361,6 @@ last word.
 ## Not implemented
 
 - Browser tests and on-target tests in CI (they need a running OpenWrt).
-- Translations (only the template exists), releases, prebuilt packages.
+- Translations (only the template exists).
+- Tagged releases with a package attached. Until then the package built by
+  CI is the prebuilt one; see the README.

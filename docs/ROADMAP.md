@@ -213,7 +213,10 @@ are no longer in use.
 
 ## M7: Release and distribution
 
-- [ ] Changelog and version policy; tag `v0.x` releases.
+- [x] Changelog and version policy: [CHANGELOG.md](../CHANGELOG.md) and
+      [RELEASING.md](RELEASING.md).
+- [ ] Tag `v0.x` releases. For the owner.
+- [x] Document installation of the package that CI builds.
 - [ ] Run the on-target and browser tests in CI against an OpenWrt root
       filesystem or virtual machine.
 - [ ] Attach built packages to GitHub releases.
@@ -268,7 +271,7 @@ They follow the recommendation at the time and can be revisited.
   Kea.
 - Backups go to `/etc/kea/backups/`, ten per config file.
 - Version numbers: packaging-only changes bump `PKG_RELEASE`; changes in
-  behavior bump `PKG_VERSION`.
+  behavior bump `PKG_VERSION`. Spelled out in [RELEASING.md](RELEASING.md).
 
 Taken while implementing M6:
 

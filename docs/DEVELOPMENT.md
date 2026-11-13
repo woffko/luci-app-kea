@@ -16,8 +16,10 @@ test/js/                                      unit tests for the configuration m
 test/ucode/                                   tests for the backend library (ucode)
 test/browser/                                 browser tests (Playwright)
 test/fixtures/                                Kea and UCI fixtures
+test/make-lease-fixture.sh                    writes lease files for the Leases page test
 package.json, eslint.config.mjs               development tooling (ESLint)
 .github/workflows/ci.yml                      CI
+CHANGELOG.md                                  what changed for users, by version
 docs/                                         project documentation
 ```
 
@@ -325,6 +327,10 @@ Run it after a change to a page and commit the pictures that changed.
 
 The on-target tests and the browser tests are not part of CI; they need a
 running OpenWrt system.
+
+The package of a CI run on `main` is what the README tells users to
+install until there are releases. Version numbers and the steps of a
+release are in [RELEASING.md](RELEASING.md).
 
 ## A disposable test target
 

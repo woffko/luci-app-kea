@@ -124,9 +124,58 @@ Earlier versions were tested on OpenWrt 25.12.3 with Kea 3.0.2.
 
 ## Installation
 
-There are no releases yet. Every CI run on `main` attaches a built package
-as an artifact; to build it yourself, use an OpenWrt tree that has the `luci`
-and `packages` feeds installed:
+There are no releases yet. Install the package that CI builds from `main`,
+or build it yourself.
+
+The package is for OpenWrt 25.12 (`apk`). It contains no compiled code, so
+the same file fits every router architecture.
+
+### The package built by CI
+
+Every CI run on `main` keeps the package it built for 90 days. Downloading
+it needs a GitHub account.
+
+In the browser: open
+[the CI runs of `main`](https://github.com/woffko/luci-app-kea/actions/workflows/ci.yml?query=branch%3Amain),
+choose the newest run with a green mark, and download `luci-app-kea` under
+**Artifacts**. It is a zip file with the package inside.
+
+Or with the [GitHub CLI](https://cli.github.com/):
+
+```sh
+run=$(gh run list --repo woffko/luci-app-kea --workflow CI --branch main \
+        --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+gh run download "$run" --repo woffko/luci-app-kea --name luci-app-kea --dir .
+```
+
+Copy the package to the router and install it there. The router fetches the
+dependencies, `kea-uci` and `kea-lfc`, from the OpenWrt package
+repositories:
+
+```sh
+scp -O luci-app-kea-*.apk root@192.168.1.1:/tmp/
+ssh root@192.168.1.1
+apk update
+apk add kea-dhcp4 kea-dhcp6
+apk add --allow-untrusted /tmp/luci-app-kea-*.apk
+```
+
+Install the Kea daemons you want; `kea-dhcp4` and `kea-dhcp6` above are an
+example. `kea-hook-ha` adds the high availability tab. Then reload LuCI:
+**Kea DHCP** is under **Services**.
+
+A freshly installed Kea daemon is switched off in `/etc/config/kea` and
+does not start; the application starts nothing on its own either. The
+daemons are switched on on the **Services** page. Read
+[Before you use it](#before-you-use-it) first.
+
+To upgrade, install a newer package the same way. `apk del luci-app-kea`
+removes the application; the Kea configuration and the backups in
+`/etc/kea/backups/` stay.
+
+### Building it yourself
+
+Use an OpenWrt tree that has the `luci` and `packages` feeds installed:
 
 ```sh
 cd /path/to/openwrt
@@ -141,11 +190,7 @@ In menuconfig, select a Kea daemon under **Network > IP Addresses and Names**
 first. `luci-app-kea` appears under **LuCI > 3. Applications** only after
 that.
 
-Copy the resulting package to the router and install it:
-
-```sh
-apk add --allow-untrusted /tmp/luci-app-kea-*.apk
-```
+Copy the resulting package to the router and install it as above.
 
 ## Before you use it
 
@@ -155,6 +200,7 @@ apk add --allow-untrusted /tmp/luci-app-kea-*.apk
 
 ## Documentation
 
+- [CHANGELOG.md](CHANGELOG.md): what changed in each version.
 - [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md): every page.
 - [docs/STATUS.md](docs/STATUS.md): what is implemented, known defects, what
   is missing.
@@ -164,6 +210,8 @@ apk add --allow-untrusted /tmp/luci-app-kea-*.apk
 - [docs/DESIGN.md](docs/DESIGN.md): intended behavior of each feature.
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): building, deploying to a test
   target, checks, debugging.
+- [docs/RELEASING.md](docs/RELEASING.md): version numbers and how a release
+  is made.
 - [docs/HISTORY.md](docs/HISTORY.md): development log.
 
 ## License
