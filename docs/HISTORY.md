@@ -7,6 +7,25 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-13: High availability (M5, `0.6.0-r1`)
+
+- A "High availability" tab in the DHCPv4 and DHCPv6 editors, offered when
+  `kea-hook-ha` is installed or the file already loads the hook: mode, this
+  server, peers, timers, lease update switches, other parameters as JSON.
+- The hook's rules were measured with about sixty configurations against
+  `kea-dhcp4 -T` and `kea-dhcp6 -T` of Kea 3.0.4, and its fallback values
+  taken from the Kea 3.0.4 sources.
+- Finding: `kea-dhcp4 -t` does not look at hook parameters. The backend now
+  checks the DHCP daemons with `-T`, which loads the hooks, and shows the
+  error lines of the Kea output first.
+- A save that Kea refuses no longer discards what the user typed, in the
+  editors and in the raw editor.
+- The form elements of the editor moved to `kea/widgets.js`.
+- Tests: 20 cases for the high availability model, 16 browser checks of the
+  tab, a backend case with the real hook.
+- Verified on OpenWrt 25.12.6 (QEMU) and 25.12.5 (VMware) with Kea 3.0.4,
+  including a daemon started with a setup made on the tab.
+
 ## 2026-11-12: Editor completeness (M4, `0.5.0-r1`)
 
 - The DHCPv4 and DHCPv6 pages show every address pool and prefix delegation

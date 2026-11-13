@@ -5,7 +5,7 @@
 ```text
 Makefile                                      OpenWrt package definition (includes luci.mk)
 htdocs/luci-static/resources/view/kea/        LuCI JavaScript views (one per page)
-htdocs/luci-static/resources/kea/             shared modules: model, backend, dialogs, editor
+htdocs/luci-static/resources/kea/             shared modules: model, ha, backend, widgets, dialogs, editor, hatab
 root/usr/share/rpcd/ucode/luci.kea            rpcd plugin: maps ubus methods to the library
 ucode/kea/                                    backend library, installed as the luci.kea.* modules
 root/usr/share/luci/menu.d/luci-app-kea.json  menu entries
@@ -55,8 +55,17 @@ else. `kea/editor.js` only renders inputs bound to the tab model and asks the
 model whether a value is wrong (`fieldError()`, `poolError()` and so on) to
 mark the input.
 
-`model.js` has no DOM or RPC code so that it can be tested under Node.
-`test/js/luci-loader.js` loads it the way LuCI does.
+`kea/ha.js` is the same kind of module for the high availability hook: it
+turns the `hooks-libraries` entry into a form state and merges it back, and
+writes nothing when the tab was not touched. The editor applies it after the
+subnets, so one save carries both.
+
+`model.js` and `ha.js` have no DOM or RPC code so that they can be tested
+under Node. `test/js/luci-loader.js` loads them the way LuCI does.
+
+Hook parameters need the real hook to be checked: `kea-dhcp4 -t` accepts
+anything in them. Use `kea-dhcp4 -T file` on a target that has the hook
+package installed, which is also what the backend does on every save.
 
 ## How the backend is organized
 
@@ -240,10 +249,11 @@ npx playwright install chromium-headless-shell
 export BASE_URL=http://<target> LUCI_PASSWORD=<password>
 node test/browser/smoke.js       # every page renders without errors
 node test/browser/editor.js      # editors, input checks, raw editor and backups end to end
+node test/browser/ha.js          # high availability tab end to end
 node test/browser/import.js      # static lease import end to end
 ```
 
-`editor.js` and `import.js` rewrite `/etc/kea/kea-dhcp4.conf` and
+`editor.js`, `ha.js` and `import.js` rewrite `/etc/kea/kea-dhcp4.conf` and
 `kea-dhcp6.conf` while they run and put the originals back at the end. Run
 them only against a test target whose LAN is `192.168.1.1/24` on `br-lan`.
 Set `OUT_DIR` to keep screenshots; a failing test leaves `failure.png` there.
@@ -262,6 +272,10 @@ ssh root@<target> 'cp /tmp/dhcp.before /etc/config/dhcp'
 
 dnsmasq is not reloaded, so the fixture leases never take effect. Static
 leases the target already has are left out of the import by the test.
+
+`ha.js` needs the `kea-hook-ha` and `kea-hook-lease-cmds` packages on the
+target; without them the editors do not offer the tab. It saves without
+applying, so no daemon is started or reloaded.
 
 ### Screenshots
 

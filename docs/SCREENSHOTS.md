@@ -1,6 +1,6 @@
 # Screenshots
 
-Taken with version `0.5.0` on OpenWrt 25.12.6 with Kea 3.0.4, using the test
+Taken with version `0.6.0` on OpenWrt 25.12.6 with Kea 3.0.4, using the test
 fixtures of this repository as configuration. `test/browser/screenshots.js`
 regenerates them; see [DEVELOPMENT.md](DEVELOPMENT.md#screenshots).
 
@@ -35,6 +35,13 @@ The last tab: timers and lifetimes for every subnet that does not set its
 own, the lease file cleanup interval, and the options sent to every subnet.
 
 ![Global settings tab](images/global.png)
+
+## High availability
+
+The tab appears when `kea-hook-ha` is installed. A hot standby pair, as it is
+typed in on the first of the two routers.
+
+![High availability tab](images/ha.png)
 
 ## Changes before saving
 

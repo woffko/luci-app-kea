@@ -1,6 +1,6 @@
 # Roadmap
 
-Last updated: 2026-11-12.
+Last updated: 2026-11-13.
 
 Goal: a LuCI application that manages ISC Kea on OpenWrt well enough to
 replace dnsmasq/odhcpd DHCP on a router, without losing access to Kea's JSON
@@ -168,12 +168,33 @@ someone needs them in a form.
 
 ## M5: High availability
 
-- [ ] HA page shown only when `kea-hook-ha` is installed or an HA hook entry
-      exists.
-- [ ] Verify the HA hook schema against the packaged Kea version first.
-- [ ] Modes, this-server name, peers, timers, lease update settings, advanced
-      JSON parameters. See [DESIGN.md](DESIGN.md).
+Done in `0.6.0-r1`.
+
+- [x] High availability settings, shown only when `kea-hook-ha` is installed
+      or an HA hook entry exists. They are a tab of the DHCPv4 and DHCPv6
+      editors, not a page of their own; see the working decisions.
+- [x] Verify the HA hook schema against the packaged Kea version first.
+      About sixty configurations were run through `kea-dhcp4 -T` and
+      `kea-dhcp6 -T` of Kea 3.0.4; [DESIGN.md](DESIGN.md#high-availability)
+      lists what the hook takes and refuses.
+- [x] Modes, this-server name, peers, timers, lease update settings, advanced
+      JSON parameters.
 - [ ] Optional assisted fill-in from `ha-cluster` peers, without a dependency.
+      Not done: the OpenWrt 25.12 repositories have no `ha-cluster` package,
+      so there is nothing to read peers from or to test against.
+
+Also fixed on the way:
+
+- `kea-dhcp4 -t` and `kea-dhcp6 -t` do not look at hook parameters at all:
+  a high availability entry with an unknown mode passed the check and the
+  daemon then refused to start. The backend now asks the DHCP daemons with
+  `-T`, which loads the hooks, and puts the reason a hook gives first in
+  what the user sees.
+- When Kea refused a save, the editors and the raw editor loaded the file
+  again and discarded what the user had typed. The input now stays.
+
+Not done: several relationships (hub and spoke) in the form, fields for TLS
+and basic authentication, and the state of the running service.
 
 ## M6: Runtime visibility
 
@@ -238,6 +259,23 @@ They follow the recommendation at the time and can be revisited.
 - Backups go to `/etc/kea/backups/`, ten per config file.
 - Version numbers: packaging-only changes bump `PKG_RELEASE`; changes in
   behavior bump `PKG_VERSION`.
+
+Taken while implementing M5:
+
+- **High availability is a tab of the editors, not a page.** The hook is
+  configured per daemon, in the same file as the subnets, so DHCPv4 and
+  DHCPv6 each have their own setup. As a tab it shares the save, apply and
+  change view of the editor, and one save writes subnets and high
+  availability together. The tab can also appear exactly when the roadmap
+  asked for (hook installed, or an entry in the file), which a menu entry
+  cannot: LuCI menu dependencies have no "or".
+- **The DHCP daemons are checked with `-T`.** It is the only check that
+  sees hook parameters. It costs nothing measurable on the stock and test
+  configurations, and it works while a daemon with the same configuration
+  is running.
+- **A new setup uses the full path of the hook libraries**, as the examples
+  in the configuration files shipped with Kea do. The backend reports the
+  directory.
 
 Taken while implementing M4:
 

@@ -4,7 +4,7 @@
 
 LuCI application for managing the ISC Kea DHCP server on OpenWrt.
 
-> **Status: alpha (0.5.0).** Usable for testing on a lab router. Not ready to
+> **Status: alpha (0.6.0).** Usable for testing on a lab router. Not ready to
 > replace a production dnsmasq/odhcpd setup yet: see
 > [Known limitations](#known-limitations).
 
@@ -36,6 +36,10 @@ Menu location: **Services > Kea DHCP**.
   options for all subnets.
 - **DHCPv6**: the same with prefix delegation pools and reservations by
   DUID, MAC address or flex ID.
+- **High availability**: a tab of the DHCPv4 and DHCPv6 pages when
+  `kea-hook-ha` is installed. Hot standby, load balancing or passive backup,
+  the peers with their roles, the timers, and every other parameter of the
+  hook as JSON.
 - **Configuration**: raw editor for the four Kea config files, with a JSON
   syntax check and restore from backup.
 - **Import dnsmasq**: turns the static leases of OpenWrt (`/etc/config/dhcp`)
@@ -52,8 +56,9 @@ written with dashes, is marked while you type, with the reason. **Show
 changes** lists the lines of the file a save would change. The pages warn
 when OpenWrt already serves DHCP on an interface you enable for Kea.
 
-Every config write is validated with the Kea binary (`kea-dhcp4 -t` and so on)
-before the file is replaced, and the previous file is kept in
+Every config write is validated with the Kea binary before the file is
+replaced, for the DHCP daemons with their hook libraries loaded
+(`kea-dhcp4 -T`), and the previous file is kept in
 `/etc/kea/backups/` (the ten newest per file). **Save & Apply** also reloads
 a running Kea daemon and tells you whether it is still running afterwards.
 
@@ -92,7 +97,10 @@ All pages are shown in [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md).
 - The import cannot convert a static lease with several MAC addresses, and
   it does not carry over per-host lease times or dnsmasq tags. It tells you
   which leases are affected.
-- No high-availability page and no lease viewer.
+- High availability: one relationship per daemon; the form shows the
+  configuration, not whether the partner is reachable. Each router is
+  configured on its own.
+- No lease viewer.
 - English only.
 
 The full list is in [docs/STATUS.md](docs/STATUS.md).

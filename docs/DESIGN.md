@@ -37,8 +37,8 @@ UCI and must edit Kea JSON.
 - Hybrid model: structured forms for common settings, a raw JSON editor for
   everything else.
 - Never drop Kea JSON keys the forms do not understand.
-- Validate with the Kea binary (`kea-dhcp4 -t`, `kea-dhcp6 -t`, and the
-  equivalents for DDNS and the control agent) before replacing a config file.
+- Validate with the Kea binary (`kea-dhcp4 -T`, `kea-dhcp6 -T`, and `-t` for
+  DDNS and the control agent) before replacing a config file.
 - Back up before every write.
 - Never stop dnsmasq or odhcpd implicitly. Show conflicts and give explicit
   controls.
@@ -156,27 +156,85 @@ A disabled static lease that the user selects is imported as a disabled
 reservation, in the subnet's `user-context`, where the DHCP editors show it
 switched off.
 
-## High availability page
+## High availability
 
-Shown only when `/usr/lib/kea/hooks/libdhcp_ha.so` is installed or an HA hook
-entry already exists in the config.
+A tab of the DHCPv4 and DHCPv6 editors, offered when
+`/usr/lib/kea/hooks/libdhcp_ha.so` is installed or the file already has an
+entry for it. The settings live in the `hooks-libraries` entry of the hook,
+one per daemon.
 
 Fields:
 
-- enable HA for DHCPv4 and for DHCPv6;
-- mode: hot-standby, load-balancing, passive-backup where supported;
-- this-server name;
-- peers: name, URL, role, auto-failover;
-- heartbeat delay, max response delay, max ACK delay, max unacked clients,
-  sync timeout;
-- send lease updates;
-- advanced JSON parameters.
+- enable: adds or removes the entry. Enabling also adds an entry for
+  `libdhcp_lease_cmds.so` if there is none, because the servers exchange
+  leases with its commands;
+- mode: hot standby, load balancing, passive backup;
+- the name of this server;
+- peers: name, URL, role, automatic failover;
+- heartbeat delay, maximum response delay, maximum ACK delay, maximum
+  unacked clients, synchronization timeout; the placeholders are the values
+  Kea uses when a field is empty;
+- send lease updates, synchronize leases;
+- additional parameters: every other key of the relationship as a JSON
+  object.
 
-The exact schema must be checked against the packaged Kea version before
-implementation.
+Rules of the form:
 
-Optional integration with `ha-cluster`: detect it, read peers and node names
-where possible, and offer an assisted fill-in. Kea must not depend on it.
+- Nothing is written unless something on the tab changed. Then the
+  relationship is merged: known keys keep their place, unknown keys of a
+  peer are kept, a number is removed when its field is emptied, and a switch
+  is written only when it was moved, never to spell out a default.
+- The form edits one relationship. A file with several is not touched and
+  the tab says where to edit it.
+
+### What the hook takes and refuses
+
+Measured with `kea-dhcp4 -T` and `kea-dhcp6 -T` of Kea 3.0.4. `-t` accepts
+everything in the first list except the last item, because it does not load
+hooks.
+
+Refused:
+
+- no `this-server-name`, or one that no peer has; no `mode`, or an unknown
+  one; an empty list of relationships;
+- a peer without `name`, `url` or `role`; an empty or repeated peer name; an
+  unknown role;
+- a host name in a peer URL (the hook resolves nothing); an `https` URL
+  without TLS configured; a URL without a scheme;
+- any mode without a primary, or with two;
+- hot standby without a standby, with two, or with a secondary;
+- load balancing without a secondary, with two, or with a standby;
+- passive backup with a standby or a secondary;
+- `delayed-updates-limit` other than 0 outside load balancing;
+  `wait-backup-ack` set in hot standby or load balancing;
+- negative numbers, and values of the wrong JSON type;
+- two relationships with the same `this-server-name`;
+- a hook library outside `/usr/lib/kea/hooks`.
+
+Accepted, some of it surprisingly:
+
+- a setup without the lease commands hook;
+- two peers with the same URL, a URL without a port, with port 0 or with a
+  path;
+- a heartbeat delay longer than the maximum response delay;
+- unknown keys in the relationship;
+- passive backup with a primary and no backup;
+- this server in the backup role;
+- IPv6 addresses in brackets;
+- two relationships with different names for this server.
+
+The form checks what it has fields for and leaves the rest to the hook,
+whose message is shown when a save is refused.
+
+### At run time
+
+With multi-threading, the default, the DHCP daemon itself listens on the URL
+of this server; the control agent is not involved. `kea-dhcp4 -T` works
+while a daemon with the same configuration is running.
+
+Optional integration with `ha-cluster` (detect it, read peers and node names,
+offer a fill-in) stays open: the OpenWrt 25.12 repositories have no such
+package. Kea must not depend on it.
 
 ## Raw editor
 
@@ -204,17 +262,15 @@ There are two layers, and the second one decides.
    overlapping subnets, and refuses a MAC address written with dashes, bare
    text as a client ID and two pools that overlap.
 2. **On the router**, for every write: a JSON parse and the Kea binary's
-   own configuration test. Nothing replaces a file without passing it.
+   own configuration test, for the DHCP daemons the one that loads the hook
+   libraries (`-T`). Nothing replaces a file without passing it.
 
 Semantic checks are not repeated in ucode. The Kea binary already refuses
 what they would refuse, and a second implementation of the same rules would
 only drift from the first.
 
-Still open:
-
-- HA hook library present and HA peer URL format, with the HA page;
-- a check that the daemon can actually start with the file, which `-t` does
-  not guarantee.
+Still open: a check that the daemon can actually start with the file. The
+Kea binary's test does not open sockets or interfaces.
 
 ### Second DHCP server on an interface
 
@@ -250,9 +306,9 @@ Covered by `test/ucode/importer.uc` and `test/ucode/target/import.uc`:
 ### Browser
 
 Playwright against a real OpenWrt target. Done: no JavaScript errors on any
-page; the editors, the raw editor, the backups and the import end to end,
-including a refused wrong value and invalid JSON. Still to do:
+page; the editors, the high availability tab, the raw editor, the backups
+and the import end to end, including a refused wrong value and invalid JSON.
+Still to do:
 
 - overview renders package and service state;
-- services page toggles components;
-- HA page appears only when the hook is present.
+- services page toggles components.
