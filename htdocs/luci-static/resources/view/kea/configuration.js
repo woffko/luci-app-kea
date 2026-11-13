@@ -105,16 +105,17 @@ return view.extend({
 		}
 
 		return backend.saveConfig(name, this.textarea.value).then(function(saved) {
+			/* Kea refused the text: it stays in the editor to be corrected. */
 			if (!saved)
 				return;
 
-			if (apply)
-				return backend.applyConfig(name);
+			if (!apply)
+				backend.notify(backend.daemonName(name) + ": " +
+					_("configuration saved. Reload or restart Kea to apply it."));
 
-			backend.notify(backend.daemonName(name) + ": " +
-				_("configuration saved. Reload or restart Kea to apply it."));
-		}).then(function() {
-			return self.loadConfig(name);
+			return Promise.resolve(apply ? backend.applyConfig(name) : null).then(function() {
+				return self.loadConfig(name);
+			});
 		});
 	},
 

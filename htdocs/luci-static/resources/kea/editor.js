@@ -5,14 +5,19 @@
 "require kea.model as model";
 "require kea.backend as backend";
 "require kea.dialogs as dialogs";
+"require kea.widgets as widgets";
+"require kea.ha as haModel";
+"require kea.hatab as hatab";
 
 /*
  * Structured subnet editor shared by the DHCPv4 and DHCPv6 pages.
  *
  * The page shows one tab per OpenWrt interface, one per Kea subnet that is
- * not bound to an interface or belongs to a shared network, and one for the
- * global settings. Inputs write straight into the model of kea.model, which
- * checks them and merges the changed values back into the configuration.
+ * not bound to an interface or belongs to a shared network, one for the
+ * global settings and, where the hook is available, one for high
+ * availability. Inputs write straight into the models of kea.model and
+ * kea.ha, which check them and merge the changed values back into the
+ * configuration.
  */
 
 var ID_TYPE_LABELS = {
@@ -36,118 +41,16 @@ var PAGES = {
 	}
 };
 
-/* The index of the tab bar entry for the global settings. */
+/* The tab bar entries that are not subnets. */
 var GLOBAL = "global";
+var HA = "ha";
 
-function field(label, child, description) {
-	return E("div", { "class": "cbi-value" }, [
-		E("label", { "class": "cbi-value-title" }, label),
-		E("div", { "class": "cbi-value-field" }, [
-			child,
-			description ? E("div", { "class": "cbi-value-description" }, description) : ""
-		])
-	]);
-}
-
-/* Mark an input as wrong, with the reason as its tooltip, or clear the mark. */
-function mark(node, message) {
-	node.classList.toggle("cbi-input-invalid", !!message);
-	node.title = message || "";
-}
-
-/*
- * Text input bound to object[key]. "check" returns a message while the
- * value is wrong; it runs when the user types, not on values as loaded.
- */
-function textInput(object, key, placeholder, type, check) {
-	return E("input", {
-		"class": "cbi-input-text",
-		"type": type || "text",
-		"min": type === "number" ? "0" : null,
-		"value": object[key],
-		"placeholder": placeholder || "",
-		"input": function(ev) {
-			object[key] = ev.target.value.trim();
-
-			if (check)
-				mark(ev.target, check());
-		}
-	});
-}
-
-function checkbox(object, key, onChange) {
-	return E("input", {
-		"type": "checkbox",
-		"checked": object[key] ? "checked" : null,
-		"change": function(ev) {
-			object[key] = ev.target.checked;
-
-			if (onChange)
-				onChange();
-		}
-	});
-}
-
-function notice(kind, children) {
-	return E("div", { "class": "alert-message " + kind }, children);
-}
-
-function deleteButton(onClick) {
-	return E("button", {
-		"class": "btn cbi-button cbi-button-remove",
-		"click": function(ev) {
-			ev.preventDefault();
-			onClick();
-		}
-	}, _("Delete"));
-}
-
-/*
- * A table of editable rows with an "add" button. "renderRow" returns the
- * cells of one row; the delete cell is added here.
- */
-function rowTable(options) {
-	var body = E("tbody", {});
-	var draw = function() {
-		var rows = options.rows.map(function(row) {
-			return E("tr", { "class": "tr" }, options.renderRow(row).map(function(cell) {
-				return E("td", { "class": "td left" }, cell);
-			}).concat([ E("td", { "class": "td right" }, deleteButton(function() {
-				options.rows.splice(options.rows.indexOf(row), 1);
-				draw();
-			})) ]));
-		});
-
-		if (!rows.length)
-			rows = [ E("tr", { "class": "tr" }, E("td", {
-				"class": "td left",
-				"colspan": String(options.titles.length + 1)
-			}, options.empty)) ];
-
-		body.replaceChildren.apply(body, rows);
-	};
-
-	draw();
-
-	return E("div", { "class": "cbi-section" }, [
-		E("h3", options.title),
-		options.description ? E("div", { "class": "cbi-section-descr" }, options.description) : "",
-		E("table", { "class": "table " + options.name }, [
-			E("thead", {}, E("tr", { "class": "tr table-titles" }, options.titles.concat([ "" ]).map(function(title) {
-				return E("th", { "class": "th left" }, title);
-			}))),
-			body
-		]),
-		E("div", { "class": "cbi-section-create" }, E("button", {
-			"class": "btn cbi-button cbi-button-add",
-			"click": function(ev) {
-				ev.preventDefault();
-				options.rows.push(options.create());
-				draw();
-			}
-		}, options.add))
-	]);
-}
+var field = widgets.field;
+var mark = widgets.mark;
+var textInput = widgets.textInput;
+var checkbox = widgets.checkbox;
+var notice = widgets.notice;
+var rowTable = widgets.rowTable;
 
 function createView(familyName) {
 	var family = model.family(familyName);
@@ -172,8 +75,12 @@ function createView(familyName) {
 			this.hasComments = parsed.hasComments;
 			this.tabs = parsed.error ? [] : model.buildTabs(familyName, parsed.config, this.interfaces);
 			this.global = parsed.error ? null : model.buildGlobal(familyName, parsed.config);
+			this.ha = parsed.error ? null : haModel.build(familyName, parsed.config);
 
-			if (this.active !== GLOBAL)
+			if (this.active === HA && !this.showsHa())
+				this.active = 0;
+
+			if (this.active !== GLOBAL && this.active !== HA)
 				this.active = Math.min(this.active || 0, Math.max(this.tabs.length - 1, 0));
 		},
 
@@ -232,6 +139,16 @@ function createView(familyName) {
 
 		/* ---- tab bar ---- */
 
+		/*
+		 * The high availability tab is offered when the hook is installed,
+		 * or when the file already has an entry for it.
+		 */
+		showsHa: function() {
+			var hooks = this.status.hooks || {};
+
+			return !!this.ha && (!!hooks.ha || this.ha.present);
+		},
+
 		renderTabBar: function() {
 			var self = this;
 			var entry = function(key, label, removed) {
@@ -252,6 +169,9 @@ function createView(familyName) {
 
 			if (!this.parseError)
 				entries.push(entry(GLOBAL, _("Global settings"), false));
+
+			if (this.showsHa())
+				entries.push(entry(HA, _("High availability"), false));
 
 			this.tabBarNode.replaceChildren(
 				E("ul", { "class": "cbi-tabmenu" }, entries),
@@ -564,11 +484,22 @@ function createView(familyName) {
 			);
 		},
 
+		renderHa: function() {
+			var self = this;
+			var nodes = hatab.render(familyName, this.ha, this.status.hooks || {}, function() {
+				self.renderHa();
+			});
+
+			this.editorNode.replaceChildren.apply(this.editorNode, nodes);
+		},
+
 		renderTab: function() {
 			if (this.parseError)
 				this.editorNode.replaceChildren();
 			else if (this.active === GLOBAL)
 				this.renderGlobal();
+			else if (this.active === HA)
+				this.renderHa();
 			else if (this.tabs[this.active])
 				this.renderSubnet(this.tabs[this.active]);
 			else
@@ -580,15 +511,18 @@ function createView(familyName) {
 		/* Merge the form into the configuration; null if the form has errors. */
 		buildConfig: function() {
 			var result = model.applyTabs(familyName, this.config, this.tabs, this.global);
+			var hooks = this.status.hooks || {};
+			var withHa = haModel.apply(familyName, result.config || this.config, this.ha, hooks.dir);
+			var errors = (result.errors || []).concat(withHa.errors || []);
 
-			if (result.errors) {
+			if (errors.length) {
 				ui.addNotification(null, E("pre", {
 					"style": "white-space: pre-wrap"
-				}, result.errors.join("\n")), "danger");
+				}, errors.join("\n")), "danger");
 				return null;
 			}
 
-			return result.config;
+			return withHa.config;
 		},
 
 		showChanges: function() {
@@ -605,16 +539,17 @@ function createView(familyName) {
 			var self = this;
 
 			return backend.saveConfig(familyName, model.serialize(config)).then(function(saved) {
+				/* Kea refused the file: the form keeps what was typed. */
 				if (!saved)
 					return;
 
-				if (apply)
-					return backend.applyConfig(familyName);
+				if (!apply)
+					backend.notify(backend.daemonName(familyName) + ": " +
+						_("configuration saved. Reload or restart Kea to apply it."));
 
-				backend.notify(backend.daemonName(familyName) + ": " +
-					_("configuration saved. Reload or restart Kea to apply it."));
-			}).then(function() {
-				return self.reload();
+				return Promise.resolve(apply ? backend.applyConfig(familyName) : null).then(function() {
+					return self.reload();
+				});
 			});
 		},
 

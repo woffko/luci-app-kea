@@ -1,13 +1,13 @@
 msgid ""
 msgstr "Content-Type: text/plain; charset=UTF-8"
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:160
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:161
 msgid ""
 "A backup is made each time this file is changed from LuCI. The newest ten "
 "are kept."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:424
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:344
 msgid ""
 "A reservation that is not enabled is kept in the configuration file but not "
 "used by Kea."
@@ -18,27 +18,35 @@ msgstr ""
 msgid "Actions"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:391
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:311
 msgid "Add Option"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:344
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:113
+msgid "Add Peer"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:264
 msgid "Add Pool"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:365
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:285
 msgid "Add Prefix Pool"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:428
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:348
 msgid "Add Reservation"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:66
+msgid "Additional parameters"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:203
 msgid "Address"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:340
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:260
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:819
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:834
 msgid "Address Pools"
@@ -48,17 +56,22 @@ msgstr ""
 msgid "Already in Kea"
 msgstr ""
 
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:110
+msgid "Automatic failover"
+msgstr ""
+
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:334
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:410
 msgid "Autostart"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:162
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:22
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:163
 msgid "Backup"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:146
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:158
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:147
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:159
 msgid "Backups"
 msgstr ""
 
@@ -82,11 +95,11 @@ msgstr ""
 msgid "Changes Kea"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:22
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:27
 msgid "Circuit ID"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:20
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:25
 msgid "Client ID"
 msgstr ""
 
@@ -94,7 +107,7 @@ msgstr ""
 msgid "Close"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:601
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:535
 msgid "Compared without the comments of the file, which a save removes."
 msgstr ""
 
@@ -102,7 +115,7 @@ msgstr ""
 msgid "Component"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:253
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:254
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:430
 msgid "Config"
 msgstr ""
@@ -119,13 +132,13 @@ msgstr ""
 msgid "DHCP and DNS"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:521
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:441
 msgid ""
 "DHCP options of this subnet that have no field above. Use the option name or "
 "its numeric code."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:563
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:483
 msgid ""
 "DHCP options sent to the clients of every subnet. Use the option name or its "
 "numeric code."
@@ -143,15 +156,15 @@ msgstr ""
 msgid "DNS Servers"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:21
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:26
 msgid "DUID"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:362
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:282
 msgid "Delegated length"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:102
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/widgets.js:70
 msgid "Delete"
 msgstr ""
 
@@ -174,15 +187,16 @@ msgstr ""
 msgid "Domain Search"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:302
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:222
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:85
 msgid "Enable"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:29
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:34
 msgid "Enable DHCPv4 server on this interface"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:34
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:39
 msgid "Enable DHCPv6 server on this interface"
 msgstr ""
 
@@ -191,12 +205,19 @@ msgstr ""
 msgid "Enable autostart"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:419
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:339
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:160
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:345
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:397
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:431
 msgid "Enabled"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:109
+msgid ""
+"Every server of the setup, this one included. The URL is where the Kea DHCP "
+"daemon of that server listens for its partners: an IP address and a port "
+"that nothing else uses there, for example http://192.168.1.1:8000/."
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:75
@@ -215,7 +236,11 @@ msgstr ""
 msgid "Failed to save the Kea configuration."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:23
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:157
+msgid "Fetch the leases from the partner after a restart"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:28
 msgid "Flex ID"
 msgstr ""
 
@@ -223,8 +248,8 @@ msgstr ""
 msgid "Gateway"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:254
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:541
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:171
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:461
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:1302
 msgid "Global settings"
 msgstr ""
@@ -233,29 +258,50 @@ msgstr ""
 msgid "Grant access to Kea DHCP LuCI application"
 msgstr ""
 
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:59
+msgid "Heartbeat delay"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:174
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:415
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:44
+msgid "High availability"
+msgstr ""
+
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:203
 msgid "Host"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:407
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:327
 msgid "Hostname"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:555
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:13
+msgid "Hot standby"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:99
+msgid ""
+"Hot standby: one server answers and the other takes over when it fails. Load "
+"balancing: both answer, each for half of the clients. Passive backup: one "
+"server answers and copies its leases to the backup servers."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:475
 msgid ""
 "How often, in seconds, the lease file is compacted; 0 turns it off. Needs "
 "the kea-lfc package."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:415
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:335
 msgid "IPv4 Address"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:417
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:337
 msgid "IPv6 Addresses"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:407
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:327
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:203
 msgid "Identifier"
 msgstr ""
@@ -317,7 +363,7 @@ msgstr ""
 msgid "Invalid"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:184
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:185
 msgid "JSON syntax error"
 msgstr ""
 
@@ -325,7 +371,7 @@ msgstr ""
 msgid "Kea Components"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:250
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:251
 msgid "Kea Configuration"
 msgstr ""
 
@@ -334,11 +380,11 @@ msgstr ""
 msgid "Kea DHCP"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:28
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:33
 msgid "Kea DHCPv4"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:33
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:38
 msgid "Kea DHCPv6"
 msgstr ""
 
@@ -361,10 +407,14 @@ msgstr ""
 msgid "Kea init action failed."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:228
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:135
 msgid ""
 "Kea is configured to listen on all interfaces (\"*\"). The per-interface "
 "checkbox below does not restrict it."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:163
+msgid "Kea needs an IP address in the URL, not a host name"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:242
@@ -379,7 +429,7 @@ msgstr ""
 msgid "Kea subnet"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:489
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:409
 msgid "Keep the subnet"
 msgstr ""
 
@@ -387,11 +437,15 @@ msgstr ""
 msgid "Lease File Cleanup"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:243
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:14
+msgid "Load balancing"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:244
 msgid "Loading..."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:19
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:24
 msgid "MAC address"
 msgstr ""
 
@@ -401,6 +455,18 @@ msgid ""
 "static lease imports."
 msgstr ""
 
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:61
+msgid "Maximum ACK delay"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:60
+msgid "Maximum response delay"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:62
+msgid "Maximum unacked clients"
+msgstr ""
+
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:155
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:156
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:344
@@ -408,7 +474,15 @@ msgstr ""
 msgid "Missing"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:388
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:53
+msgid "Mode"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:56
+msgid "Name"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:308
 msgid "Name or code"
 msgstr ""
 
@@ -420,7 +494,7 @@ msgstr ""
 msgid "No"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:244
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:245
 msgid "No Kea config files were found."
 msgstr ""
 
@@ -432,20 +506,24 @@ msgstr ""
 msgid "No Kea service setting changes to save."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:343
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:263
 msgid "No address pools: Kea hands out no dynamic addresses in this subnet."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:147
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:148
 msgid ""
 "No backups yet. A backup is made each time this file is changed from LuCI."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:390
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:310
 msgid "No other options."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:364
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:112
+msgid "No peers."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:284
 msgid "No prefix delegation pools."
 msgstr ""
 
@@ -453,7 +531,7 @@ msgstr ""
 msgid "No static leases were found in /etc/config/dhcp."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:427
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:347
 msgid "No static reservations."
 msgstr ""
 
@@ -477,7 +555,7 @@ msgstr ""
 msgid "OpenWrt IPv6 RA/DHCPv6 service"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:280
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:200
 msgid ""
 "OpenWrt also serves DHCP on this interface (dnsmasq or odhcpd). Two DHCP "
 "servers on one network hand out conflicting leases. Switch the OpenWrt "
@@ -485,13 +563,26 @@ msgid ""
 "answers here."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:386
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:306
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:781
 msgid "Other Options"
 msgstr ""
 
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:161
+msgid ""
+"Other parameters of the hook as a JSON object. Kea checks them when you save."
+msgstr ""
+
 #: applications/luci-app-kea/root/usr/share/luci/menu.d/luci-app-kea.json:13
 msgid "Overview"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:15
+msgid "Passive backup"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:55
+msgid "Peers"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:404
@@ -502,20 +593,20 @@ msgstr ""
 msgid "Preferred Lifetime"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:362
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:282
 msgid "Prefix"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:361
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:281
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:865
 msgid "Prefix Delegation"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:362
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:282
 msgid "Prefix length"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:417
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:337
 msgid "Prefixes"
 msgstr ""
 
@@ -523,11 +614,15 @@ msgstr ""
 msgid "Present"
 msgstr ""
 
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:19
+msgid "Primary"
+msgstr ""
+
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:203
 msgid "Protocol"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:341
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:261
 msgid "Range or prefix"
 msgstr ""
 
@@ -552,29 +647,29 @@ msgid ""
 "Reload or restart Kea on the Services page to apply the new reservations."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:645
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:580
 msgid "Remove and save"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:221
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:643
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:128
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:578
 msgid "Remove example entries"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:502
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:504
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:511
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:422
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:424
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:431
 msgid "Remove subnet"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:644
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:579
 msgid ""
 "Remove the example subnet, example global options and example client class "
 "shipped with Kea, and save the configuration together with your current "
 "changes?"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:503
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:423
 msgid ""
 "Remove this subnet with all its pools, options and reservations from the Kea "
 "configuration? Nothing is written until you save."
@@ -584,7 +679,7 @@ msgstr ""
 msgid "Renew Timer"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:126
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:127
 msgid ""
 "Replace the current file with the selected backup? The current file is "
 "backed up first, and unsaved changes in the editor are discarded."
@@ -595,13 +690,25 @@ msgstr ""
 msgid "Restart"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:127
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:172
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:128
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:173
 msgid "Restore"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:125
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:126
 msgid "Restore backup"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:58
+msgid "Role"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:26
+msgid "Run this DHCPv4 server as part of a high availability setup"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:27
+msgid "Run this DHCPv6 server as part of a high availability setup"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:163
@@ -615,6 +722,14 @@ msgstr ""
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:411
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:432
 msgid "Runtime"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:20
+msgid "Secondary"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:64
+msgid "Send lease updates"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:332
@@ -634,8 +749,8 @@ msgstr ""
 msgid "Services"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:264
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:211
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:184
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:212
 msgid "Show changes"
 msgstr ""
 
@@ -643,12 +758,16 @@ msgstr ""
 msgid "Skipped"
 msgstr ""
 
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:21
+msgid "Standby"
+msgstr ""
+
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:315
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:372
 msgid "Start"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:423
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:343
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:1048
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:1076
 msgid "Static Reservations"
@@ -673,30 +792,64 @@ msgstr ""
 msgid "Subnet"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:30
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:91
+msgid ""
+"Switching this off removes the high availability settings from the file when "
+"you save."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:63
+msgid "Synchronization timeout"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:65
+msgid "Synchronize leases"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:152
+msgid "Tell the partner about every lease that is given out"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:35
 msgid ""
 "The DHCPv4 config cannot be parsed by the structured editor. Use the "
 "Configuration page to fix it."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:35
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:40
 msgid ""
 "The DHCPv6 config cannot be parsed by the structured editor. Use the "
 "Configuration page to fix it."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:225
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:132
 msgid ""
 "The configuration file contains comments. Saving from this page rewrites the "
 "file as plain JSON and removes them."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:72
+msgid ""
+"The configuration loads the high availability hook, but the kea-hook-ha "
+"package is not installed. Kea does not start in this state."
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:122
 msgid "The import failed."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:557
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:83
+msgid ""
+"The kea-hook-lease-cmds package is not installed. The servers need it to "
+"exchange their leases."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:477
 msgid "The lease database is not a memfile, so this setting has no effect."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:101
+msgid "The name of this router in the list of peers."
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:265
@@ -714,7 +867,7 @@ msgstr ""
 msgid "The texts are too large to compare line by line."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:633
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:568
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:95
 msgid "There are no changes to save."
 msgstr ""
@@ -723,7 +876,13 @@ msgstr ""
 msgid "There are no changes."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:214
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:76
+msgid ""
+"This configuration has several high availability relationships. They are "
+"edited on the Configuration page."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:121
 msgid ""
 "This configuration still contains example entries shipped with Kea: a subnet "
 "from a documentation address range, example global options or an example "
@@ -731,13 +890,27 @@ msgid ""
 "subnet that does not override them."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:480
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:54
+msgid "This server"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:400
 msgid "This subnet will be removed from the Kea configuration when you save."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:332
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:142
+msgid "Timers and lease updates"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:252
 msgid ""
 "Timers are in seconds. Empty fields use the global Kea value shown as "
+"placeholder."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:147
+msgid ""
+"Times are in milliseconds. Empty fields use the Kea default shown as "
 "placeholder."
 msgstr ""
 
@@ -745,8 +918,19 @@ msgstr ""
 msgid "To change an entry, edit the static lease and reload this page:"
 msgstr ""
 
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:46
+msgid ""
+"Two or more Kea servers share the leases of one network, so that one can "
+"fail without clients losing service. Every server gets the same list of "
+"peers; only the name of this server differs."
+msgstr ""
+
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:433
 msgid "UCI section"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:57
+msgid "URL"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:347
@@ -773,11 +957,11 @@ msgstr ""
 msgid "Validation"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:388
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:308
 msgid "Value"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:543
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:463
 msgid "Values for every subnet that does not set its own."
 msgstr ""
 
@@ -793,6 +977,10 @@ msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:415
 msgid "a DUID has at least three octets"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:368
+msgid "a peer needs a name"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:334
@@ -811,11 +999,15 @@ msgstr ""
 msgid "an option needs a name or a numeric code"
 msgstr ""
 
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:372
+msgid "another peer has the same name"
+msgstr ""
+
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:1469
 msgid "another subnet of this configuration has the same prefix"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:132
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:133
 msgid "backup restored. Reload or restart Kea to apply it."
 msgstr ""
 
@@ -831,8 +1023,8 @@ msgstr ""
 msgid "configuration saved, but the reload failed."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:615
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:115
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:548
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:114
 msgid "configuration saved. Reload or restart Kea to apply it."
 msgstr ""
 
@@ -840,6 +1032,30 @@ msgstr ""
 msgid ""
 "configuration saved. The service is not running; start it from the Services "
 "page."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:403
+msgid "exactly one peer must be the primary server"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:407
+msgid "hot standby needs exactly one standby server"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:166
+msgid "https needs the TLS parameters trust-anchor, cert-file and key-file"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:408
+msgid "load balancing needs exactly one secondary server"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:323
+msgid "must be a JSON object such as { \"sync-page-limit\": 5000 }"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:350
+msgid "no peer has this name"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:413
@@ -850,12 +1066,28 @@ msgstr ""
 msgid "not a MAC address such as 00:11:22:33:44:55"
 msgstr ""
 
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:160
+msgid "not a URL such as http://192.168.1.2:8000/"
+msgstr ""
+
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:419
 msgid "not a client ID: use hex octets such as 01:11:22:33:44:55:66"
 msgstr ""
 
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:342
+msgid "not a mode Kea knows"
+msgstr ""
+
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:344
 msgid "not a network device name"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:380
+msgid "not a role Kea knows"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:354
+msgid "not a whole number"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:359
@@ -890,6 +1122,10 @@ msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:368
 msgid "not an address range such as 192.168.1.100 - 192.168.1.199"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:319
+msgid "not valid JSON"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:161
@@ -930,6 +1166,10 @@ msgstr ""
 msgid "the lengths must be between 1 and 128"
 msgstr ""
 
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:346
+msgid "the name of this server is required"
+msgstr ""
+
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:385
 msgid "the prefix length and the delegated length must be numbers"
 msgstr ""
@@ -948,6 +1188,14 @@ msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:835
 msgid "these ranges overlap"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:327
+msgid "this parameter has a field of its own above"
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:383
+msgid "this role is not allowed in this mode"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/import-dnsmasq.js:186

@@ -35,7 +35,11 @@ export default [
 				backend: 'readonly',
 				dialogs: 'readonly',
 				editor: 'readonly',
-				model: 'readonly'
+				ha: 'readonly',
+				haModel: 'readonly',
+				hatab: 'readonly',
+				model: 'readonly',
+				widgets: 'readonly'
 			},
 			parserOptions: {
 				ecmaFeatures: {
