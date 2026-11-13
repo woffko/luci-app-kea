@@ -11,6 +11,8 @@
 					"getConfigList",
 					"getConfig",
 					"listBackups",
+					"getLeases",
+					"getLog",
 					"importDnsmasqDryRun"
 				]
 			}

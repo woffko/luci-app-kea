@@ -41,6 +41,14 @@
 			"path": "kea/dhcp6"
 		}
 	},
+	"admin/services/kea/leases": {
+		"title": "Leases",
+		"order": 50,
+		"action": {
+			"type": "view",
+			"path": "kea/leases"
+		}
+	},
 	"admin/services/kea/configuration": {
 		"title": "Configuration",
 		"order": 80,

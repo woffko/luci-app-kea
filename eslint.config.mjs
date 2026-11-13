@@ -28,13 +28,19 @@ export default [
 				E: 'readonly',
 				/* LuCI modules named in "require" directives */
 				baseclass: 'readonly',
+				poll: 'readonly',
 				rpc: 'readonly',
 				ui: 'readonly',
 				view: 'readonly',
 				/* modules of this application */
 				backend: 'readonly',
+				dialogs: 'readonly',
 				editor: 'readonly',
-				model: 'readonly'
+				ha: 'readonly',
+				haModel: 'readonly',
+				hatab: 'readonly',
+				model: 'readonly',
+				widgets: 'readonly'
 			},
 			parserOptions: {
 				ecmaFeatures: {
@@ -62,7 +68,8 @@ export default [
 			globals: {
 				...globals.node,
 				/* evaluated inside the page by Playwright */
-				document: 'readonly'
+				document: 'readonly',
+				L: 'readonly'
 			}
 		},
 		rules: {

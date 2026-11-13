@@ -19,6 +19,7 @@ const PAGES = [
 	{ route: "services", heading: "Kea Services" },
 	{ route: "dhcp4", heading: "Kea DHCPv4" },
 	{ route: "dhcp6", heading: "Kea DHCPv6" },
+	{ route: "leases", heading: "Kea Leases" },
 	{ route: "configuration", heading: "Kea Configuration" },
 	{ route: "import-dnsmasq", heading: "Import dnsmasq Static Leases" }
 ];

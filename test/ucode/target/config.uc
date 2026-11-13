@@ -60,6 +60,57 @@ test('a missing binary is reported, not treated as valid', () => {
 	equal(check.output, 'binary is not installed: ' + root + '/nosbin/kea-dhcp-ddns');
 });
 
+// "kea-dhcp4 -t" accepts any parameters of a hook. The backend asks with
+// "-T", which lets the hook check them.
+const HOOKS = '/usr/lib/kea/hooks';
+
+function with_ha(mode) {
+	let hooks = [];
+
+	if (fs.access(HOOKS + '/libdhcp_lease_cmds.so'))
+		push(hooks, { library: HOOKS + '/libdhcp_lease_cmds.so' });
+
+	push(hooks, {
+		library: HOOKS + '/libdhcp_ha.so',
+		parameters: {
+			'high-availability': [ {
+				'this-server-name': 'a',
+				mode,
+				peers: [
+					{ name: 'a', url: 'http://192.0.2.1:8000/', role: 'primary' },
+					{ name: 'b', url: 'http://192.0.2.2:8000/', role: 'standby' }
+				]
+			} ]
+		}
+	});
+
+	return sprintf('%.J\n', {
+		Dhcp4: {
+			'interfaces-config': { interfaces: [] },
+			'lease-database': { type: 'memfile', persist: false },
+			'hooks-libraries': hooks
+		}
+	});
+}
+
+if (fs.access(HOOKS + '/libdhcp_ha.so') && fs.access('/usr/sbin/kea-dhcp4', 'x')) {
+	test('a hook checks its parameters when a DHCP config is saved', () => {
+		let good = config.save(ctx, 'dhcp4', with_ha('hot-standby'));
+
+		equal(good.result, true, good.validation);
+
+		let bad = config.save(ctx, 'dhcp4', with_ha('active-active'));
+
+		equal(bad.result, false);
+		ok(match(bad.validation, /^HA_CONFIGURATION_FAILED .*unsupported value 'active-active' for mode parameter/),
+			bad.validation);
+		equal(fs.readfile(config.path(ctx, 'dhcp4')), with_ha('hot-standby'));
+	});
+}
+else {
+	print('# skipped: the hook check needs kea-dhcp4 and kea-hook-ha\n');
+}
+
 test('validate_all on the system reports all four daemons', () => {
 	let all = config.validate_all(config.context());
 

@@ -5,7 +5,7 @@
 ```text
 Makefile                                      OpenWrt package definition (includes luci.mk)
 htdocs/luci-static/resources/view/kea/        LuCI JavaScript views (one per page)
-htdocs/luci-static/resources/kea/             shared modules: model, backend, editor
+htdocs/luci-static/resources/kea/             shared modules: model, ha, backend, widgets, dialogs, editor, hatab
 root/usr/share/rpcd/ucode/luci.kea            rpcd plugin: maps ubus methods to the library
 ucode/kea/                                    backend library, installed as the luci.kea.* modules
 root/usr/share/luci/menu.d/luci-app-kea.json  menu entries
@@ -16,8 +16,10 @@ test/js/                                      unit tests for the configuration m
 test/ucode/                                   tests for the backend library (ucode)
 test/browser/                                 browser tests (Playwright)
 test/fixtures/                                Kea and UCI fixtures
+test/make-lease-fixture.sh                    writes lease files for the Leases page test
 package.json, eslint.config.mjs               development tooling (ESLint)
 .github/workflows/ci.yml                      CI
+CHANGELOG.md                                  what changed for users, by version
 docs/                                         project documentation
 ```
 
@@ -35,13 +37,37 @@ the values the form started with; on save, only values that differ from the
 starting ones are written back into a copy of that object. Unknown keys,
 their order and the formatting of untouched values survive.
 
+The lists of a subnet (pools, prefix delegation pools, options,
+reservations) work the same way one level down: each row keeps the object it
+was loaded from and its starting values, and a row that was not edited is
+written back as that object.
+
+The same rule applies to checks. A value is checked when the user changed
+it, never because it is there: a file Kea accepts must always be savable
+again. Changing a subnet prefix is the one case that checks other values,
+its pools and reservations. Every check mirrors something `kea-dhcp4 -t` or
+`kea-dhcp6 -t` refuses; before adding one, try the value against the Kea
+binary on a test target, because Kea accepts more than its documentation
+suggests.
+
 When adding a field, add it to the family description at the top of
 `model.js`, load it in `loadSubnet()`, write it in `mergeSubnet()` behind a
 `fieldChanged()` check, and add a unit test that changing it changes nothing
-else. `kea/editor.js` only renders inputs bound to the tab model.
+else. `kea/editor.js` only renders inputs bound to the tab model and asks the
+model whether a value is wrong (`fieldError()`, `poolError()` and so on) to
+mark the input.
 
-`model.js` has no DOM or RPC code so that it can be tested under Node.
-`test/js/luci-loader.js` loads it the way LuCI does.
+`kea/ha.js` is the same kind of module for the high availability hook: it
+turns the `hooks-libraries` entry into a form state and merges it back, and
+writes nothing when the tab was not touched. The editor applies it after the
+subnets, so one save carries both.
+
+`model.js` and `ha.js` have no DOM or RPC code so that they can be tested
+under Node. `test/js/luci-loader.js` loads them the way LuCI does.
+
+Hook parameters need the real hook to be checked: `kea-dhcp4 -t` accepts
+anything in them. Use `kea-dhcp4 -T file` on a target that has the hook
+package installed, which is also what the backend does on every save.
 
 ## How the backend is organized
 
@@ -215,6 +241,8 @@ sh test/run-ucode-tests.sh --target --installed   # the library of the installed
 ```
 
 They work in a temporary root and do not touch `/etc/kea` or `/etc/config`.
+One of them writes a line tagged `kea-dhcp4` to the system log, to have a
+Kea message to find there.
 
 The browser tests drive LuCI on a target. They need Node.js with the
 `playwright` package:
@@ -224,11 +252,13 @@ npm install playwright
 npx playwright install chromium-headless-shell
 export BASE_URL=http://<target> LUCI_PASSWORD=<password>
 node test/browser/smoke.js       # every page renders without errors
-node test/browser/editor.js      # editors, raw editor and backups end to end
+node test/browser/editor.js      # editors, input checks, raw editor and backups end to end
+node test/browser/ha.js          # high availability tab end to end
+node test/browser/leases.js      # Leases page, version and log on Overview
 node test/browser/import.js      # static lease import end to end
 ```
 
-`editor.js` and `import.js` rewrite `/etc/kea/kea-dhcp4.conf` and
+`editor.js`, `ha.js` and `import.js` rewrite `/etc/kea/kea-dhcp4.conf` and
 `kea-dhcp6.conf` while they run and put the originals back at the end. Run
 them only against a test target whose LAN is `192.168.1.1/24` on `br-lan`.
 Set `OUT_DIR` to keep screenshots; a failing test leaves `failure.png` there.
@@ -245,7 +275,42 @@ ssh root@<target> 'cp /etc/config/dhcp /tmp/dhcp.before
 ssh root@<target> 'cp /tmp/dhcp.before /etc/config/dhcp'
 ```
 
-dnsmasq is not reloaded, so the fixture leases never take effect.
+dnsmasq is not reloaded, so the fixture leases never take effect. Static
+leases the target already has are left out of the import by the test.
+
+`ha.js` needs the `kea-hook-ha` and `kea-hook-lease-cmds` packages on the
+target; without them the editors do not offer the tab. It saves without
+applying, so no daemon is started or reloaded.
+
+`leases.js` needs lease files with known content on the target:
+
+```sh
+scp -O test/make-lease-fixture.sh root@<target>:/tmp/
+ssh root@<target> 'sh /tmp/make-lease-fixture.sh'
+# ... run the test ...
+ssh root@<target> 'sh /tmp/make-lease-fixture.sh --remove'
+```
+
+The script writes leases that expire within the hour. It refuses to run
+while a Kea DHCP daemon is running, or where lease files already hold
+leases, so it cannot destroy real ones. Lease files that hold only their
+header line are overwritten and removed afterwards; Kea writes them again
+when it starts.
+
+### Screenshots
+
+The pictures in `docs/images/` are taken by a script, with the fixtures
+loaded, so the configuration, the leases and the static leases they show are
+not those of the target. The log on the Overview picture is the real system
+log of the target, so take the pictures on a test machine. The script needs
+the preconditions of `import.js`, `leases.js` and `ha.js` together: the
+fixture static leases, the lease fixture and the `kea-hook-ha` package.
+
+```sh
+node test/browser/screenshots.js
+```
+
+Run it after a change to a page and commit the pictures that changed.
 
 ## CI
 
@@ -262,6 +327,10 @@ dnsmasq is not reloaded, so the fixture leases never take effect.
 
 The on-target tests and the browser tests are not part of CI; they need a
 running OpenWrt system.
+
+The package of a CI run on `main` is what the README tells users to
+install until there are releases. Version numbers and the steps of a
+release are in [RELEASING.md](RELEASING.md).
 
 ## A disposable test target
 

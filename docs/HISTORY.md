@@ -7,6 +7,71 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-13: Changelog, version rules, installation from CI (M7, part)
+
+- `CHANGELOG.md` with every version since `0.1.0-r1`, written for users of
+  the package.
+- `docs/RELEASING.md`: how versions are numbered, what stays stable within
+  0.x, what to update with a version, and the steps of a release.
+- The README explains how to install the package that CI builds.
+- Open in M7, for the owner: tags and releases, tests on a target in CI, a
+  custom feed, the submission to `openwrt/luci`.
+
+## 2026-11-13: Runtime visibility (M6, `0.7.0-r1`)
+
+- A Leases page: the DHCPv4 and DHCPv6 leases in use, read from the lease
+  files of the memfile backend in the order Kea loads them. No hook library
+  and no control channel is needed.
+- Overview shows the Kea version and the last Kea messages of the system
+  log, and folds the output of a successful configuration check.
+- Two new read-only backend methods, `getLeases` and `getLog`.
+- The lease file format was taken from the Kea 3.0.4 sources and checked
+  with a DHCP client on a virtual interface pair: its DHCPv4 address, DHCPv6
+  address and delegated prefix appeared on the page.
+- Tests: 11 host cases and 3 on-target cases for the new module, a browser
+  test of the page with a lease fixture.
+- Verified on OpenWrt 25.12.6 (QEMU) and 25.12.5 (VMware) with Kea 3.0.4.
+
+## 2026-11-13: High availability (M5, `0.6.0-r1`)
+
+- A "High availability" tab in the DHCPv4 and DHCPv6 editors, offered when
+  `kea-hook-ha` is installed or the file already loads the hook: mode, this
+  server, peers, timers, lease update switches, other parameters as JSON.
+- The hook's rules were measured with about sixty configurations against
+  `kea-dhcp4 -T` and `kea-dhcp6 -T` of Kea 3.0.4, and its fallback values
+  taken from the Kea 3.0.4 sources.
+- Finding: `kea-dhcp4 -t` does not look at hook parameters. The backend now
+  checks the DHCP daemons with `-T`, which loads the hooks, and shows the
+  error lines of the Kea output first.
+- A save that Kea refuses no longer discards what the user typed, in the
+  editors and in the raw editor.
+- The form elements of the editor moved to `kea/widgets.js`.
+- Tests: 20 cases for the high availability model, 16 browser checks of the
+  tab, a backend case with the real hook.
+- Verified on OpenWrt 25.12.6 (QEMU) and 25.12.5 (VMware) with Kea 3.0.4,
+  including a daemon started with a setup made on the tab.
+
+## 2026-11-12: Editor completeness (M4, `0.5.0-r1`)
+
+- The DHCPv4 and DHCPv6 pages show every address pool and prefix delegation
+  pool of a subnet as a row, and every option that has no field of its own.
+  Until now the second pool of a subnet could not be seen or changed.
+- Subnets inside shared networks have tabs and are edited where they are.
+- A tab for the global settings: timers, lease file cleanup interval and
+  global options.
+- Input is checked in the browser against what Kea 3.0.4 was measured to
+  refuse: pools and reserved addresses outside the subnet, overlapping
+  pools, duplicate reservations, malformed identifiers, the same subnet
+  twice. Wrong values are marked while typing. Only changed values are
+  checked.
+- A warning on an interface that OpenWrt already serves with dnsmasq or
+  odhcpd; `getNetworkInterfaces` reports that per interface.
+- **Show changes** in the editors and in the raw editor; the raw editor
+  refuses text that is not JSON before sending it.
+- One confirmation dialog for all pages (`kea/dialogs.js`).
+- Tests: 47 model cases, 32 browser checks of the editors.
+- Verified on OpenWrt 25.12.6 (QEMU) and 25.12.5 (VMware) with Kea 3.0.4.
+
 ## 2026-11-12: Static lease import completed (M3, `0.4.0-r1`)
 
 - The import reads static leases the way OpenWrt writes them: one host

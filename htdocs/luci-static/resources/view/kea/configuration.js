@@ -3,6 +3,8 @@
 "require view";
 "require ui";
 "require kea.backend as backend";
+"require kea.model as model";
+"require kea.dialogs as dialogs";
 
 var callConfigList = rpc.declare({
 	object: "luci.kea",
@@ -23,6 +25,17 @@ function backupLabel(backup) {
 		String(backup.id);
 
 	return label + ", " + backup.size + " " + _("bytes");
+}
+
+/*
+ * The message of a JSON syntax error in the text, or null. Kea reads more
+ * than JSON: a file that uses its include directive is left to Kea itself.
+ */
+function syntaxError(content) {
+	if (/<\?include\b/.test(content))
+		return null;
+
+	return model.parseConfig(content).error;
 }
 
 function renderValidation(config) {
@@ -73,6 +86,7 @@ return view.extend({
 	save: function(apply) {
 		var self = this;
 		var name = this.currentName;
+		var error;
 
 		if (!name || !this.textarea)
 			return Promise.resolve();
@@ -82,17 +96,26 @@ return view.extend({
 			return Promise.resolve();
 		}
 
+		/* Catch a typo here, before the file goes to the router to be checked by Kea. */
+		error = syntaxError(this.textarea.value);
+
+		if (error) {
+			ui.addNotification(null, E("p", _("The text is not valid JSON, nothing was saved") + ": " + error), "danger");
+			return Promise.resolve();
+		}
+
 		return backend.saveConfig(name, this.textarea.value).then(function(saved) {
+			/* Kea refused the text: it stays in the editor to be corrected. */
 			if (!saved)
 				return;
 
-			if (apply)
-				return backend.applyConfig(name);
+			if (!apply)
+				backend.notify(backend.daemonName(name) + ": " +
+					_("configuration saved. Reload or restart Kea to apply it."));
 
-			backend.notify(backend.daemonName(name) + ": " +
-				_("configuration saved. Reload or restart Kea to apply it."));
-		}).then(function() {
-			return self.loadConfig(name);
+			return Promise.resolve(apply ? backend.applyConfig(name) : null).then(function() {
+				return self.loadConfig(name);
+			});
 		});
 	},
 
@@ -100,27 +123,18 @@ return view.extend({
 		var self = this;
 		var name = this.currentName;
 
-		ui.showModal(_("Restore backup"), [
-			E("p", _("Replace the current file with the selected backup? The current file is backed up first, and unsaved changes in the editor are discarded.")),
-			E("div", { "class": "right" }, [
-				E("button", { "class": "btn", "click": ui.hideModal }, _("Cancel")),
-				" ",
-				E("button", {
-					"class": "btn cbi-button-negative important",
-					"click": function() {
-						ui.hideModal();
+		dialogs.confirm(_("Restore backup"),
+			_("Replace the current file with the selected backup? The current file is backed up first, and unsaved changes in the editor are discarded."),
+			_("Restore"),
+			function() {
+				return backend.restoreBackup(name, id).then(function(restored) {
+					if (restored)
+						backend.notify(backend.daemonName(name) + ": " +
+							_("backup restored. Reload or restart Kea to apply it."));
 
-						return backend.restoreBackup(name, id).then(function(restored) {
-							if (restored)
-								backend.notify(backend.daemonName(name) + ": " +
-									_("backup restored. Reload or restart Kea to apply it."));
-
-							return self.loadConfig(name);
-						});
-					}
-				}, _("Restore"))
-			])
-		]);
+					return self.loadConfig(name);
+				});
+			});
 	},
 
 	renderBackups: function() {
@@ -162,18 +176,40 @@ return view.extend({
 		]);
 	},
 
+	/* Tell the user about a JSON syntax error while they type. */
+	renderSyntax: function() {
+		var error = syntaxError(this.textarea.value);
+
+		this.textarea.classList.toggle("cbi-input-invalid", !!error);
+		this.syntaxNode.replaceChildren(error ?
+			E("div", { "class": "alert-message warning" }, _("JSON syntax error") + ": " + error) : "");
+	},
+
 	renderEditor: function() {
+		var self = this;
 		var config = this.currentConfig || {};
 
+		this.syntaxNode = E("div", { "class": "kea-syntax" });
 		this.textarea = E("textarea", {
 			"style": "width: 100%; min-height: 34rem; font-family: monospace",
-			"spellcheck": "false"
+			"spellcheck": "false",
+			"input": function() {
+				self.renderSyntax();
+			}
 		}, config.content || "");
 
 		this.editorNode.replaceChildren(
 			E("div", { "class": "cbi-section" }, [
 				E("h3", config.path || this.currentName),
-				this.textarea
+				this.textarea,
+				this.syntaxNode,
+				E("div", { "class": "right", "style": "margin-top: .5rem" }, E("button", {
+					"class": "btn cbi-button",
+					"click": function(ev) {
+						ev.preventDefault();
+						dialogs.showChanges(model.lineDiff(self.currentConfig.content, self.textarea.value));
+					}
+				}, _("Show changes")))
 			]),
 			renderValidation(config),
 			this.renderBackups()

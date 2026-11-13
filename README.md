@@ -4,7 +4,7 @@
 
 LuCI application for managing the ISC Kea DHCP server on OpenWrt.
 
-> **Status: alpha (0.4.0).** Usable for testing on a lab router. Not ready to
+> **Status: alpha (0.7.0).** Usable for testing on a lab router. Not ready to
 > replace a production dnsmasq/odhcpd setup yet: see
 > [Known limitations](#known-limitations).
 
@@ -24,46 +24,87 @@ It is developed as a standalone package for now, with a later submission to
 
 Menu location: **Services > Kea DHCP**.
 
-- **Overview**: installed Kea components and hooks, config files, validation
-  result.
+- **Overview**: Kea version, installed components and hooks, config files,
+  the result of checking each file, and the recent Kea messages of the
+  system log.
 - **Services**: start, stop, restart, reload and autostart for the Kea init
   service; enable or disable `kea-dhcp4`, `kea-dhcp6`, `kea-dhcp-ddns` and
   `kea-ctrl-agent`; state and explicit controls for `dnsmasq` and `odhcpd`.
-- **DHCPv4**: one tab per interface with subnet, address pool, gateway, DNS
-  servers, domain, timers and reservations by MAC address, client ID, DUID,
-  circuit ID or flex ID.
-- **DHCPv6**: one tab per interface with subnet, address pool, prefix
-  delegation pool, DNS servers, timers and reservations by DUID, MAC address
-  or flex ID.
-- **Configuration**: raw editor for the four Kea config files, with restore
-  from backup.
+- **DHCPv4**: one tab per interface or subnet with the subnet, its address
+  pools, gateway, DNS servers, domain, timers, any other DHCP option, and
+  reservations by MAC address, client ID, DUID, circuit ID or flex ID. A
+  last tab holds the global timers, the lease file cleanup interval and the
+  options for all subnets.
+- **DHCPv6**: the same with prefix delegation pools and reservations by
+  DUID, MAC address or flex ID.
+- **High availability**: a tab of the DHCPv4 and DHCPv6 pages when
+  `kea-hook-ha` is installed. Hot standby, load balancing or passive backup,
+  the peers with their roles, the timers, and every other parameter of the
+  hook as JSON.
+- **Leases**: the DHCPv4 and DHCPv6 leases in use, with remaining time,
+  read from the lease files of Kea.
+- **Configuration**: raw editor for the four Kea config files, with a JSON
+  syntax check and restore from backup.
 - **Import dnsmasq**: turns the static leases of OpenWrt (`/etc/config/dhcp`)
   into Kea reservations for DHCPv4 and DHCPv6. The page shows what would
   happen to each lease and why, and you choose what to import.
 
 The DHCPv4 and DHCPv6 pages change only what you edit. Settings they do not
-show (additional pools, other options, relay settings, client classes and so
-on) stay in the file as they were. A reservation can be switched off without
-deleting it.
+show (relay settings, client classes, hooks, extra keys of a pool or a
+reservation and so on) stay in the file as they were. A reservation can be
+switched off without deleting it.
 
-Every config write is validated with the Kea binary (`kea-dhcp4 -t` and so on)
-before the file is replaced, and the previous file is kept in
+A value Kea would refuse, such as a pool outside its subnet or a MAC address
+written with dashes, is marked while you type, with the reason. **Show
+changes** lists the lines of the file a save would change. The pages warn
+when OpenWrt already serves DHCP on an interface you enable for Kea.
+
+Every config write is validated with the Kea binary before the file is
+replaced, for the DHCP daemons with their hook libraries loaded
+(`kea-dhcp4 -T`), and the previous file is kept in
 `/etc/kea/backups/` (the ten newest per file). **Save & Apply** also reloads
 a running Kea daemon and tells you whether it is still running afterwards.
 
+## Screenshots
+
+The DHCPv4 page. Each interface has a tab; a reservation can be switched off
+without deleting it.
+
+<img src="docs/images/dhcp4.png" alt="DHCPv4 editor with a subnet, its pools, options and three reservations" width="820">
+
+What a save would change, before it is made.
+
+<img src="docs/images/changes.png" alt="Dialog listing the lines of the configuration file that a save would change" width="820">
+
+The import of OpenWrt static leases. Every lease gets a state and, where it
+cannot be imported, the reason.
+
+<img src="docs/images/import.png" alt="Import page listing static leases with their states" width="820">
+
+The Services page, with the OpenWrt DHCP services that would compete with
+Kea.
+
+<img src="docs/images/services.png" alt="Services page with the Kea init service, conflicting services and components" width="820">
+
+All pages are shown in [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md).
+
 ## Known limitations
 
-- The DHCPv4 and DHCPv6 pages edit the first address pool of a subnet and a
-  fixed set of options. Everything else is preserved but has to be edited on
-  the Configuration page. Subnets inside shared networks are not shown.
+- Client classes, option definitions, hooks, loggers and shared networks
+  themselves have to be edited on the Configuration page. The DHCPv4 and
+  DHCPv6 pages preserve them, and edit the subnets inside shared networks.
 - Saving from the DHCPv4 and DHCPv6 pages removes comments from the file. The
   page tells you when the file has any.
-- Input is checked by Kea, not by the form: a mistyped address is reported
-  only when you save.
+- The value of a DHCP option is checked by Kea, not by the form: a mistake
+  there is reported when you save.
 - The import cannot convert a static lease with several MAC addresses, and
   it does not carry over per-host lease times or dnsmasq tags. It tells you
   which leases are affected.
-- No high-availability page and no lease viewer.
+- High availability: one relationship per daemon; the form shows the
+  configuration, not whether the partner is reachable. Each router is
+  configured on its own.
+- The Leases page is read only: it cannot remove a lease, and it does not
+  show leases that ran out.
 - English only.
 
 The full list is in [docs/STATUS.md](docs/STATUS.md).
@@ -83,9 +124,58 @@ Earlier versions were tested on OpenWrt 25.12.3 with Kea 3.0.2.
 
 ## Installation
 
-There are no releases yet. Every CI run on `main` attaches a built package
-as an artifact; to build it yourself, use an OpenWrt tree that has the `luci`
-and `packages` feeds installed:
+There are no releases yet. Install the package that CI builds from `main`,
+or build it yourself.
+
+The package is for OpenWrt 25.12 (`apk`). It contains no compiled code, so
+the same file fits every router architecture.
+
+### The package built by CI
+
+Every CI run on `main` keeps the package it built for 90 days. Downloading
+it needs a GitHub account.
+
+In the browser: open
+[the CI runs of `main`](https://github.com/woffko/luci-app-kea/actions/workflows/ci.yml?query=branch%3Amain),
+choose the newest run with a green mark, and download `luci-app-kea` under
+**Artifacts**. It is a zip file with the package inside.
+
+Or with the [GitHub CLI](https://cli.github.com/):
+
+```sh
+run=$(gh run list --repo woffko/luci-app-kea --workflow CI --branch main \
+        --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+gh run download "$run" --repo woffko/luci-app-kea --name luci-app-kea --dir .
+```
+
+Copy the package to the router and install it there. The router fetches the
+dependencies, `kea-uci` and `kea-lfc`, from the OpenWrt package
+repositories:
+
+```sh
+scp -O luci-app-kea-*.apk root@192.168.1.1:/tmp/
+ssh root@192.168.1.1
+apk update
+apk add kea-dhcp4 kea-dhcp6
+apk add --allow-untrusted /tmp/luci-app-kea-*.apk
+```
+
+Install the Kea daemons you want; `kea-dhcp4` and `kea-dhcp6` above are an
+example. `kea-hook-ha` adds the high availability tab. Then reload LuCI:
+**Kea DHCP** is under **Services**.
+
+A freshly installed Kea daemon is switched off in `/etc/config/kea` and
+does not start; the application starts nothing on its own either. The
+daemons are switched on on the **Services** page. Read
+[Before you use it](#before-you-use-it) first.
+
+To upgrade, install a newer package the same way. `apk del luci-app-kea`
+removes the application; the Kea configuration and the backups in
+`/etc/kea/backups/` stay.
+
+### Building it yourself
+
+Use an OpenWrt tree that has the `luci` and `packages` feeds installed:
 
 ```sh
 cd /path/to/openwrt
@@ -100,11 +190,7 @@ In menuconfig, select a Kea daemon under **Network > IP Addresses and Names**
 first. `luci-app-kea` appears under **LuCI > 3. Applications** only after
 that.
 
-Copy the resulting package to the router and install it:
-
-```sh
-apk add --allow-untrusted /tmp/luci-app-kea-*.apk
-```
+Copy the resulting package to the router and install it as above.
 
 ## Before you use it
 
@@ -114,6 +200,8 @@ apk add --allow-untrusted /tmp/luci-app-kea-*.apk
 
 ## Documentation
 
+- [CHANGELOG.md](CHANGELOG.md): what changed in each version.
+- [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md): every page.
 - [docs/STATUS.md](docs/STATUS.md): what is implemented, known defects, what
   is missing.
 - [docs/ROADMAP.md](docs/ROADMAP.md): the work plan and open questions.
@@ -122,6 +210,8 @@ apk add --allow-untrusted /tmp/luci-app-kea-*.apk
 - [docs/DESIGN.md](docs/DESIGN.md): intended behavior of each feature.
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): building, deploying to a test
   target, checks, debugging.
+- [docs/RELEASING.md](docs/RELEASING.md): version numbers and how a release
+  is made.
 - [docs/HISTORY.md](docs/HISTORY.md): development log.
 
 ## License

@@ -11,18 +11,21 @@ import * as fs from 'fs';
 // with a temporary root and, where no Kea binary is available, their own
 // validator.
 
+// "hooks" marks the daemons whose binary has the stricter check "-T".
 export const CONFIGS = {
 	dhcp4: {
 		file: 'kea-dhcp4.conf',
 		binary: 'kea-dhcp4',
 		title: 'DHCPv4 server',
-		instance: 'dhcp4'
+		instance: 'dhcp4',
+		hooks: true
 	},
 	dhcp6: {
 		file: 'kea-dhcp6.conf',
 		binary: 'kea-dhcp6',
 		title: 'DHCPv6 server',
-		instance: 'dhcp6'
+		instance: 'dhcp6',
+		hooks: true
 	},
 	dhcp_ddns: {
 		file: 'kea-dhcp-ddns.conf',
@@ -50,6 +53,7 @@ export const CONFIG_ORDER = [ 'dhcp4', 'dhcp6', 'dhcp_ddns', 'ctrl_agent' ];
 // options.validator  function(name, path) -> { valid, output } replacing the
 //                    Kea binary (tests)
 // options.clock      function() -> epoch seconds (tests)
+// options.log_reader function() -> text of the system log (tests)
 export function context(options) {
 	let root = options?.root ?? '';
 
@@ -68,7 +72,8 @@ export function context(options) {
 		uci_savedir: options?.uci_savedir,
 		service_list: options?.service_list,
 		validator: options?.validator,
-		clock: options?.clock
+		clock: options?.clock,
+		log_reader: options?.log_reader
 	};
 };
 
@@ -124,7 +129,7 @@ export function binary(ctx, name) {
 	return CONFIGS[name] ? ctx.sbin_dir + '/' + CONFIGS[name].binary : null;
 };
 
-// The Kea binaries need their runtime directory even for "-t".
+// The Kea binaries need their runtime directory even to check a file.
 export function ensure_run_dir(ctx) {
 	if (!is_dir(ctx.run_dir))
 		mkdir_p(ctx.run_dir, 0o750);
@@ -132,7 +137,38 @@ export function ensure_run_dir(ctx) {
 	fs.chmod(ctx.run_dir, 0o750);
 };
 
-// Check a config file with "<daemon> -t". Returns { valid, output }.
+// The messages of the error lines in the output of a Kea binary, without
+// their log prefix.
+export function error_lines(output) {
+	let lines = [];
+
+	for (let line in split(output ?? '', '\n')) {
+		let m = match(line, /^[0-9-]+ [0-9:.]+ +(ERROR|FATAL) +\[[^\]]*\] +(.+)$/);
+
+		if (m && index(lines, m[2]) < 0)
+			push(lines, m[2]);
+	}
+
+	return lines;
+};
+
+function run_check(bin, flag, file) {
+	let pipe = fs.popen(shellquote(bin) + ' ' + flag + ' ' + shellquote(file) + ' 2>&1', 'r');
+
+	if (!pipe)
+		return null;
+
+	let output = pipe.read('all') ?? '';
+	let rc = pipe.close();
+
+	return { valid: rc == 0, output: rtrim(output, '\n') };
+}
+
+// Check a config file with the Kea binary. Returns { valid, output }.
+//
+// The DHCP daemons are asked with "-T", which also loads the hook libraries
+// and lets them check their parameters; "-t" does not look at hook
+// parameters at all. The other daemons only know "-t".
 export function validate_file(ctx, name, file) {
 	if (!CONFIGS[name])
 		return { valid: false, output: 'unknown config name' };
@@ -150,15 +186,23 @@ export function validate_file(ctx, name, file) {
 
 	ensure_run_dir(ctx);
 
-	let pipe = fs.popen(shellquote(bin) + ' -t ' + shellquote(file) + ' 2>&1', 'r');
+	let check = CONFIGS[name].hooks ? run_check(bin, '-T', file) : null;
 
-	if (!pipe)
+	// A binary that does not know "-T" answers with its usage text.
+	if (!check || (!check.valid && match(check.output, /Usage: /) && !match(check.output, /-T file/)))
+		check = run_check(bin, '-t', file);
+
+	if (!check)
 		return { valid: false, output: 'failed to run ' + bin };
 
-	let output = pipe.read('all') ?? '';
-	let rc = pipe.close();
+	// A hook reports its own error and Kea then only says that a hook
+	// failed to load, so the reason is not the last line. Put it first.
+	let errors = check.valid ? [] : error_lines(check.output);
 
-	return { valid: rc == 0, output: rtrim(output, '\n') };
+	if (length(errors))
+		check.output = join('\n', errors) + '\n\n' + check.output;
+
+	return check;
 };
 
 export function validate_all(ctx) {

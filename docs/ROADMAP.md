@@ -1,6 +1,6 @@
 # Roadmap
 
-Last updated: 2026-11-11.
+Last updated: 2026-11-13.
 
 Goal: a LuCI application that manages ISC Kea on OpenWrt well enough to
 replace dnsmasq/odhcpd DHCP on a router, without losing access to Kea's JSON
@@ -134,36 +134,89 @@ its DHCPv4 half was dropped; DUIDs in the OpenWrt hex notation were rejected.
 
 ## M4: Editor completeness
 
-- [ ] Browser-side validation of addresses, CIDR values, MAC addresses, DUIDs
-      and ranges.
-- [ ] Several pools and prefix delegation pools per subnet.
-- [ ] Show and edit subnets inside `shared-networks`.
-- [ ] Global and per-subnet `option-data` editor.
-- [ ] Reservation options: `client-id`, IAID where needed, `user-context`.
-- [ ] Lease database settings.
-- [ ] Backend semantic checks: subnet overlap, pool and reservation inside the
-      subnet, duplicate reservations, conflict with dnsmasq/odhcpd on the same
-      interface.
-- [ ] Raw editor: JSON syntax check in the browser, diff preview.
-- [ ] Evaluate rebuilding the editors on `form.JSONMap` and `ui.tabs`.
+Done in `0.5.0-r1`.
+
+- [x] Browser-side validation of addresses, CIDR values, MAC addresses, DUIDs
+      and ranges. Wrong values are marked while typing and reported by tab
+      and field on save.
+- [x] Several pools and prefix delegation pools per subnet.
+- [x] Show and edit subnets inside `shared-networks`.
+- [x] Global and per-subnet `option-data` editor.
+- [x] Reservation identifiers: `client-id`, DUID, circuit ID and flex ID
+      besides the MAC address (since `0.2.0`). Kea reservations have no
+      IAID. The options and `user-context` of a reservation are preserved
+      and edited in the raw editor.
+- [x] Lease database: the lease file cleanup interval. The other keys stay
+      in the raw editor; the OpenWrt Kea packages are built without the
+      MySQL and PostgreSQL backends, so there is no backend to choose.
+- [x] Semantic checks: the same subnet twice, pool and reservation inside the
+      subnet, overlapping pools, duplicate reservations, and a warning when
+      dnsmasq or odhcpd serves the same interface. They run in the browser
+      model, not in the backend; see the working decisions.
+- [x] Raw editor: JSON syntax check in the browser, view of the changed
+      lines. The structured editors have the same view.
+- [x] Evaluate rebuilding the editors on `form.JSONMap` and `ui.tabs`. Not
+      adopted; see the working decisions.
+
+Also fixed on the way: the editors offered no way to see or change a second
+pool, so a pool that had become wrong could only be fixed in the raw editor.
+The three hand-built confirmation dialogs became one shared module.
+
+Not done: creating, renaming and removing shared networks, and editors for
+client classes and option definitions. They stay in the raw editor until
+someone needs them in a form.
 
 ## M5: High availability
 
-- [ ] HA page shown only when `kea-hook-ha` is installed or an HA hook entry
-      exists.
-- [ ] Verify the HA hook schema against the packaged Kea version first.
-- [ ] Modes, this-server name, peers, timers, lease update settings, advanced
-      JSON parameters. See [DESIGN.md](DESIGN.md).
+Done in `0.6.0-r1`.
+
+- [x] High availability settings, shown only when `kea-hook-ha` is installed
+      or an HA hook entry exists. They are a tab of the DHCPv4 and DHCPv6
+      editors, not a page of their own; see the working decisions.
+- [x] Verify the HA hook schema against the packaged Kea version first.
+      About sixty configurations were run through `kea-dhcp4 -T` and
+      `kea-dhcp6 -T` of Kea 3.0.4; [DESIGN.md](DESIGN.md#high-availability)
+      lists what the hook takes and refuses.
+- [x] Modes, this-server name, peers, timers, lease update settings, advanced
+      JSON parameters.
 - [ ] Optional assisted fill-in from `ha-cluster` peers, without a dependency.
+      Not done: the OpenWrt 25.12 repositories have no `ha-cluster` package,
+      so there is nothing to read peers from or to test against.
+
+Also fixed on the way:
+
+- `kea-dhcp4 -t` and `kea-dhcp6 -t` do not look at hook parameters at all:
+  a high availability entry with an unknown mode passed the check and the
+  daemon then refused to start. The backend now asks the DHCP daemons with
+  `-T`, which loads the hooks, and puts the reason a hook gives first in
+  what the user sees.
+- When Kea refused a save, the editors and the raw editor loaded the file
+  again and discarded what the user had typed. The input now stays.
+
+Not done: several relationships (hub and spoke) in the form, fields for TLS
+and basic authentication, and the state of the running service.
 
 ## M6: Runtime visibility
 
-- [ ] Kea version and recent log lines on the Overview page.
-- [ ] Lease viewer through the control agent and the `lease_cmds` hook.
+Done in `0.7.0-r1`.
+
+- [x] Kea version and recent log lines on the Overview page.
+- [x] Lease viewer. It reads the lease files instead of asking the daemon
+      through the control agent and the `lease_cmds` hook; see the working
+      decisions.
+
+Also changed on the way: the Overview page folds the output Kea prints for
+a file it accepts, which had grown to a screen per file.
+
+Not done: removing a lease from the page, and the history of leases that
+are no longer in use.
 
 ## M7: Release and distribution
 
-- [ ] Changelog and version policy; tag `v0.x` releases.
+- [x] Changelog and version policy: [CHANGELOG.md](../CHANGELOG.md) and
+      [RELEASING.md](RELEASING.md).
+- [ ] Tag `v0.x` releases. For the owner.
+- [x] Document installation of the package that CI builds.
 - [ ] Run the on-target and browser tests in CI against an OpenWrt root
       filesystem or virtual machine.
 - [ ] Attach built packages to GitHub releases.
@@ -218,7 +271,64 @@ They follow the recommendation at the time and can be revisited.
   Kea.
 - Backups go to `/etc/kea/backups/`, ten per config file.
 - Version numbers: packaging-only changes bump `PKG_RELEASE`; changes in
-  behavior bump `PKG_VERSION`.
+  behavior bump `PKG_VERSION`. Spelled out in [RELEASING.md](RELEASING.md).
+
+Taken while implementing M6:
+
+- **Leases come from the lease files, not from the control channel.** The
+  OpenWrt Kea packages are built with the memfile backend only, so the
+  files are where the leases are. Reading them needs no hook library, no
+  control agent and no API password, changes nothing in the configuration,
+  and works while the daemon is stopped. The format and the order in which
+  Kea loads the files were taken from the Kea 3.0.4 sources and checked
+  against files written for a real client. The price: the page cannot
+  remove a lease, which would need the `lease_cmds` hook.
+- **The log is the system log.** The configuration files shipped with Kea
+  on OpenWrt log to syslog, and `logread` needs no knowledge of log file
+  paths.
+
+Taken while implementing M5:
+
+- **High availability is a tab of the editors, not a page.** The hook is
+  configured per daemon, in the same file as the subnets, so DHCPv4 and
+  DHCPv6 each have their own setup. As a tab it shares the save, apply and
+  change view of the editor, and one save writes subnets and high
+  availability together. The tab can also appear exactly when the roadmap
+  asked for (hook installed, or an entry in the file), which a menu entry
+  cannot: LuCI menu dependencies have no "or".
+- **The DHCP daemons are checked with `-T`.** It is the only check that
+  sees hook parameters. It costs nothing measurable on the stock and test
+  configurations, and it works while a daemon with the same configuration
+  is running.
+- **A new setup uses the full path of the hook libraries**, as the examples
+  in the configuration files shipped with Kea do. The backend reports the
+  directory.
+
+Taken while implementing M4:
+
+- **Where the semantic checks run.** In the browser model, next to the form,
+  and not a second time in ucode. The reason for the checks is to name the
+  field that is wrong while the user is still typing; the backend cannot do
+  that. Correctness does not depend on them, because every write still
+  passes the Kea binary's own test on the router, and the import has its
+  own checks in ucode since `0.4.0`.
+- **Only changed values are checked.** The rules were measured against
+  `kea-dhcp4 -t` and `kea-dhcp6 -t` of Kea 3.0.4, but another Kea version
+  may accept more. A value the editor did not write is therefore never a
+  reason to refuse a save.
+- **`form.JSONMap` and `ui.tabs` are not used.** `form.JSONMap` maps an
+  object of flat sections with options, the shape of a UCI file. A Kea file
+  is nested several levels deep (subnets, inside them pools, options and
+  reservations, and the same again inside shared networks), an option is
+  found by name or by code, and a save must change only the edited values
+  and leave unknown keys, key order and number formatting alone. All of
+  that would remain custom code underneath, with one map per nested list on
+  top. `ui.tabs` wants every pane in the document at once; the editor draws
+  the active tab from the model instead, so that hundreds of reservation
+  inputs of other subnets are not built up front. The pages use LuCI's own
+  markup and classes for tabs, fields, tables and invalid input, and
+  `ui.showModal()` for dialogs, so they look and behave like the rest of
+  LuCI.
 
 ## Open questions
 

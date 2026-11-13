@@ -20,7 +20,7 @@ const FIXTURES = path.join(__dirname, "..", "fixtures");
 
 const INTERFACES = [
 	{ name: "loopback", device: "lo", proto: "static", ipaddr: "127.0.0.1/8", ip6addr: "" },
-	{ name: "lan", device: "br-lan", proto: "static", ipaddr: "192.168.1.1/24", ip6addr: "fd00:1::1/64" },
+	{ name: "lan", device: "br-lan", proto: "static", ipaddr: "192.168.1.1/24", ip6addr: "fd00:1::1/64", dhcp4_server: true },
 	{ name: "guest", device: "br-guest", proto: "static", ipaddr: "192.168.50.1/24", ip6addr: "" },
 	{ name: "wan", device: "eth1", proto: "dhcp", ipaddr: "", ip6addr: "" }
 ];
@@ -33,13 +33,15 @@ function load(name) {
 	return parsed.config;
 }
 
+/* Build the tabs and the global settings, let the test edit them, save. */
 function roundTrip(family, config, edit) {
 	const tabs = model.buildTabs(family, config, INTERFACES);
+	const global = model.buildGlobal(family, config);
 
 	if (edit)
-		edit(tabs);
+		edit(tabs, global);
 
-	return model.applyTabs(family, config, tabs);
+	return model.applyTabs(family, config, tabs, global);
 }
 
 function tabFor(tabs, device) {
@@ -69,6 +71,14 @@ function diffPaths(a, b, prefix = "") {
 		paths = paths.concat(diffPaths(a[key], b[key], prefix + "/" + key));
 
 	return paths;
+}
+
+function errorsOf(family, config, edit) {
+	const result = roundTrip(family, config, edit);
+
+	assert.ok(result.errors, "the save is refused");
+
+	return result.errors;
 }
 
 /* ---- parsing ----------------------------------------------------------- */
@@ -120,17 +130,28 @@ test("dhcp4: changing one field changes only that field", () => {
 	assert.equal(result.config.Dhcp4.subnet4[0]["option-data"][0].data, "192.168.1.254");
 });
 
-test("dhcp4: editing the pool keeps the second pool and per-pool options", () => {
-	const config = load("kea-dhcp4-rich.conf");
+test("dhcp4: untouched values keep their original formatting", () => {
+	const config = {
+		Dhcp4: {
+			"valid-lifetime": 3600,
+			subnet4: [
+				{
+					id: 1,
+					subnet: "192.168.1.0/24",
+					pools: [ { pool: "192.168.1.100-192.168.1.150" } ],
+					"option-data": [ { name: "domain-name-servers", data: "1.1.1.1,8.8.8.8" } ],
+					reservations: []
+				}
+			]
+		}
+	};
 	const result = roundTrip("dhcp4", config, (tabs) => {
-		tabFor(tabs, "br-lan").poolEnd = "192.168.1.160";
+		tabFor(tabs, "br-lan").router = "192.168.1.1";
 	});
-	const pools = result.config.Dhcp4.subnet4[0].pools;
 
-	assert.deepEqual(diffPaths(config, result.config), [ "/Dhcp4/subnet4/0/pools/0/pool" ]);
-	assert.equal(pools[0].pool, "192.168.1.100 - 192.168.1.160");
-	assert.equal(pools[0]["option-data"][0].data, "192.168.1.2");
-	assert.equal(pools[1].pool, "192.168.1.200 - 192.168.1.220");
+	/* Only the new option is added: no interface key, no inherited timer,
+	 * no reformatted pool. */
+	assert.deepEqual(diffPaths(config, result.config), [ "/Dhcp4/subnet4/0/option-data/1" ]);
 });
 
 test("dhcp4: an option given by code is found and extra option fields survive", () => {
@@ -182,15 +203,68 @@ test("dhcp4: timers are written only when set and removed when cleared", () => {
 	assert.equal("rebind-timer" in subnet, false);
 });
 
-test("dhcp4: a relayed subnet without an interface keeps its shape", () => {
+test("dhcp4: a subnet without an interface is matched to the interface network", () => {
+	const config = { Dhcp4: { subnet4: [ { id: 1, subnet: "192.168.50.0/24" } ] } };
+	const tabs = model.buildTabs("dhcp4", config, INTERFACES);
+	const guest = tabFor(tabs, "br-guest");
+
+	assert.equal(guest.subnet, "192.168.50.0/24");
+
+	/* Showing the matched device must not write an "interface" key. */
+	assert.deepEqual(model.applyTabs("dhcp4", config, tabs).config, config);
+});
+
+/* ---- pools ------------------------------------------------------------- */
+
+test("every pool is a row; editing one keeps the others and their extra keys", () => {
+	const config = load("kea-dhcp4-rich.conf");
+	const tabs = model.buildTabs("dhcp4", config, INTERFACES);
+	const lan = tabFor(tabs, "br-lan");
+
+	assert.deepEqual(lan.pools.map((row) => row.pool),
+		[ "192.168.1.100 - 192.168.1.150", "192.168.1.200 - 192.168.1.220" ]);
+
+	lan.pools[0].pool = "192.168.1.100 - 192.168.1.160";
+
+	const result = model.applyTabs("dhcp4", config, tabs);
+	const pools = result.config.Dhcp4.subnet4[0].pools;
+
+	assert.deepEqual(diffPaths(config, result.config), [ "/Dhcp4/subnet4/0/pools/0/pool" ]);
+	assert.equal(pools[0]["option-data"][0].data, "192.168.1.2");
+	assert.equal(pools[1].pool, "192.168.1.200 - 192.168.1.220");
+});
+
+test("pools can be added and removed", () => {
+	const config = load("kea-dhcp4-rich.conf");
+	const result = roundTrip("dhcp4", config, (tabs) => {
+		const lan = tabFor(tabs, "br-lan");
+		const added = model.newPool();
+
+		lan.pools.splice(1, 1);
+		added.pool = "192.168.1.230 - 192.168.1.240";
+		lan.pools.push(added, model.newPool());
+	});
+
+	assert.deepEqual(result.config.Dhcp4.subnet4[0].pools, [
+		config.Dhcp4.subnet4[0].pools[0],
+		{ pool: "192.168.1.230 - 192.168.1.240" }
+	]);
+
+	const cleared = roundTrip("dhcp4", config, (tabs) => {
+		tabFor(tabs, "br-lan").pools = [];
+	});
+
+	assert.equal("pools" in cleared.config.Dhcp4.subnet4[0], false);
+});
+
+test("a relayed subnet with a pool in prefix notation keeps its shape", () => {
 	const config = load("kea-dhcp4-rich.conf");
 	const tabs = model.buildTabs("dhcp4", config, INTERFACES);
 	const relayed = tabs.find((tab) => tab.subnet === "10.10.0.0/16");
 
 	assert.equal(relayed.device, "");
 	assert.equal(relayed.enabled, false);
-	assert.equal(relayed.poolStart, "10.10.1.0/24");
-	assert.equal(relayed.poolEnd, "");
+	assert.deepEqual(relayed.pools.map((row) => row.pool), [ "10.10.1.0/24" ]);
 
 	relayed.router = "10.10.0.1";
 
@@ -204,45 +278,141 @@ test("dhcp4: a relayed subnet without an interface keeps its shape", () => {
 	assert.deepEqual(subnet["option-data"], [ { name: "routers", data: "10.10.0.1" } ]);
 });
 
-test("dhcp4: a subnet without an interface is matched to the interface network", () => {
-	const config = { Dhcp4: { subnet4: [ { id: 1, subnet: "192.168.50.0/24" } ] } };
-	const tabs = model.buildTabs("dhcp4", config, INTERFACES);
-	const guest = tabFor(tabs, "br-guest");
+test("pool mistakes that Kea rejects are caught before saving", () => {
+	const config = load("kea-dhcp4-rich.conf");
+	const withPool = (value) => (tabs) => {
+		tabFor(tabs, "br-lan").pools[1].pool = value;
+	};
 
-	assert.equal(guest.subnet, "192.168.50.0/24");
-
-	/* Showing the matched device must not write an "interface" key. */
-	assert.deepEqual(model.applyTabs("dhcp4", config, tabs).config, config);
+	assert.match(errorsOf("dhcp4", config, withPool("192.168.1.250"))[0], /not an address range/);
+	assert.match(errorsOf("dhcp4", config, withPool("192.168.1.220 - 192.168.1.200"))[0], /ends before it starts/);
+	assert.match(errorsOf("dhcp4", config, withPool("10.0.0.1 - 10.0.0.9"))[0], /outside the subnet/);
+	assert.match(errorsOf("dhcp4", config, withPool("192.168.1.140 - 192.168.1.210"))[0], /overlap/);
+	assert.equal(roundTrip("dhcp4", config, withPool("192.168.1.192/28")).errors, undefined);
 });
 
-test("dhcp4: untouched values keep their original formatting", () => {
-	const config = {
-		Dhcp4: {
-			"valid-lifetime": 3600,
-			subnet4: [
-				{
-					id: 1,
-					subnet: "192.168.1.0/24",
-					pools: [ { pool: "192.168.1.100-192.168.1.150" } ],
-					"option-data": [ { name: "domain-name-servers", data: "1.1.1.1,8.8.8.8" } ],
-					reservations: []
-				}
-			]
-		}
+test("dhcp6: prefix delegation pools are rows that keep their extra keys", () => {
+	const config = load("kea-dhcp6-rich.conf");
+	const tabs = model.buildTabs("dhcp6", config, INTERFACES);
+	const lan = tabFor(tabs, "br-lan");
+
+	assert.equal(lan.pdPools.length, 2);
+	assert.deepEqual([ lan.pdPools[0].prefix, lan.pdPools[0].prefixLen, lan.pdPools[0].delegatedLen ],
+		[ "fd00:1:0:100::", "56", "64" ]);
+
+	lan.pdPools[0].delegatedLen = "60";
+
+	const result = model.applyTabs("dhcp6", config, tabs);
+
+	assert.deepEqual(diffPaths(config, result.config), [ "/Dhcp6/subnet6/0/pd-pools/0/delegated-len" ]);
+	assert.equal(result.config.Dhcp6.subnet6[0]["pd-pools"][0]["excluded-prefix-len"], 72);
+});
+
+test("dhcp6: prefix delegation mistakes are caught", () => {
+	const config = load("kea-dhcp6-rich.conf");
+	const withPd = (changes) => (tabs) => {
+		Object.assign(tabFor(tabs, "br-lan").pdPools[0], changes);
 	};
+
+	assert.match(errorsOf("dhcp6", config, withPd({ prefix: "" }))[0], /not an IPv6 address/);
+	assert.match(errorsOf("dhcp6", config, withPd({ prefixLen: "abc" }))[0], /must be numbers/);
+	assert.match(errorsOf("dhcp6", config, withPd({ delegatedLen: "48" }))[0], /must not be shorter/);
+});
+
+/* ---- options ----------------------------------------------------------- */
+
+test("options without a field of their own are rows", () => {
+	const config = load("kea-dhcp4-rich.conf");
 	const tabs = model.buildTabs("dhcp4", config, INTERFACES);
 	const lan = tabFor(tabs, "br-lan");
 
-	assert.equal(lan.poolStart, "192.168.1.100");
-	assert.equal(lan.poolEnd, "192.168.1.150");
+	/* routers, domain-name-servers and option 15 have fields; ntp-servers has not. */
+	assert.deepEqual(lan.options.map((row) => [ row.name, row.data ]), [ [ "ntp-servers", "192.168.1.1" ] ]);
 
-	lan.router = "192.168.1.1";
+	lan.options[0].data = "192.168.1.2";
+
+	const added = model.newOption();
+	const byCode = model.newOption();
+
+	added.name = "log-servers";
+	added.data = "192.168.1.3";
+	byCode.name = "42";
+	byCode.data = "192.168.1.4";
+	lan.options.push(added, byCode, model.newOption());
 
 	const result = model.applyTabs("dhcp4", config, tabs);
+	const options = result.config.Dhcp4.subnet4[0]["option-data"];
 
-	/* Only the new option is added: no interface key, no inherited timer,
-	 * no reformatted pool. */
-	assert.deepEqual(diffPaths(config, result.config), [ "/Dhcp4/subnet4/0/option-data/1" ]);
+	assert.deepEqual(diffPaths(config, result.config), [
+		"/Dhcp4/subnet4/0/option-data/2/data",
+		"/Dhcp4/subnet4/0/option-data/4",
+		"/Dhcp4/subnet4/0/option-data/5"
+	]);
+	assert.deepEqual(options[4], { name: "log-servers", data: "192.168.1.3" });
+	assert.deepEqual(options[5], { code: 42, data: "192.168.1.4" });
+});
+
+test("deleting an option row removes that option only", () => {
+	const config = load("kea-dhcp4-rich.conf");
+	const result = roundTrip("dhcp4", config, (tabs) => {
+		tabFor(tabs, "br-lan").options = [];
+	});
+	const names = result.config.Dhcp4.subnet4[0]["option-data"].map((option) => option.name || option.code);
+
+	assert.deepEqual(names, [ "routers", "domain-name-servers", 15 ]);
+});
+
+test("an option row needs a name or a code", () => {
+	const config = load("kea-dhcp4-rich.conf");
+	const errors = errorsOf("dhcp4", config, (tabs) => {
+		const row = model.newOption();
+
+		row.data = "1";
+		tabFor(tabs, "br-lan").options.push(row);
+	});
+
+	assert.match(errors[0], /Other Options: an option needs a name or a numeric code/);
+});
+
+/* ---- global settings --------------------------------------------------- */
+
+test("global timers, lease file cleanup and options are edited in place", () => {
+	const config = load("kea-dhcp4-rich.conf");
+	const global = model.buildGlobal("dhcp4", config);
+
+	assert.equal(global.renewTimer, "900");
+	assert.equal(global.validLifetime, "3600");
+	assert.equal(global.lfcInterval, "3600");
+	assert.equal(global.leaseType, "memfile");
+	assert.deepEqual(global.options.map((row) => [ row.name, row.data ]),
+		[ [ "domain-name-servers", "192.168.1.1" ] ]);
+
+	const result = roundTrip("dhcp4", config, (tabs, settings) => {
+		settings.renewTimer = "600";
+		settings.rebindTimer = "";
+		settings.lfcInterval = "7200";
+		settings.options[0].data = "192.168.1.1, 9.9.9.9";
+	});
+
+	assert.deepEqual(diffPaths(config, result.config).sort(), [
+		"/Dhcp4/lease-database/lfc-interval",
+		"/Dhcp4/option-data/0/data",
+		"/Dhcp4/rebind-timer",
+		"/Dhcp4/renew-timer"
+	]);
+	assert.equal(result.config.Dhcp4["renew-timer"], 600);
+	assert.equal("rebind-timer" in result.config.Dhcp4, false);
+});
+
+test("a lease file cleanup interval creates the lease database entry if needed", () => {
+	const result = roundTrip("dhcp4", { Dhcp4: {} }, (tabs, settings) => {
+		settings.lfcInterval = "3600";
+	});
+
+	assert.deepEqual(result.config, { Dhcp4: { "lease-database": { type: "memfile", "lfc-interval": 3600 } } });
+	assert.match(errorsOf("dhcp4", { Dhcp4: {} }, (tabs, settings) => {
+		settings.validLifetime = "soon";
+	})[0], /Global settings: Valid Lifetime: not a whole number/);
 });
 
 /* ---- reservations ------------------------------------------------------ */
@@ -347,23 +517,76 @@ test("dhcp4: a disabled reservation moves to user-context and back unchanged", (
 	assert.deepEqual(new Set(restored.reservations), new Set(config.Dhcp4.subnet4[0].reservations));
 });
 
-test("dhcp4: an incomplete reservation is accepted only while disabled", () => {
+test("a reservation needs an identifier; an address is optional, as in Kea", () => {
 	const config = load("kea-dhcp4-rich.conf");
-	const edit = (enabled) => (tabs) => {
-		const row = model.newReservation("dhcp4");
-
-		row.enabled = enabled;
-		row.hostname = "later";
-		tabFor(tabs, "br-lan").reservations.push(row);
+	const add = (changes) => (tabs) => {
+		tabFor(tabs, "br-lan").reservations.push(Object.assign(model.newReservation("dhcp4"), changes));
 	};
 
-	assert.equal(roundTrip("dhcp4", config, edit(true)).errors.length, 2);
+	assert.match(errorsOf("dhcp4", config, add({ hostname: "later" }))[0], /an identifier is required/);
 
-	const stored = roundTrip("dhcp4", config, edit(false)).config.Dhcp4.subnet4[0];
+	const nameOnly = roundTrip("dhcp4", config, add({ identity: "02:00:00:00:00:77", hostname: "pc" }));
 
-	assert.deepEqual(stored["user-context"]["luci-app-kea"]["disabled-reservations"],
-		[ { hostname: "later" } ]);
-	assert.equal(stored.reservations.length, 3);
+	assert.deepEqual(nameOnly.config.Dhcp4.subnet4[0].reservations[3],
+		{ "hw-address": "02:00:00:00:00:77", hostname: "pc" });
+
+	/* Switched off, an incomplete reservation is stored as it is. */
+	const stored = roundTrip("dhcp4", config, add({ enabled: false, hostname: "later" })).config.Dhcp4.subnet4[0];
+
+	assert.deepEqual(stored["user-context"]["luci-app-kea"]["disabled-reservations"], [ { hostname: "later" } ]);
+});
+
+test("reservation mistakes that Kea rejects are caught before saving", () => {
+	const config = load("kea-dhcp4-rich.conf");
+	const add = (changes) => (tabs) => {
+		tabFor(tabs, "br-lan").reservations.push(Object.assign(model.newReservation("dhcp4"), changes));
+	};
+	const first = (changes) => errorsOf("dhcp4", config, add(changes))[0];
+
+	assert.match(first({ identity: "02-00-00-00-00-77", address: "192.168.1.77" }), /not a MAC address/);
+	assert.match(first({ identity: "02:00:00:00:00:77", address: "192.168.1.300" }), /not an IPv4 address/);
+	assert.match(first({ identity: "02:00:00:00:00:77", address: "10.9.9.9" }), /outside the subnet/);
+	assert.match(first({ type: "client-id", identity: "laptop", address: "192.168.1.77" }), /not a client ID/);
+	assert.match(first({ type: "circuit-id", identity: "port7", address: "192.168.1.77" }), /single quotes/);
+	assert.match(first({ type: "duid", identity: "00", address: "192.168.1.77" }), /at least three octets/);
+	assert.match(first({ identity: "02:00:00:00:00:01", address: "192.168.1.77" }), /more than one reservation: 02:00:00:00:00:01/);
+	assert.match(first({ identity: "02:00:00:00:00:77", address: "192.168.1.10" }), /more than one reservation: 192\.168\.1\.10/);
+
+	for (const good of [
+		{ type: "client-id", identity: "0102030405", address: "192.168.1.77" },
+		{ type: "circuit-id", identity: "'port 7'", address: "192.168.1.77" },
+		{ type: "flex-id", identity: "01:02", address: "192.168.1.77" }
+	])
+		assert.equal(roundTrip("dhcp4", config, add(good)).errors, undefined, JSON.stringify(good));
+});
+
+test("values the user did not touch are not checked", () => {
+	/* Kea would reject this file, but that is not for the editor to say
+	 * while the user edits something else. */
+	const config = {
+		Dhcp4: {
+			subnet4: [ {
+				id: 1,
+				subnet: "192.168.1.0/24",
+				"interface": "br-lan",
+				pools: [ { pool: "10.0.0.1 - 10.0.0.9" } ],
+				reservations: [ { "hw-address": "bogus", "ip-address": "10.9.9.9" } ]
+			} ]
+		}
+	};
+	const result = roundTrip("dhcp4", config, (tabs) => {
+		tabFor(tabs, "br-lan").router = "192.168.1.1";
+	});
+
+	assert.equal(result.errors, undefined);
+
+	/* Changing the subnet puts every pool and reservation to the test. */
+	const errors = errorsOf("dhcp4", config, (tabs) => {
+		tabFor(tabs, "br-lan").subnet = "192.168.2.0/24";
+	});
+
+	assert.equal(errors.some((message) => /Address Pools: .*outside the subnet/.test(message)), true);
+	assert.equal(errors.some((message) => /not a MAC address/.test(message)), true);
 });
 
 test("dhcp4: deleting a reservation row removes it; a blank new row is ignored", () => {
@@ -401,29 +624,40 @@ test("dhcp6: address and prefix lists are edited without touching other fields",
 	});
 });
 
-/* ---- DHCPv6 pools ------------------------------------------------------ */
-
-test("dhcp6: editing the first pd-pool keeps its extra keys and the second pool", () => {
+test("dhcp6: addresses and prefixes of a reservation are checked", () => {
 	const config = load("kea-dhcp6-rich.conf");
-	const result = roundTrip("dhcp6", config, (tabs) => {
-		tabFor(tabs, "br-lan").pdDelegatedLen = "60";
-	});
+	const edit = (changes) => (tabs) => {
+		Object.assign(tabFor(tabs, "br-lan").reservations[0], changes);
+	};
 
-	assert.deepEqual(diffPaths(config, result.config),
-		[ "/Dhcp6/subnet6/0/pd-pools/0/delegated-len" ]);
-	assert.equal(result.config.Dhcp6.subnet6[0]["pd-pools"][0]["excluded-prefix-len"], 72);
+	assert.match(errorsOf("dhcp6", config, edit({ addresses: "fd00:9::1" }))[0], /outside the subnet/);
+	assert.match(errorsOf("dhcp6", config, edit({ addresses: "nope" }))[0], /not an IPv6 address/);
+	assert.match(errorsOf("dhcp6", config, edit({ prefixes: "fd00:1:0:200::" }))[0], /not an IPv6 prefix/);
+	assert.equal(roundTrip("dhcp6", config, edit({ addresses: "FD00:1::AB, fd00:1:0:0:1::2" })).errors, undefined);
 });
 
-test("dhcp6: partial or non-numeric prefix delegation input is rejected", () => {
-	const config = load("kea-dhcp6-rich.conf");
+/* ---- single-field checks ----------------------------------------------- */
 
-	assert.ok(roundTrip("dhcp6", config, (tabs) => {
-		tabFor(tabs, "br-lan").pdPrefix = "";
-	}).errors);
+test("field checks used for marking inputs", () => {
+	const tab = { subnet: "192.168.1.0/24", device: "br-lan", router: "", dnsServers: "", renewTimer: "" };
+	const check = (field, value) => model.fieldError("dhcp4", Object.assign({}, tab, { [field]: value }), field);
 
-	assert.ok(roundTrip("dhcp6", config, (tabs) => {
-		tabFor(tabs, "br-lan").pdPrefixLen = "abc";
-	}).errors);
+	assert.equal(check("subnet", "192.168.1.0/24"), null);
+	assert.match(check("subnet", "192.168.1.0"), /not an IPv4 subnet/);
+	assert.match(check("subnet", "192.168.1.0/33"), /not an IPv4 subnet/);
+	assert.match(check("subnet", ""), /required/);
+	assert.equal(check("device", "br-lan.10"), null);
+	assert.match(check("device", "br lan"), /not a network device name/);
+	assert.equal(check("router", "192.168.1.1, 192.168.1.2"), null);
+	assert.match(check("router", "192.168.1.1, gateway"), /not an IPv4 address: gateway/);
+	assert.match(check("renewTimer", "1h"), /whole number/);
+	assert.equal(model.fieldError("dhcp6", { dnsServers: "fd00::1, 2001:db8::53" }, "dnsServers"), null);
+	assert.match(model.fieldError("dhcp6", { dnsServers: "192.168.1.1" }, "dnsServers"), /not an IPv6 address/);
+	assert.match(model.fieldError("dhcp6", { subnet: "fd00:1::/129" }, "subnet"), /not an IPv6 subnet/);
+	assert.equal(model.poolError("dhcp6", { subnet: "fd00:1::/64" }, { pool: "fd00:1::1000/116" }), null);
+	assert.match(model.poolError("dhcp6", { subnet: "fd00:1::/64" }, { pool: "fd00:2::1 - fd00:2::9" }), /outside the subnet/);
+	assert.equal(model.poolError("dhcp4", tab, { pool: "" }), null);
+	assert.equal(model.label("router"), "Gateway");
 });
 
 /* ---- subnets ----------------------------------------------------------- */
@@ -432,10 +666,11 @@ test("a new subnet gets an ID that no subnet or shared network uses", () => {
 	const config = load("kea-dhcp4-rich.conf");
 	const result = roundTrip("dhcp4", config, (tabs) => {
 		const guest = tabFor(tabs, "br-guest");
+		const pool = model.newPool();
 
+		pool.pool = "192.168.50.100 - 192.168.50.199";
 		guest.subnet = "192.168.50.0/24";
-		guest.poolStart = "192.168.50.100";
-		guest.poolEnd = "192.168.50.199";
+		guest.pools.push(pool);
 		guest.router = "192.168.50.1";
 		guest.enabled = true;
 	});
@@ -485,24 +720,75 @@ test("a removed tab drops its subnet and stops listening on its device", () => {
 	assert.deepEqual(result.config.Dhcp4["shared-networks"], config.Dhcp4["shared-networks"]);
 });
 
-test("required fields are reported per tab", () => {
+test("required fields are reported per tab, with the field name", () => {
 	const config = load("kea-dhcp4-rich.conf");
 
-	assert.match(roundTrip("dhcp4", config, (tabs) => {
+	assert.equal(errorsOf("dhcp4", config, (tabs) => {
 		tabFor(tabs, "br-lan").subnet = "";
-	}).errors[0], /subnet is required/);
+	})[0], "lan (br-lan): Subnet: a subnet is required");
 
-	assert.match(roundTrip("dhcp4", config, (tabs) => {
-		tabFor(tabs, "br-lan").poolEnd = "";
-	}).errors[0], /pool start and end/);
-
-	assert.match(roundTrip("dhcp4", config, (tabs) => {
+	assert.equal(errorsOf("dhcp4", config, (tabs) => {
 		tabFor(tabs, "br-lan").renewTimer = "soon";
-	}).errors[0], /whole numbers/);
+	})[0], "lan (br-lan): Renew Timer: not a whole number of seconds");
 
-	assert.match(roundTrip("dhcp4", config, (tabs) => {
+	assert.equal(errorsOf("dhcp4", config, (tabs) => {
 		tabs.find((tab) => tab.subnet === "10.10.0.0/16").enabled = true;
-	}).errors[0], /interface device is required/);
+	})[0], "10.10.0.0/16: Interface: an interface device is required");
+});
+
+test("the same subnet twice is refused, as Kea would", () => {
+	const config = load("kea-dhcp4-rich.conf");
+
+	assert.deepEqual(errorsOf("dhcp4", config, (tabs) => {
+		tabs.find((tab) => tab.subnet === "10.10.0.0/16").subnet = "192.168.1.7/24";
+	}).filter((message) => /Subnet:/.test(message)),
+		[ "10.10.0.0/16: Subnet: another subnet of this configuration has the same prefix: 192.168.1.7/24" ]);
+
+	/* Also across a shared network, and for a subnet that is new. */
+	assert.match(errorsOf("dhcp4", config, (tabs) => {
+		const wan = tabFor(tabs, "eth1");
+
+		wan.subnet = "10.20.0.0/24";
+		wan.pools.push(Object.assign(model.newPool(), { pool: "10.20.0.60 - 10.20.0.70" }));
+	}).join("\n"), /wan \(eth1\): Subnet: another subnet of this configuration has the same prefix/);
+
+	/* Subnets that overlap without being the same are fine for Kea. */
+	assert.ok(roundTrip("dhcp4", config, (tabs) => {
+		tabs.find((tab) => tab.subnet === "10.10.0.0/16").subnet = "10.10.0.0/15";
+	}).config);
+});
+
+/* ---- shared networks --------------------------------------------------- */
+
+test("a subnet of a shared network has a tab and is edited in place", () => {
+	const config = load("kea-dhcp4-rich.conf");
+	const tabs = model.buildTabs("dhcp4", config, INTERFACES);
+	const shared = tabs.find((tab) => tab.subnet === "10.20.0.0/24");
+
+	assert.equal(shared.label, "floor2: 10.20.0.0/24");
+	assert.equal(shared.container, 0);
+	assert.deepEqual(shared.pools.map((row) => row.pool), [ "10.20.0.10 - 10.20.0.50" ]);
+
+	shared.router = "10.20.0.1";
+
+	const result = model.applyTabs("dhcp4", config, tabs);
+
+	assert.deepEqual(diffPaths(config, result.config),
+		[ "/Dhcp4/shared-networks/0/subnet4/0/option-data" ]);
+	assert.deepEqual(result.config.Dhcp4["shared-networks"][0].subnet4[0]["option-data"],
+		[ { name: "routers", data: "10.20.0.1" } ]);
+	assert.deepEqual(result.config.Dhcp4.subnet4, config.Dhcp4.subnet4);
+});
+
+test("removing a subnet of a shared network leaves the network in place", () => {
+	const config = load("kea-dhcp4-rich.conf");
+	const result = roundTrip("dhcp4", config, (tabs) => {
+		tabs.find((tab) => tab.subnet === "10.20.0.0/24").removed = true;
+	});
+
+	assert.deepEqual(result.config.Dhcp4["shared-networks"],
+		[ { name: "floor2", relay: { "ip-addresses": [ "10.20.0.1" ] }, subnet4: [] } ]);
+	assert.deepEqual(result.config.Dhcp4.subnet4, config.Dhcp4.subnet4);
 });
 
 /* ---- listening interfaces ---------------------------------------------- */
@@ -527,6 +813,14 @@ test("interface entries the editor does not manage are preserved", () => {
 
 	assert.deepEqual(result.config.Dhcp4["interfaces-config"],
 		{ interfaces: [ "*", "tun0", "br-guest" ], "re-detect": false });
+});
+
+test("a tab knows whether OpenWrt serves DHCP on its interface", () => {
+	const tabs = model.buildTabs("dhcp4", { Dhcp4: {} }, INTERFACES);
+
+	assert.equal(tabFor(tabs, "br-lan").served, true);
+	assert.equal(tabFor(tabs, "br-guest").served, false);
+	assert.equal(tabFor(model.buildTabs("dhcp6", { Dhcp6: {} }, INTERFACES), "br-lan").served, false);
 });
 
 /* ---- stock sample entries ---------------------------------------------- */
@@ -581,6 +875,39 @@ test("a documentation-range subnet bound to an interface is not a sample", () =>
 
 	assert.equal(model.countSamples("dhcp4", config).subnets, 0);
 	assert.equal(tabFor(model.buildTabs("dhcp4", config, INTERFACES), "br-lan").subnet, "192.0.2.0/24");
+});
+
+/* ---- text comparison --------------------------------------------------- */
+
+test("lineDiff shows changed lines with context and marks gaps", () => {
+	const before = [ "a", "b", "c", "d", "e", "f", "g", "h", "i", "j" ].join("\n");
+	const after = [ "a", "b", "C", "d", "e", "f", "g", "h", "i", "j", "k" ].join("\n");
+
+	assert.deepEqual(model.lineDiff(before, after, 1), [
+		{ op: " ", text: "b" },
+		{ op: "-", text: "c" },
+		{ op: "+", text: "C" },
+		{ op: " ", text: "d" },
+		{ op: "@", text: "" },
+		{ op: " ", text: "j" },
+		{ op: "+", text: "k" }
+	]);
+	assert.deepEqual(model.lineDiff("same\ntext", "same\ntext"), []);
+	assert.deepEqual(model.lineDiff("", "x"), [ { op: "-", text: "" }, { op: "+", text: "x" } ]);
+});
+
+test("lineDiff of an editor save lists exactly the edited line", () => {
+	const config = load("kea-dhcp4-rich.conf");
+	const result = roundTrip("dhcp4", config, (tabs) => {
+		tabFor(tabs, "br-lan").router = "192.168.1.254";
+	});
+	const changed = model.lineDiff(model.serialize(config), model.serialize(result.config))
+		.filter((line) => line.op === "-" || line.op === "+");
+
+	assert.deepEqual(changed.map((line) => line.op + line.text.trim()), [
+		"-\"data\": \"192.168.1.1\"",
+		"+\"data\": \"192.168.1.254\""
+	]);
 });
 
 /* ---- stock configs of an installed Kea package (optional) -------------- */

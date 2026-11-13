@@ -104,11 +104,16 @@ fs.writefile(root + '/uci/network',
 	"config interface 'old'\n\toption ifname 'eth5'\n\toption proto 'static'\n\toption ipaddr '10.5.0.1'\n\toption netmask '255.255.255.0'\n\n" +
 	"config interface 'unbound'\n\toption proto 'none'\n");
 
-test('interfaces come from UCI in both address notations', () => {
+fs.writefile(root + '/uci/dhcp',
+	"config dhcp 'lan'\n\toption interface 'lan'\n\toption start '100'\n\toption dhcpv6 'server'\n\n" +
+	"config dhcp 'old'\n\toption interface 'old'\n\toption ignore '1'\n\toption dhcpv6 'server'\n\n" +
+	"config dhcp 'loopback'\n\toption interface 'loopback'\n\toption dhcpv4 'disabled'\n");
+
+test('interfaces come from UCI in both address notations, with the OpenWrt DHCP state', () => {
 	equal(service.network_interfaces(ctx), [
-		{ name: 'loopback', device: 'lo', proto: 'static', ipaddr: '127.0.0.1/8', ip6addr: '' },
-		{ name: 'lan', device: 'br-lan', proto: 'static', ipaddr: '192.168.1.1/24', ip6addr: 'fd00:1::1/64' },
-		{ name: 'old', device: 'eth5', proto: 'static', ipaddr: '10.5.0.1/24', ip6addr: '' }
+		{ name: 'loopback', device: 'lo', proto: 'static', ipaddr: '127.0.0.1/8', ip6addr: '', dhcp4_server: false, dhcp6_server: false },
+		{ name: 'lan', device: 'br-lan', proto: 'static', ipaddr: '192.168.1.1/24', ip6addr: 'fd00:1::1/64', dhcp4_server: true, dhcp6_server: true },
+		{ name: 'old', device: 'eth5', proto: 'static', ipaddr: '10.5.0.1/24', ip6addr: '', dhcp4_server: false, dhcp6_server: false }
 	]);
 });
 
@@ -184,6 +189,7 @@ test('status reports installed parts and running conflicts', () => {
 	equal(status.conflicts.dnsmasq, { installed: true, enabled: true, running: true, init: '/etc/init.d/dnsmasq' });
 	equal(status.conflicts.odhcpd, { installed: false, enabled: false, running: false, init: '/etc/init.d/odhcpd' });
 	equal(type(status.hooks.ha), 'bool');
+	equal(status.hooks.dir, '/usr/lib/kea/hooks');
 });
 
 rm_rf(root);

@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import { cursor } from 'uci';
 import { connect } from 'ubus';
 import * as config from 'luci.kea.config';
+import * as runtime from 'luci.kea.runtime';
 import { interface_addresses } from 'luci.kea.net';
 
 // Service state and control: the Kea init service and its components, the
@@ -72,10 +73,34 @@ function any_running(states) {
 	return false;
 }
 
+// The interfaces on which the OpenWrt DHCP services are configured to
+// answer: { name: { v4, v6 } }, from the "dhcp" sections of /etc/config/dhcp.
+// dnsmasq serves DHCPv4 unless the section is ignored or says "disabled";
+// DHCPv6 is served only where it is asked for.
+function openwrt_dhcp(uci) {
+	let served = {};
+
+	uci.foreach('dhcp', 'dhcp', s => {
+		let name = text(s['interface']);
+
+		if (name == '' || uci_bool(s.ignore, false))
+			return;
+
+		served[name] = {
+			v4: text(s.dhcpv4) != 'disabled',
+			v6: text(s.dhcpv6) in [ 'server', 'relay', 'hybrid' ]
+		};
+	});
+
+	return served;
+}
+
 export function network_interfaces(ctx) {
+	let uci = cursor(ctx.uci_dir, ctx.uci_savedir);
+	let served = openwrt_dhcp(uci);
 	let items = [];
 
-	cursor(ctx.uci_dir, ctx.uci_savedir).foreach('network', 'interface', s => {
+	uci.foreach('network', 'interface', s => {
 		let device = text(s.device) || text(s.ifname);
 
 		if (device == '')
@@ -86,7 +111,9 @@ export function network_interfaces(ctx) {
 			device,
 			proto: text(s.proto),
 			ipaddr: interface_addresses(s.ipaddr, s.netmask),
-			ip6addr: text(s.ip6addr)
+			ip6addr: text(s.ip6addr),
+			dhcp4_server: served[s['.name']]?.v4 == true,
+			dhcp6_server: served[s['.name']]?.v6 == true
 		});
 	});
 
@@ -240,6 +267,7 @@ export function status(ctx) {
 		};
 
 	return {
+		version: runtime.version(ctx),
 		init_installed: init_installed(ctx, 'kea'),
 		init_enabled: init_enabled(ctx, 'kea'),
 		runtime: {
@@ -252,6 +280,7 @@ export function status(ctx) {
 		},
 		binaries,
 		hooks: {
+			dir: ctx.hooks_dir,
 			ha: !!fs.access(ctx.hooks_dir + '/libdhcp_ha.so'),
 			lease_cmds: !!fs.access(ctx.hooks_dir + '/libdhcp_lease_cmds.so')
 		},

@@ -11,9 +11,10 @@
  * not have to be reloaded. Remove the sections again after the test.
  *
  * The test loads the two Kea fixtures through the Configuration page, checks
- * how the import page classifies each static lease, imports the default
- * selection plus one disabled lease, checks both files, checks that a second
- * import has nothing left to do, and puts the original files back.
+ * how the import page classifies each fixture static lease, imports the
+ * ready ones plus one disabled lease, checks both files, checks that the
+ * imported leases are then found in Kea, and puts the original files back.
+ * Static leases of the target itself are left out of the import.
  *
  * It rewrites /etc/kea/kea-dhcp4.conf and kea-dhcp6.conf while it runs. Use
  * a test machine whose LAN is 192.168.1.1/24 on br-lan. See lib.js for the
@@ -101,25 +102,40 @@ async function testImport(page) {
 	assert.equal(await row(page, "docked", "DHCPv4").locator('input[type="checkbox"]').isDisabled(), true);
 	ok("the IPv6 token is resolved and blocked entries cannot be selected");
 
-	assert.equal((await importButton.innerText()).trim(), "Import selected (2)");
-	await row(page, "off", "DHCPv4").locator('input[type="checkbox"]').check();
+	const box = (section, protocol) => row(page, section, protocol).locator('input[type="checkbox"]');
+
+	assert.equal(await box("dual", "DHCPv4").isChecked(), true);
+	assert.equal(await box("dual", "DHCPv6").isChecked(), true);
+	assert.equal(await box("printer", "DHCPv4").isChecked(), false);
+	assert.equal(await box("off", "DHCPv4").isChecked(), false);
+	ok("ready entries are selected, entries that need a review are not");
+
+	/* The target may have static leases of its own. Leave them out. */
+	for (const other of await page.locator('#view table tbody input[type="checkbox"]').all())
+		if (await other.isChecked())
+			await other.uncheck();
+
+	for (const [ section, protocol ] of [ [ "dual", "DHCPv4" ], [ "dual", "DHCPv6" ], [ "off", "DHCPv4" ] ])
+		await box(section, protocol).check();
+
 	assert.equal((await importButton.innerText()).trim(), "Import selected (3)");
 	await screenshot(page, "import-before");
 
 	await importButton.click();
 	await page.locator(".modal button", { hasText: /^Import$/ }).click();
 	await expectNotification(page, "Imported: 3");
-	ok("the default selection plus one disabled lease were imported");
+	ok("the two ready entries and one disabled lease were imported");
 
 	/* The page reloads its list after the import; wait for the new state. */
 	for (const [ section, protocol ] of [ [ "dual", "DHCPv4" ], [ "dual", "DHCPv6" ], [ "off", "DHCPv4" ] ])
 		await row(page, section, protocol).filter({ hasText: "Already in Kea" })
 			.waitFor({ timeout: 30000 });
 
-	assert.equal((await importButton.innerText()).trim(), "Import selected (0)");
-	assert.equal(await importButton.isDisabled(), true);
+	for (const [ section, protocol ] of [ [ "dual", "DHCPv4" ], [ "dual", "DHCPv6" ], [ "off", "DHCPv4" ] ])
+		assert.equal(await box(section, protocol).isDisabled(), true, section + " " + protocol);
+
 	await screenshot(page, "import-after");
-	ok("a second look finds the imported leases in Kea and nothing left to import");
+	ok("a second look finds the imported leases in Kea; they cannot be imported again");
 
 	const expected4 = parse(FIXTURES.dhcp4);
 	const subnet4 = expected4.Dhcp4.subnet4[0];
@@ -144,7 +160,7 @@ async function testImport(page) {
 	await openPage(page, "dhcp4", "Kea DHCPv4");
 	await page.locator("#view h3", { hasText: "br-lan" }).first().waitFor();
 
-	const rows = page.locator("#view table tbody tr");
+	const rows = page.locator("#view table.kea-reservations tbody tr");
 
 	assert.equal(await rows.count(), 5);
 	assert.equal(await rows.nth(4).locator("input").first().inputValue(), "spare");

@@ -3,6 +3,7 @@
 "require view";
 "require ui";
 "require kea.backend as backend";
+"require kea.dialogs as dialogs";
 
 /*
  * Import of OpenWrt static leases (the host entries of /etc/config/dhcp)
@@ -101,25 +102,17 @@ return view.extend({
 		if (!keys.length)
 			return;
 
-		ui.showModal(_("Import static leases"), [
-			E("p", _("Write the selected static leases to the Kea configuration as reservations? The current files are backed up first. Kea is not reloaded.")),
-			E("div", { "class": "right" }, [
-				E("button", { "class": "btn", "click": ui.hideModal }, _("Cancel")),
-				" ",
-				E("button", {
-					"class": "btn cbi-button-positive important",
-					"click": function() {
-						ui.hideModal();
+		dialogs.confirm(_("Import static leases"),
+			_("Write the selected static leases to the Kea configuration as reservations? The current files are backed up first. Kea is not reloaded."),
+			_("Import"),
+			function() {
+				return callCommit(keys).then(function(result) {
+					self.report(result);
 
-						return callCommit(keys).then(function(result) {
-							self.report(result);
-
-							return self.refresh();
-						});
-					}
-				}, _("Import"))
-			])
-		]);
+					return self.refresh();
+				});
+			},
+			"positive");
 	},
 
 	report: function(result) {
