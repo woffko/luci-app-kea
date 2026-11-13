@@ -20,7 +20,10 @@ const path = require("node:path");
 
 process.env.OUT_DIR = process.env.OUT_DIR || path.join(__dirname, "..", "..", "docs", "images");
 
-const { openPage, screenshot, waitForModal, main, readRawConfig, writeRawConfig } = require("./lib.js");
+const {
+	openPage, screenshot, waitForModal, main, readRawConfig, writeRawConfig,
+	fieldRow, fieldInput, addRow, openTab
+} = require("./lib.js");
 
 function fixture(name) {
 	return fs.readFileSync(path.join(__dirname, "..", "fixtures", name), "utf8");
@@ -78,9 +81,23 @@ main(async (page) => {
 		await capture(page, "changes", true);
 		await page.locator(".modal button", { hasText: /^Close$/ }).click();
 
-		await page.locator("#view .cbi-tabmenu a", { hasText: "Global settings" }).click();
-		await page.locator("#view h3", { hasText: "Global settings" }).first().waitFor();
+		await openTab(page, "Global settings");
 		await capture(page, "global");
+
+		/* A hot standby pair, typed in but not saved. Needs kea-hook-ha. */
+		if (await page.locator("#view .cbi-tabmenu a", { hasText: "High availability" }).count()) {
+			await openTab(page, "High availability");
+			await fieldInput(page, "Enable").check();
+			await fieldRow(page, "Mode").locator("select").waitFor();
+			await fieldInput(page, "This server").fill("router1");
+			await addRow(page, "kea-ha-peers", "Add Peer", [ "router1", "http://192.168.1.1:8000/" ]);
+			await addRow(page, "kea-ha-peers", "Add Peer", [ "router2", "http://192.168.1.2:8000/" ]);
+			await page.locator("#view h3", { hasText: "High availability" }).click();
+			await capture(page, "ha");
+		}
+		else {
+			console.log("skipped ha.png: kea-hook-ha is not installed on the target");
+		}
 
 		await openPage(page, "dhcp6", "Kea DHCPv6");
 		await page.locator("#view h3", { hasText: "br-lan" }).first().waitFor();

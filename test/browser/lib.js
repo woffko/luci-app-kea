@@ -146,7 +146,49 @@ async function writeRawConfig(page, name, content) {
 	await expectNotification(page, "configuration saved");
 }
 
+/* ---- helpers for the structured editors ---- */
+
+/* The form row with the given label. */
+function fieldRow(page, label) {
+	return page.locator("#view .cbi-value", {
+		has: page.locator("label.cbi-value-title", { hasText: new RegExp("^" + label + "$") })
+	});
+}
+
+function fieldInput(page, label) {
+	return fieldRow(page, label).locator("input").first();
+}
+
+/* The rows of one of the editor tables, without the "nothing here" row. */
+function tableRows(page, name) {
+	return page.locator("#view table." + name + " tbody tr", { has: page.locator("input") });
+}
+
+/* The text inputs of the rows of a table, as a list of lists. */
+async function tableValues(page, name) {
+	return tableRows(page, name).evaluateAll((rows) => rows.map((row) =>
+		Array.from(row.querySelectorAll('input:not([type="checkbox"])'), (input) => input.value)));
+}
+
+/* Add a row to a table and fill its text inputs. */
+async function addRow(page, name, button, values) {
+	await page.locator("#view button", { hasText: new RegExp("^" + button + "$") }).click();
+
+	const inputs = tableRows(page, name).last().locator('input:not([type="checkbox"])');
+
+	for (let i = 0; i < values.length; i++)
+		await inputs.nth(i).fill(values[i]);
+
+	return inputs;
+}
+
+async function openTab(page, label) {
+	await page.locator("#view .cbi-tabmenu a", { hasText: label }).first().click();
+	await page.locator("#view h3", { hasText: label }).first().waitFor();
+}
+
 module.exports = {
 	BASE_URL, CONFIG_FILES, openPage, screenshot, waitForModal, main,
-	footerButton, expectNotification, openRawEditor, readRawConfig, writeRawConfig
+	footerButton, expectNotification, openRawEditor, readRawConfig, writeRawConfig,
+	fieldRow, fieldInput, tableRows, tableValues, addRow, openTab
 };

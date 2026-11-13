@@ -36,7 +36,7 @@ const path = require("node:path");
 
 const {
 	openPage, screenshot, waitForModal, main, footerButton, expectNotification, openRawEditor,
-	readRawConfig, writeRawConfig
+	readRawConfig, writeRawConfig, fieldInput, tableRows, tableValues, addRow, openTab
 } = require("./lib.js");
 const { loadModule } = require("../js/luci-loader.js");
 
@@ -136,40 +136,6 @@ let step = 0;
 
 function ok(message) {
 	console.log("ok " + (++step) + " - " + message);
-}
-
-function fieldInput(page, label) {
-	return page.locator(".cbi-value", {
-		has: page.locator("label.cbi-value-title", { hasText: new RegExp("^" + label + "$") })
-	}).locator("input").first();
-}
-
-/* The rows of one of the editor tables, without the "nothing here" row. */
-function tableRows(page, name) {
-	return page.locator("#view table." + name + " tbody tr", { has: page.locator("input") });
-}
-
-/* The text inputs of the rows of a table, as a list of lists. */
-async function tableValues(page, name) {
-	return tableRows(page, name).evaluateAll((rows) => rows.map((row) =>
-		Array.from(row.querySelectorAll('input:not([type="checkbox"])'), (input) => input.value)));
-}
-
-/* Add a row to a table and fill its text inputs. */
-async function addRow(page, name, button, values) {
-	await page.locator("#view button", { hasText: new RegExp("^" + button + "$") }).click();
-
-	const inputs = tableRows(page, name).last().locator('input:not([type="checkbox"])');
-
-	for (let i = 0; i < values.length; i++)
-		await inputs.nth(i).fill(values[i]);
-
-	return inputs;
-}
-
-async function openTab(page, label) {
-	await page.locator("#view .cbi-tabmenu a", { hasText: label }).first().click();
-	await page.locator("#view h3", { hasText: label }).first().waitFor();
 }
 
 async function openEditor(page, scenario) {
@@ -354,6 +320,16 @@ async function testRawEditor(page, scenario) {
 	await expectNotification(page, "not valid JSON");
 	assert.equal(await readRawConfig(page, scenario.family), before);
 	ok("raw editor: text that is not JSON is reported and not saved");
+
+	const refused = before.replace("\"renew-timer\": 900", "\"renew-timer\": \"soon\"");
+
+	await textarea.fill(refused);
+	await footerButton(page, "Save").click();
+	await expectNotification(page, "validation failed");
+	assert.equal(await textarea.inputValue(), refused);
+	assert.equal(await readRawConfig(page, scenario.family), before);
+	await openRawEditor(page, scenario.family);
+	ok("raw editor: a text Kea refuses stays in the editor to be corrected, and is not saved");
 
 	await textarea.fill(before.replace("\"renew-timer\": 900", "\"renew-timer\": 901"));
 	assert.equal(await page.locator("#view .kea-syntax .alert-message").count(), 0);
