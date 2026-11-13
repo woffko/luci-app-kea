@@ -34,6 +34,19 @@ var callStatus = rpc.declare({
 	expect: { status: {} }
 });
 
+var callLeases = rpc.declare({
+	object: "luci.kea",
+	method: "getLeases",
+	expect: { leases: {} }
+});
+
+var callLog = rpc.declare({
+	object: "luci.kea",
+	method: "getLog",
+	params: [ "lines" ],
+	expect: { "": {} }
+});
+
 var callServices = rpc.declare({
 	object: "luci.kea",
 	method: "getServices",
@@ -95,6 +108,17 @@ return baseclass.extend({
 
 	getStatus: function() {
 		return L.resolveDefault(callStatus(), {});
+	},
+
+	getLeases: function() {
+		return L.resolveDefault(callLeases(), {});
+	},
+
+	/* The last Kea messages of the system log, oldest first. */
+	getLog: function(lines) {
+		return L.resolveDefault(callLog(lines), {}).then(function(result) {
+			return result.lines || [];
+		});
 	},
 
 	getInterfaces: function() {
