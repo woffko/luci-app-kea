@@ -49,10 +49,10 @@ run() {
 	fi
 }
 
-FILES="test/ucode/net.uc test/ucode/jsonc.uc test/ucode/config.uc test/ucode/importer.uc"
+FILES="test/ucode/net.uc test/ucode/jsonc.uc test/ucode/config.uc test/ucode/importer.uc test/ucode/runtime.uc"
 
 if [ "$TARGET" = 1 ]; then
-	FILES="$FILES test/ucode/target/config.uc test/ucode/target/service.uc test/ucode/target/import.uc"
+	FILES="$FILES test/ucode/target/config.uc test/ucode/target/service.uc test/ucode/target/import.uc test/ucode/target/runtime.uc"
 fi
 
 FAILED=0

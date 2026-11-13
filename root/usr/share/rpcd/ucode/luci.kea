@@ -6,6 +6,7 @@ import { cursor } from 'uci';
 import * as config from 'luci.kea.config';
 import * as service from 'luci.kea.service';
 import * as importer from 'luci.kea.importer';
+import * as runtime from 'luci.kea.runtime';
 
 // rpcd plugin for luci-app-kea. The work is done by the luci.kea.* modules;
 // this file only maps ubus methods to them. Method names and reply shapes
@@ -37,6 +38,19 @@ const methods = {
 	getNetworkInterfaces: {
 		call: function() {
 			return { interfaces: { items: service.network_interfaces(ctx) } };
+		}
+	},
+
+	getLeases: {
+		call: function() {
+			return { leases: runtime.leases(ctx) };
+		}
+	},
+
+	getLog: {
+		args: { lines: 30 },
+		call: function(request) {
+			return runtime.log(ctx, request.args.lines);
 		}
 	},
 

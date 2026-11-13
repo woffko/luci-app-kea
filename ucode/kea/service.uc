@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import { cursor } from 'uci';
 import { connect } from 'ubus';
 import * as config from 'luci.kea.config';
+import * as runtime from 'luci.kea.runtime';
 import { interface_addresses } from 'luci.kea.net';
 
 // Service state and control: the Kea init service and its components, the
@@ -266,6 +267,7 @@ export function status(ctx) {
 		};
 
 	return {
+		version: runtime.version(ctx),
 		init_installed: init_installed(ctx, 'kea'),
 		init_enabled: init_enabled(ctx, 'kea'),
 		runtime: {

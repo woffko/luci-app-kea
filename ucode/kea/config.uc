@@ -53,6 +53,7 @@ export const CONFIG_ORDER = [ 'dhcp4', 'dhcp6', 'dhcp_ddns', 'ctrl_agent' ];
 // options.validator  function(name, path) -> { valid, output } replacing the
 //                    Kea binary (tests)
 // options.clock      function() -> epoch seconds (tests)
+// options.log_reader function() -> text of the system log (tests)
 export function context(options) {
 	let root = options?.root ?? '';
 
@@ -71,7 +72,8 @@ export function context(options) {
 		uci_savedir: options?.uci_savedir,
 		service_list: options?.service_list,
 		validator: options?.validator,
-		clock: options?.clock
+		clock: options?.clock,
+		log_reader: options?.log_reader
 	};
 };
 
