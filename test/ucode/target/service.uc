@@ -189,6 +189,7 @@ test('status reports installed parts and running conflicts', () => {
 	equal(status.conflicts.dnsmasq, { installed: true, enabled: true, running: true, init: '/etc/init.d/dnsmasq' });
 	equal(status.conflicts.odhcpd, { installed: false, enabled: false, running: false, init: '/etc/init.d/odhcpd' });
 	equal(type(status.hooks.ha), 'bool');
+	equal(status.hooks.dir, '/usr/lib/kea/hooks');
 });
 
 rm_rf(root);

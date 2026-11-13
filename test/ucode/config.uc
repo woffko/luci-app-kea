@@ -205,6 +205,64 @@ test('validate_all covers the control agent and reports missing parts', () => {
 	equal(all.ctrl_agent.output, 'binary or config file is missing');
 });
 
+// ---- the command line of the Kea binary ------------------------------------
+//
+// Stand-in binaries: shell scripts that tell how they were called.
+
+const sbin = root + '/fake-sbin';
+const real = config.context({ root, run_dir: root + '/run', sbin_dir: sbin });
+
+function fake(name, script) {
+	config.mkdir_p(sbin, 0o755);
+	fs.writefile(sbin + '/' + name, '#!/bin/sh\n' + script + '\n');
+	fs.chmod(sbin + '/' + name, 0o755);
+}
+
+test('the DHCP daemons are checked with their hooks loaded, the others are not', () => {
+	fake('kea-dhcp4', 'echo "called with $1"');
+	fake('kea-dhcp-ddns', 'echo "called with $1"');
+	fs.writefile(config.path(real, 'dhcp_ddns'), '{}');
+
+	equal(config.validate_file(real, 'dhcp4', file), { valid: true, output: 'called with -T' });
+	equal(config.validate_file(real, 'dhcp_ddns', config.path(real, 'dhcp_ddns')),
+		{ valid: true, output: 'called with -t' });
+});
+
+test('a Kea binary without the stricter check is asked the old way', () => {
+	fake('kea-dhcp4', 'case "$1" in -t) echo checked;; *) echo "Usage: kea-dhcp4 [-v] [-t file]"; exit 1;; esac');
+
+	equal(config.validate_file(real, 'dhcp4', file), { valid: true, output: 'checked' });
+});
+
+test('the reason a hook gives for a refusal is put first', () => {
+	const log = [
+		'2026-11-12 20:07:41.231 INFO  [kea-dhcp4.hooks/9166.1406] HOOKS_LIBRARY_LOADED hooks library loaded',
+		'2026-11-12 20:07:41.231 ERROR [kea-dhcp4.ha-hooks/9166.1406] HA_CONFIGURATION_FAILED unsupported value for mode',
+		'2026-11-12 20:07:41.232 ERROR [kea-dhcp4.dhcp4/9166.1406] DHCP4_PARSER_COMMIT_FAIL hook libraries failed to load',
+		'2026-11-12 20:07:41.232 ERROR [kea-dhcp4.dhcp4/9166.1406] DHCP4_PARSER_COMMIT_FAIL hook libraries failed to load',
+		'Error encountered: One or more hook libraries failed to load',
+		'Usage: kea-dhcp4 -[v|V|W|X] [-d] [-{c|t|T} cfgfile]',
+		'  -T file: check the configuration file doing hooks load and extra checks and exit'
+	];
+
+	equal(config.error_lines(join('\n', log)), [
+		'HA_CONFIGURATION_FAILED unsupported value for mode',
+		'DHCP4_PARSER_COMMIT_FAIL hook libraries failed to load'
+	]);
+	equal(config.error_lines('no log lines here'), []);
+	equal(config.error_lines(null), []);
+
+	fs.writefile(root + '/kea.log', join('\n', log) + '\n');
+	fake('kea-dhcp4', 'cat ' + config.shellquote(root + '/kea.log') + '; exit 1');
+
+	let check = config.validate_file(real, 'dhcp4', file);
+
+	equal(check.valid, false);
+	equal(split(check.output, '\n')[0], 'HA_CONFIGURATION_FAILED unsupported value for mode');
+	equal(split(check.output, '\n')[2], '', 'a blank line separates the reasons from the full output');
+	equal(split(check.output, '\n')[3], log[0]);
+});
+
 test('write_private and mkdir_p', () => {
 	equal(config.mkdir_p(root + '/a/b/c', 0o750), true);
 	equal(config.mkdir_p(root + '/a/b/c', 0o750), true);

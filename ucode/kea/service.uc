@@ -278,6 +278,7 @@ export function status(ctx) {
 		},
 		binaries,
 		hooks: {
+			dir: ctx.hooks_dir,
 			ha: !!fs.access(ctx.hooks_dir + '/libdhcp_ha.so'),
 			lease_cmds: !!fs.access(ctx.hooks_dir + '/libdhcp_lease_cmds.so')
 		},
