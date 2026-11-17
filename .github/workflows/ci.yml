@@ -4,12 +4,20 @@ on:
   push:
     branches: [ main ]
   pull_request:
+  # The release workflow runs these jobs for a tag.
+  workflow_call:
+    outputs:
+      tested_on:
+        description: The OpenWrt and Kea versions the target tests ran on
+        value: ${{ jobs.target.outputs.tested_on }}
 
 permissions:
   contents: read
 
+# When another workflow calls this one, github.workflow is the name of the
+# caller, so the two never cancel each other.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -133,6 +141,16 @@ jobs:
           cp "$SDK"/bin/packages/*/kea/luci-app-kea-*.apk "$RUNNER_TEMP/out/"
           ls -l "$RUNNER_TEMP/out"
 
+      # A version without its section in the changelog cannot be released.
+      - name: The release text can be made for this version
+        run: |
+          tag="$(tools/release-notes.sh --tag)"
+          tools/release-notes.sh "$tag" "$RUNNER_TEMP"/out/luci-app-kea-*.apk
+          if tools/release-notes.sh "$tag-wrong" > /dev/null 2>&1; then
+            echo "A tag that does not fit the version was accepted." >&2
+            exit 1
+          fi
+
       - uses: actions/upload-artifact@v4
         with:
           name: luci-app-kea
@@ -147,6 +165,8 @@ jobs:
     env:
       KEA_VM_DIR: ${{ github.workspace }}/.vm
       OUT_DIR: ${{ github.workspace }}/.screenshots
+    outputs:
+      tested_on: ${{ steps.report.outputs.tested_on }}
     steps:
       - uses: actions/checkout@v4
 
@@ -186,6 +206,14 @@ jobs:
 
       - name: Backend and browser tests on the target
         run: test/run-target-tests.sh
+
+      - name: Note what the tests ran on
+        id: report
+        run: |
+          tested="$(test/qemu-target.sh ssh '. /etc/openwrt_release
+            echo "OpenWrt $DISTRIB_RELEASE ($DISTRIB_ARCH) with Kea $(kea-dhcp4 -v)"')"
+          echo "$tested"
+          echo "tested_on=$tested" >> "$GITHUB_OUTPUT"
 
       - name: Keep the screenshots and the console of a failed run
         if: failure()
