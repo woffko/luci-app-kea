@@ -1,13 +1,14 @@
 # Versions and Releases
 
 How the package is numbered, what a version number promises, and how a
-release is made. The first release was `v0.7.0` on 2026-11-17. A release is
-made on the word of the repository owner.
+release is made. The first release was `v0.7.0` on 2026-11-17, made by
+hand. A release is made on the word of the repository owner: a workflow
+prepares it from a tag as a draft, and the owner publishes it.
 
 ## Version numbers
 
-The version is `PKG_VERSION`-r`PKG_RELEASE` in the `Makefile`, for example
-`0.7.0-r1`. That is what `apk` shows on the router.
+The version is `PKG_VERSION`-r`PKG_RELEASE` in `luci-app-kea/Makefile`, for
+example `0.7.0-r1`. That is what `apk` shows on the router.
 
 | Change | What is raised |
 |--------|----------------|
@@ -51,36 +52,51 @@ object. They serve the pages of the same version and change with them.
 
 ## Making a release
 
-For the repository owner.
+For the repository owner. Pushing the tag is the only step done by hand
+before the release exists as a draft; publishing the draft is the decision.
 
-1. `main` holds the version to release, and its CI run is green.
-2. The on-target and browser tests of
-   [DEVELOPMENT.md](DEVELOPMENT.md#checks) pass on a test machine with the
-   package of that CI run. CI does not run them.
-3. Tag the commit, with the package version without the release number
-   unless it is above 1:
-
-   ```sh
-   git tag -a v0.7.0 -m "luci-app-kea 0.7.0"
-   git push origin v0.7.0
-   ```
-
-4. Create a GitHub release for the tag. Its text is the section of the
-   changelog; its file is the package from the CI run of the tagged commit,
-   the same file that was tested in step 2. While the application is alpha
-   the release is marked as a pre-release:
+1. `main` holds the version to release, and its CI run is green. That run
+   includes the tests on OpenWrt in QEMU. `tools/release-notes.sh --tag`
+   prints the tag of the version; `tools/release-notes.sh <tag>` prints the
+   text the release will get.
+2. Tag the commit, with the package version without the release number
+   unless it is above 1 (`v0.8.0` for `0.8.0-r1`, `v0.8.0-r2` for
+   `0.8.0-r2`):
 
    ```sh
-   gh run download <run id> --name luci-app-kea --dir .
-   sha256sum luci-app-kea-0.7.0-r1.apk
-   gh release create v0.7.0 luci-app-kea-0.7.0-r1.apk --verify-tag \
-       --prerelease --title "luci-app-kea 0.7.0" --notes-file notes.md
+   git tag -a v0.8.0 -m "luci-app-kea 0.8.0"
+   git push origin v0.8.0
    ```
 
-   Put the checksum into the text of the release. GitHub's
-   `/releases/latest` address skips pre-releases, so link to the list of
-   releases instead.
+3. The tag starts `.github/workflows/release.yml`. It stops at once when the
+   tag does not fit the version in the Makefile, when the changelog has no
+   section for the version, or when the tagged commit is not on `main`.
+   Otherwise it builds the package from the tagged commit, runs every CI
+   job on it, including the tests on OpenWrt in QEMU, and creates a
+   **draft** release: the package file, its checksum, the section of the
+   changelog as text, and what the file was tested on. A 0.x version is
+   marked as a pre-release.
+4. Read the draft on the
+   [Releases page](https://github.com/woffko/luci-app-kea/releases), where
+   only people with write access see it. Test the attached file on a real
+   router if the changes call for it; CI tests it on a virtual machine only.
+   Then publish the draft, or delete it and the tag.
 5. Note the release in the changelog, and update the documents that say
    which release is the newest.
+
+GitHub's `/releases/latest` address skips pre-releases, so link to the list
+of releases instead.
+
+When the workflow fails after the checks, for example because a download
+from `downloads.openwrt.org` failed, run its failed jobs again from the
+Actions page; the tag stays. The same release can also be made by hand from
+the CI run of the tagged commit, as `v0.7.0` was:
+
+```sh
+gh run download <run id> --name luci-app-kea --dir .
+tools/release-notes.sh v0.8.0 luci-app-kea-0.8.0-r1.apk > notes.md
+gh release create v0.8.0 luci-app-kea-0.8.0-r1.apk --verify-tag --draft \
+    --prerelease --title "luci-app-kea 0.8.0" --notes-file notes.md
+```
 
 Only the newest version is supported. There are no maintenance branches.
