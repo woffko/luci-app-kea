@@ -27,7 +27,7 @@ jobs:
       - run: npm ci
 
       - name: JavaScript syntax
-        run: find htdocs test -name '*.js' -exec node --check {} \;
+        run: find luci-app-kea/htdocs test -name '*.js' -exec node --check {} \;
 
       - name: Shell syntax
         run: |
@@ -40,14 +40,14 @@ jobs:
 
       - name: Menu and ACL are valid JSON
         run: |
-          jq -e . root/usr/share/luci/menu.d/luci-app-kea.json > /dev/null
-          jq -e . root/usr/share/rpcd/acl.d/luci-app-kea.json > /dev/null
+          jq -e . luci-app-kea/root/usr/share/luci/menu.d/luci-app-kea.json > /dev/null
+          jq -e . luci-app-kea/root/usr/share/rpcd/acl.d/luci-app-kea.json > /dev/null
 
       - name: Every RPC method used by the pages is granted by the ACL
         run: |
-          grep -rhoE 'method: *"[A-Za-z]+"' htdocs | sed -E 's/.*"([A-Za-z]+)"/\1/' | sort -u > used.txt
+          grep -rhoE 'method: *"[A-Za-z]+"' luci-app-kea/htdocs | sed -E 's/.*"([A-Za-z]+)"/\1/' | sort -u > used.txt
           jq -r '.["luci-app-kea"] | (.read.ubus["luci.kea"] + .write.ubus["luci.kea"])[]' \
-            root/usr/share/rpcd/acl.d/luci-app-kea.json | sort -u > granted.txt
+            luci-app-kea/root/usr/share/rpcd/acl.d/luci-app-kea.json | sort -u > granted.txt
           diff used.txt granted.txt
 
       - name: ESLint
@@ -84,19 +84,22 @@ jobs:
           mv "${sdk%.tar.zst}" sdk
           echo "SDK=$RUNNER_TEMP/sdk" >> "$GITHUB_ENV"
 
+      # The repository is used the way the README tells users to: as a feed.
       - name: Prepare feeds
         working-directory: ${{ env.SDK }}
         run: |
-          ./scripts/feeds update base packages luci
-          ./scripts/feeds install luci-base kea
-          ln -s "$GITHUB_WORKSPACE" package/luci-app-kea
+          cp feeds.conf.default feeds.conf
+          echo "src-link kea $GITHUB_WORKSPACE" >> feeds.conf
+          ./scripts/feeds update base packages luci kea
+          ./scripts/feeds install luci-app-kea
+          test -L package/feeds/kea/luci-app-kea
           make defconfig
 
       - name: Check the package metadata
         working-directory: ${{ env.SDK }}
         run: |
           make --no-print-directory -r DUMP=1 TOPDIR="$PWD" INCLUDE_DIR="$PWD/include" \
-            -C package/luci-app-kea > "$RUNNER_TEMP/metadata.txt"
+            -C package/feeds/kea/luci-app-kea > "$RUNNER_TEMP/metadata.txt"
           cat "$RUNNER_TEMP/metadata.txt"
           grep -qx 'URL: https://github.com/woffko/luci-app-kea' "$RUNNER_TEMP/metadata.txt"
           grep -q '^Depends: .*+kea-uci' "$RUNNER_TEMP/metadata.txt"
@@ -117,16 +120,16 @@ jobs:
       - name: Translation template is up to date
         run: |
           tools/update-pot.sh "$SDK/feeds/luci"
-          git diff --exit-code -- po
+          git diff --exit-code -- luci-app-kea/po
 
       - name: Build the package
         working-directory: ${{ env.SDK }}
-        run: make -C package/luci-app-kea TOPDIR="$PWD" compile V=s
+        run: make -C package/feeds/kea/luci-app-kea TOPDIR="$PWD" compile V=s
 
       - name: Collect the package
         run: |
           mkdir -p "$RUNNER_TEMP/out"
-          cp "$SDK"/bin/packages/*/base/luci-app-kea-*.apk "$RUNNER_TEMP/out/"
+          cp "$SDK"/bin/packages/*/kea/luci-app-kea-*.apk "$RUNNER_TEMP/out/"
           ls -l "$RUNNER_TEMP/out"
 
       - uses: actions/upload-artifact@v4

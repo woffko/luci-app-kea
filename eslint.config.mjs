@@ -1,6 +1,6 @@
 // ESLint configuration for the JavaScript in this repository.
 //
-// The block for htdocs/ repeats the JavaScript rules of eslint.config.mjs in
+// The block for luci-app-kea/htdocs/ repeats the JavaScript rules of eslint.config.mjs in
 // openwrt/luci, so that the views pass the same checks there. Keep the two
 // in step when LuCI changes its configuration.
 
@@ -12,7 +12,7 @@ export default [
 		ignores: [ 'node_modules/' ]
 	},
 	{
-		files: [ 'htdocs/**/*.js' ],
+		files: [ 'luci-app-kea/htdocs/**/*.js' ],
 		linterOptions: {
 			reportUnusedDisableDirectives: 'off'
 		},

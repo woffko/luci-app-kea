@@ -11,7 +11,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const RESOURCES = path.join(__dirname, "..", "..", "htdocs", "luci-static", "resources");
+const RESOURCES = path.join(__dirname, "..", "..", "luci-app-kea", "htdocs", "luci-static", "resources");
 
 const baseclass = {
 	extend(properties) {
