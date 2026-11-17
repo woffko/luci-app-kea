@@ -33,7 +33,7 @@ DOWNLOADS="https://downloads.openwrt.org/releases"
 KEA_PACKAGES="kea-dhcp4 kea-dhcp6 kea-dhcp-ddns kea-ctrl kea-uci kea-lfc kea-hook-ha kea-hook-lease-cmds"
 
 usage() {
-	sed -n '3,14p' "$0" | sed 's/^# \{0,1\}//' >&2
+	sed -n '3,12p' "$0" | sed 's/^# \{0,1\}//' >&2
 	exit 2
 }
 
