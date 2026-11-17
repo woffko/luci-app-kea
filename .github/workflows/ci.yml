@@ -12,6 +12,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  OPENWRT_VERSION: 25.12.6
+  OPENWRT_TARGET: x86/64
+
 jobs:
   checks:
     name: Lint and unit tests
@@ -59,9 +63,6 @@ jobs:
   package:
     name: Build with the OpenWrt SDK
     runs-on: ubuntu-latest
-    env:
-      OPENWRT_VERSION: 25.12.6
-      OPENWRT_TARGET: x86/64
     steps:
       - uses: actions/checkout@v4
 
@@ -137,3 +138,66 @@ jobs:
           name: luci-app-kea
           path: ${{ runner.temp }}/out/*.apk
           if-no-files-found: error
+
+  target:
+    name: Tests on OpenWrt in QEMU
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      KEA_VM_DIR: ${{ github.workspace }}/.vm
+      OUT_DIR: ${{ github.workspace }}/.screenshots
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install the browser
+        run: npx playwright install --with-deps chromium-headless-shell
+
+      - name: Install QEMU
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils
+
+      # Without this rule the runner user may not open /dev/kvm, and the
+      # machine runs several times slower.
+      - name: Allow the use of KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
+            sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: luci-app-kea
+          path: ${{ runner.temp }}/package
+
+      - name: Start OpenWrt, install Kea and the package
+        run: |
+          test/qemu-target.sh start "$OPENWRT_VERSION"
+          test/qemu-target.sh setup "$RUNNER_TEMP"/package/luci-app-kea-*.apk
+
+      - name: Backend and browser tests on the target
+        run: test/run-target-tests.sh
+
+      - name: Keep the screenshots and the console of a failed run
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: target-test-failure
+          path: |
+            .screenshots/
+            .vm/serial.log
+          if-no-files-found: ignore
+          include-hidden-files: true
+
+      - name: Switch the machine off
+        if: always()
+        run: test/qemu-target.sh stop
