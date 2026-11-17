@@ -7,6 +7,15 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-17: First release, `v0.7.0`
+
+- Tag `v0.7.0` on `main` and a GitHub release, marked as a pre-release, with
+  `luci-app-kea-0.7.0-r1.apk` from the CI run of the tagged commit.
+- That file was installed on both test machines first and passed the
+  on-target tests and the five browser tests.
+- The README now sends users to the Releases page; the package CI builds
+  from `main` is described as the development version.
+
 ## 2026-11-13: Changelog, version rules, installation from CI (M7, part)
 
 - `CHANGELOG.md` with every version since `0.1.0-r1`, written for users of

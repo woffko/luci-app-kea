@@ -1,8 +1,8 @@
 # Versions and Releases
 
 How the package is numbered, what a version number promises, and how a
-release is made. No release has been made yet; tags and releases are
-created by the repository owner.
+release is made. The first release was `v0.7.0` on 2026-11-17. A release is
+made on the word of the repository owner.
 
 ## Version numbers
 
@@ -66,7 +66,21 @@ For the repository owner.
    ```
 
 4. Create a GitHub release for the tag. Its text is the section of the
-   changelog; its file is the package from the CI run of the tagged commit
-   (see [Installing the package built by CI](../README.md#installation)).
+   changelog; its file is the package from the CI run of the tagged commit,
+   the same file that was tested in step 2. While the application is alpha
+   the release is marked as a pre-release:
+
+   ```sh
+   gh run download <run id> --name luci-app-kea --dir .
+   sha256sum luci-app-kea-0.7.0-r1.apk
+   gh release create v0.7.0 luci-app-kea-0.7.0-r1.apk --verify-tag \
+       --prerelease --title "luci-app-kea 0.7.0" --notes-file notes.md
+   ```
+
+   Put the checksum into the text of the release. GitHub's
+   `/releases/latest` address skips pre-releases, so link to the list of
+   releases instead.
+5. Note the release in the changelog, and update the documents that say
+   which release is the newest.
 
 Only the newest version is supported. There are no maintenance branches.

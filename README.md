@@ -124,29 +124,14 @@ Earlier versions were tested on OpenWrt 25.12.3 with Kea 3.0.2.
 
 ## Installation
 
-There are no releases yet. Install the package that CI builds from `main`,
-or build it yourself.
-
 The package is for OpenWrt 25.12 (`apk`). It contains no compiled code, so
 the same file fits every router architecture.
 
-### The package built by CI
+### From a release
 
-Every CI run on `main` keeps the package it built for 90 days. Downloading
-it needs a GitHub account.
-
-In the browser: open
-[the CI runs of `main`](https://github.com/woffko/luci-app-kea/actions/workflows/ci.yml?query=branch%3Amain),
-choose the newest run with a green mark, and download `luci-app-kea` under
-**Artifacts**. It is a zip file with the package inside.
-
-Or with the [GitHub CLI](https://cli.github.com/):
-
-```sh
-run=$(gh run list --repo woffko/luci-app-kea --workflow CI --branch main \
-        --status success --limit 1 --json databaseId --jq '.[0].databaseId')
-gh run download "$run" --repo woffko/luci-app-kea --name luci-app-kea --dir .
-```
+Download `luci-app-kea-<version>.apk` from the newest entry on the
+[Releases page](https://github.com/woffko/luci-app-kea/releases). The
+releases are marked as pre-releases while the application is alpha.
 
 Copy the package to the router and install it there. The router fetches the
 dependencies, `kea-uci` and `kea-lfc`, from the OpenWrt package
@@ -172,6 +157,26 @@ daemons are switched on on the **Services** page. Read
 To upgrade, install a newer package the same way. `apk del luci-app-kea`
 removes the application; the Kea configuration and the backups in
 `/etc/kea/backups/` stay.
+
+### The development version
+
+Every CI run on `main` keeps the package it built for 90 days. It is what
+the next release will be made from. Downloading it needs a GitHub account.
+
+In the browser: open
+[the CI runs of `main`](https://github.com/woffko/luci-app-kea/actions/workflows/ci.yml?query=branch%3Amain),
+choose the newest run with a green mark, and download `luci-app-kea` under
+**Artifacts**. It is a zip file with the package inside.
+
+Or with the [GitHub CLI](https://cli.github.com/):
+
+```sh
+run=$(gh run list --repo woffko/luci-app-kea --workflow CI --branch main \
+        --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+gh run download "$run" --repo woffko/luci-app-kea --name luci-app-kea --dir .
+```
+
+Install it like a release.
 
 ### Building it yourself
 

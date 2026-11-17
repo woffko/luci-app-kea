@@ -5,9 +5,14 @@ What changed for users of the package, by package version
 [docs/RELEASING.md](docs/RELEASING.md); the development log, with the
 reasons behind the changes, is in [docs/HISTORY.md](docs/HISTORY.md).
 
-No version has been tagged or released yet. All versions are alpha.
+Released versions are tagged `vX.Y.Z` and have their package on the
+[Releases page](https://github.com/woffko/luci-app-kea/releases). All
+versions are alpha.
 
 ## 0.7.0-r1 (2026-11-13)
+
+Released on 2026-11-17 as `v0.7.0`, the first release. The versions below
+it were development versions without a release.
 
 ### Added
 
