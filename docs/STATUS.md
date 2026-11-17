@@ -23,7 +23,7 @@ issues are listed separately in [PACKAGING.md](PACKAGING.md).
 | Input checks | In the browser, for what the editors write; the Kea binary on every save, with hooks loaded for the DHCP daemons |
 | Automated tests | Unit tests (JavaScript and ucode), on-target tests, browser tests |
 | CI | GitHub Actions: lint, unit tests, SDK package build |
-| Releases | Changelog and version rules exist; nothing tagged or released |
+| Releases | First release `v0.7.0` on 2026-11-17, made by hand and marked as a pre-release |
 | Translations | Not started (only the template exists) |
 
 ## Verification state
@@ -64,6 +64,9 @@ On the second machine the ucode tests and all five browser tests pass with
 `0.7.0-r1`; Save & Apply was checked there with `kea-dhcp-ddns` running, on
 `0.3.0`. That machine has a static lease of its own, which the import test
 leaves alone.
+
+The package file of the release `v0.7.0`, built by CI, passed the same
+tests on both machines before it was published.
 
 Not exercised: clients on a real network, two Kea servers exchanging
 leases, the lease file cleanup running while the page reads the files, the
@@ -362,5 +365,5 @@ last word.
 
 - Browser tests and on-target tests in CI (they need a running OpenWrt).
 - Translations (only the template exists).
-- Tagged releases with a package attached. Until then the package built by
-  CI is the prebuilt one; see the README.
+- A workflow that makes a release from a tag. Releases are made by hand,
+  following [RELEASING.md](RELEASING.md).

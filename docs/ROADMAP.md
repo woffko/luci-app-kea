@@ -1,6 +1,6 @@
 # Roadmap
 
-Last updated: 2026-11-13.
+Last updated: 2026-11-17.
 
 Goal: a LuCI application that manages ISC Kea on OpenWrt well enough to
 replace dnsmasq/odhcpd DHCP on a router, without losing access to Kea's JSON
@@ -215,11 +215,12 @@ are no longer in use.
 
 - [x] Changelog and version policy: [CHANGELOG.md](../CHANGELOG.md) and
       [RELEASING.md](RELEASING.md).
-- [ ] Tag `v0.x` releases. For the owner.
+- [x] Tag `v0.x` releases. `v0.7.0` on 2026-11-17 is the first, made by
+      hand with the package of its CI run attached.
 - [x] Document installation of the package that CI builds.
 - [ ] Run the on-target and browser tests in CI against an OpenWrt root
       filesystem or virtual machine.
-- [ ] Attach built packages to GitHub releases.
+- [ ] Attach built packages to GitHub releases automatically, from the tag.
 - [ ] Document installation as a custom feed.
 - [ ] Prepare the submission to `openwrt/luci`: meet the extra requirements in
       [PACKAGING.md](PACKAGING.md), including a maintainer with a real name
