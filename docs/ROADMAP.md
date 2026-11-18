@@ -289,7 +289,7 @@ Taken while implementing M7:
 
 - **The target tests run for every pull request**, not only for `main`. A
   change is then tested on a real system before it is merged, which is the
-  point of having them in CI. The job takes about two minutes and costs
+  point of having them in CI. The job takes a few minutes and costs
   nothing for a public repository. Running it for `main` only would be one
   `if:` on the job.
 - **The Kea packages are not cached in CI.** Each run installs them from the

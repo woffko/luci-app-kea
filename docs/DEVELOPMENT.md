@@ -390,8 +390,11 @@ node test/browser/screenshots.js ha ha-checks
   Kea from the OpenWrt package repository and the package of the build job,
   and runs `test/run-target-tests.sh`: the backend tests on the router and
   the five browser tests. A failed run keeps its screenshots and the console
-  of the machine as the artifact `target-test-failure`. The job takes about
-  two minutes; the runner lets it use KVM.
+  of the machine as the artifact `target-test-failure`. The job takes two to
+  six minutes. Starting the machine, installing Kea and running the tests is
+  about a minute and a half of that, with KVM, which the runner lets the job
+  use. The rest is the installation of QEMU and of the browser on the
+  runner, and that varies from run to run.
 
 The third job depends on `downloads.openwrt.org` twice, for the image and
 for the Kea packages, which are not cached: the job is meant to see the

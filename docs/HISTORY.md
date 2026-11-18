@@ -34,8 +34,10 @@ the same as those of the release.
   fixtures loaded and removed. Both replace commands that were typed by
   hand before every release.
 - A third CI job runs them for every pull request and for `main`. It took
-  1 minute 44 seconds in its first run, with KVM on the GitHub runner; the
-  whole CI run took a little over 5 minutes.
+  1 minute 44 seconds in its first run, with KVM on the GitHub runner, and
+  6 minutes in a run the next day, in which the runner needed four and a
+  half minutes to install QEMU and the browser. The machine and the tests
+  took the same 80 seconds both times.
 - `.github/workflows/release.yml` prepares a draft release from a version
   tag: it checks the tag against the Makefile and the changelog, runs the CI
   jobs on the tagged commit and attaches the package with its checksum.
