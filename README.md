@@ -180,11 +180,13 @@ Install it like a release.
 
 ### Building it yourself
 
-Use an OpenWrt tree that has the `luci` and `packages` feeds installed:
+The repository is an OpenWrt feed. In an OpenWrt tree that has the `luci`
+and `packages` feeds, add it to `feeds.conf`:
 
 ```sh
 cd /path/to/openwrt
-git clone https://github.com/woffko/luci-app-kea.git package/luci-app-kea
+[ -f feeds.conf ] || cp feeds.conf.default feeds.conf
+echo "src-git kea https://github.com/woffko/luci-app-kea.git" >> feeds.conf
 ./scripts/feeds update -a
 ./scripts/feeds install -a
 make menuconfig
@@ -195,7 +197,14 @@ In menuconfig, select a Kea daemon under **Network > IP Addresses and Names**
 first. `luci-app-kea` appears under **LuCI > 3. Applications** only after
 that.
 
-Copy the resulting package to the router and install it as above.
+The package is written to `bin/packages/<arch>/kea/`. Copy it to the router
+and install it as above. `./scripts/feeds update kea` fetches a newer
+version later.
+
+The feed line above builds the development version. To build a release,
+append its tag: `...luci-app-kea.git;<tag>`. This works for releases after
+`v0.7.0`; up to that tag the package is at the root of the repository,
+where the feed scripts do not find it.
 
 ## Before you use it
 

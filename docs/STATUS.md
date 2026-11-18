@@ -1,6 +1,6 @@
 # Project Status
 
-Status date: 2026-11-13. Package version `0.7.0-r1`, alpha.
+Status date: 2026-11-17. Package version `0.7.0-r1`, alpha.
 
 This is a code-level inventory of what exists and what is missing. The work
 needed to close the gaps is ordered in [ROADMAP.md](ROADMAP.md). Packaging
@@ -22,8 +22,9 @@ issues are listed separately in [PACKAGING.md](PACKAGING.md).
 | Lease viewer | Done, read from the lease files |
 | Input checks | In the browser, for what the editors write; the Kea binary on every save, with hooks loaded for the DHCP daemons |
 | Automated tests | Unit tests (JavaScript and ucode), on-target tests, browser tests |
-| CI | GitHub Actions: lint, unit tests, SDK package build |
-| Releases | First release `v0.7.0` on 2026-11-17, made by hand and marked as a pre-release |
+| CI | GitHub Actions: lint, unit tests, SDK package build, and the on-target and browser tests on OpenWrt in QEMU |
+| Releases | First release `v0.7.0` on 2026-11-17, made by hand and marked as a pre-release. From the next one on, a workflow prepares a draft from the tag |
+| Distribution | Package file on the Releases page; the repository is an OpenWrt feed for those who build |
 | Translations | Not started (only the template exists) |
 
 ## Verification state
@@ -68,6 +69,12 @@ leaves alone.
 The package file of the release `v0.7.0`, built by CI, passed the same
 tests on both machines before it was published.
 
+Since 2026-11-17 CI repeats the ucode tests against the installed library
+and the five browser tests for every pull request, on a fresh OpenWrt
+25.12.6 machine under QEMU with Kea from the official package repository.
+What was checked by hand above (a real DHCP client, Save & Apply with a
+running daemon) is not part of that run.
+
 Not exercised: clients on a real network, two Kea servers exchanging
 leases, the lease file cleanup running while the page reads the files, the
 DDNS daemon serving updates, and upgrades from `0.1.0`.
@@ -78,6 +85,8 @@ Kea 3.0.2.
 ## Implemented
 
 ### Backend
+
+The paths below are inside the package directory, `luci-app-kea/`.
 
 `root/usr/share/rpcd/ucode/luci.kea` is an rpcd ucode plugin. It only maps
 the ubus methods below to the library in `ucode/kea/`, which is installed as
@@ -276,6 +285,7 @@ last word.
 | `test/browser/ha.js` | Node.js + Playwright against a test target that has `kea-hook-ha` | The high availability tab end to end for both protocols, with Kea loading the hook on every save |
 | `test/browser/leases.js` | Node.js + Playwright against a test target that has the lease fixture | The Leases page for both protocols, and the version and log on Overview |
 | `test/browser/import.js` | Node.js + Playwright against a test target that has the fixture static leases | The import page end to end for both protocols, including a second import |
+| `test/run-target-tests.sh` | A machine with Node.js and Playwright, against a test target; CI, against OpenWrt in QEMU | The on-target cases against the installed library and the five browser tests in one run, with their fixtures loaded and removed |
 
 ## Known defects and limits
 
@@ -363,7 +373,9 @@ last word.
 
 ## Not implemented
 
-- Browser tests and on-target tests in CI (they need a running OpenWrt).
 - Translations (only the template exists).
-- A workflow that makes a release from a tag. Releases are made by hand,
-  following [RELEASING.md](RELEASING.md).
+- A package repository that `apk` on the router can use directly, with
+  signed packages and upgrades through `apk upgrade`. The package is
+  installed from a downloaded file.
+- A test in CI with a real DHCP client, and tests on a router architecture
+  other than x86-64.

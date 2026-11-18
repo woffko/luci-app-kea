@@ -65,7 +65,6 @@ Category: LuCI
 Title: LuCI support for ISC Kea DHCP server
 Maintainer: Woffko
 License: Apache-2.0
-LicenseFiles: LICENSE
 URL: https://github.com/woffko/luci-app-kea
 Description: Web interface for the ISC Kea DHCPv4 and DHCPv6 servers: service
  control, structured and raw configuration editors, and dnsmasq static lease
@@ -83,11 +82,11 @@ not conform.
 | # | Area | Audit | Finding at `b6eedcf` | Now |
 |---|------|-------|----------------------|-----|
 | 1 | Makefile skeleton | OK | `rules.mk` first, `LUCI_*` variables, `luci.mk` included last, `BuildPackage` signature comment present. | - |
-| 2 | Package name | OK | `luci-app-kea`, matches the directory name that `luci.mk` derives `LUCI_NAME` from. Keep the checkout directory named `luci-app-kea`. | - |
+| 2 | Package name | OK | `luci-app-kea`, matches the directory name that `luci.mk` derives `LUCI_NAME` from. The checkout directory had to keep that name. | Since the package is in `luci-app-kea/` inside the repository, the name of the checkout does not matter |
 | 3 | Version and release | OK | Explicit `PKG_VERSION` and `PKG_RELEASE`. Valid out of tree. | - |
 | 4 | Maintainer | FAIL | `luci.mk` ignores `PKG_MAINTAINER`; the package named the LuCI community as maintainer. | Fixed: `LUCI_MAINTAINER` set. No e-mail address, by owner decision. |
 | 5 | Project URL | FAIL | `LUCI_URL` unset; the package pointed at `openwrt/luci`. | Fixed |
-| 6 | License | GAP | Valid SPDX tag, but `PKG_LICENSE_FILES` unset and `LICENSE` held only the short notice. | Fixed: full Apache-2.0 text |
+| 6 | License | GAP | Valid SPDX tag, but `LICENSE` held only the short notice. | Fixed: full Apache-2.0 text at the root of the repository, where `openwrt/luci` keeps its own. `PKG_LICENSE_FILES` is not set: the file is not inside the package directory |
 | 7 | Description | GAP | No `LUCI_DESCRIPTION`. | Fixed |
 | 8 | Dependencies | GAP | `+rpcd +rpcd-mod-file` redundant and unused. | Fixed: `+luci-base +kea-uci`, plus `+kea-lfc` since `0.3.0` |
 | 9 | File layout | OK | Views, menu, ACL and rpcd plugin in the standard locations; plugin mode 0755 preserved. | - |
@@ -99,7 +98,7 @@ not conform.
 | 15 | Configuration files | GAP | No `conffiles`. | Not needed since `0.4.0`: the package owns no persistent file. Its backups live in `/etc/kea/`, which the Kea packages declare |
 | 16 | Translations | GAP | No translation template. | Partly fixed: `po/templates/kea.pot` exists; backend messages are still untranslatable English text |
 | 17 | JavaScript conventions | GAP | Hand-made tabs and inputs instead of `form.JSONMap` / `ui.tabs`, `window.confirm()` instead of `ui.showModal()`, no LuCI validation helpers. | Fixed in `0.5.0` as far as it fits: shared code is in modules under `resources/kea/`, every dialog uses `ui.showModal()`, tabs use LuCI's tab menu markup, wrong input is marked the way LuCI forms mark it. `form.JSONMap` was evaluated and not adopted; see [ROADMAP.md](ROADMAP.md#working-decisions) |
-| 18 | Tests and CI | GAP | One fixture test, which did not pass on OpenWrt. No CI. | Fixed: unit, on-target and browser tests; GitHub Actions runs the lint, the unit tests and an SDK build |
+| 18 | Tests and CI | GAP | One fixture test, which did not pass on OpenWrt. No CI. | Fixed: unit, on-target and browser tests; GitHub Actions runs the lint, the unit tests, an SDK build, and the on-target and browser tests on OpenWrt in QEMU |
 | 19 | Repository hygiene | GAP | Unrelated helper script, no tags or releases, no repository topics. | Helper script removed. Releases open (M7) |
 
 ## Details
@@ -177,7 +176,21 @@ tools/update-pot.sh /path/to/luci-checkout
 ```
 
 Regenerate it whenever a user-visible string changes. Messages produced by
-the shell backend (error texts, import warnings) are not covered.
+the backend (error texts, import warnings) are not covered.
+
+### Layout as a feed
+
+The package is in the directory `luci-app-kea/` of the repository, with
+nothing else in it than what `luci.mk` packages. Two things follow:
+
+- The repository is an OpenWrt feed (`src-git` or `src-link` in
+  `feeds.conf`). The feed scripts list the Makefiles below the feed
+  directory and take the package path from the directory in front of
+  `/Makefile`, so a Makefile at the root of a feed is not found
+  (`Ignoring feed ... - index missing`). CI builds the package from such a
+  feed on every run.
+- The directory can be copied to `applications/luci-app-kea` of
+  `openwrt/luci` as it is.
 
 ## Additional requirements for an upstream submission
 
@@ -185,7 +198,8 @@ The project is a standalone repository for now and aims at a later submission
 to `openwrt/luci` (see the decisions in [ROADMAP.md](ROADMAP.md#decisions)).
 These apply at that point:
 
-- place it in `applications/luci-app-kea` and use `include ../../luci.mk`;
+- copy `luci-app-kea/` to `applications/luci-app-kea` and use
+  `include ../../luci.mk`;
 - drop `PKG_NAME`, `PKG_VERSION` and `PKG_RELEASE` unless there is a reason to
   keep them (93 of the 107 in-tree applications let `luci.mk` derive the
   version from git);

@@ -1,5 +1,5 @@
 /*
- * Unit tests for htdocs/luci-static/resources/kea/model.js.
+ * Unit tests for luci-app-kea/htdocs/luci-static/resources/kea/model.js.
  *
  * Run with: node --test "test/js/*.test.js"
  *

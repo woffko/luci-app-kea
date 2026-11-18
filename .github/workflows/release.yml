@@ -1,0 +1,98 @@
+name: Release
+
+# A pushed version tag builds and tests the tagged commit and prepares a
+# draft release with the package attached. The repository owner publishes
+# the draft by hand. The steps are in docs/RELEASING.md.
+#
+# A pull request that changes this workflow or the script that writes the
+# release text rehearses it: everything runs except the creation of the
+# release.
+
+on:
+  push:
+    tags: [ 'v*' ]
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - tools/release-notes.sh
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Tag and version
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: The tag fits the version in the Makefile
+        id: tag
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            tag="$GITHUB_REF_NAME"
+          else
+            tag="$(tools/release-notes.sh --tag)"
+            echo "Rehearsal with the tag $tag; no release is created."
+          fi
+          tools/release-notes.sh "$tag" > /dev/null
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: The tagged commit is on main
+        if: github.ref_type == 'tag'
+        run: git merge-base --is-ancestor HEAD origin/main
+
+  ci:
+    name: CI
+    needs: check
+    uses: ./.github/workflows/ci.yml
+
+  draft:
+    name: Draft release
+    needs: [ check, ci ]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.check.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: luci-app-kea
+          path: ${{ runner.temp }}/package
+
+      - name: Write the release text
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TESTED_ON: ${{ needs.ci.outputs.tested_on }}
+        run: |
+          package="$(echo "$RUNNER_TEMP"/package/luci-app-kea-*.apk)"
+          {
+            tools/release-notes.sh "$TAG" "$package"
+            echo
+            echo "## Tested"
+            echo
+            echo "This package file was built and tested by [the release workflow]($RUN_URL), on $TESTED_ON in QEMU: the backend tests on the router and the browser tests of every page."
+          } > "$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md"
+          echo "PACKAGE=$package" >> "$GITHUB_ENV"
+
+      - name: Create the draft release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${TAG#v}"
+          # A 0.x version is alpha and is marked as a pre-release.
+          case "$version" in
+            0.*) set -- --prerelease ;;
+            *) set -- ;;
+          esac
+          gh release create "$TAG" "$PACKAGE" --draft --verify-tag "$@" \
+            --title "luci-app-kea $version" --notes-file "$RUNNER_TEMP/notes.md"

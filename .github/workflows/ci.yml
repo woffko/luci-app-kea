@@ -4,13 +4,25 @@ on:
   push:
     branches: [ main ]
   pull_request:
+  # The release workflow runs these jobs for a tag.
+  workflow_call:
+    outputs:
+      tested_on:
+        description: The OpenWrt and Kea versions the target tests ran on
+        value: ${{ jobs.target.outputs.tested_on }}
 
 permissions:
   contents: read
 
+# When another workflow calls this one, github.workflow is the name of the
+# caller, so the two never cancel each other.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  OPENWRT_VERSION: 25.12.6
+  OPENWRT_TARGET: x86/64
 
 jobs:
   checks:
@@ -27,7 +39,7 @@ jobs:
       - run: npm ci
 
       - name: JavaScript syntax
-        run: find htdocs test -name '*.js' -exec node --check {} \;
+        run: find luci-app-kea/htdocs test -name '*.js' -exec node --check {} \;
 
       - name: Shell syntax
         run: |
@@ -40,14 +52,14 @@ jobs:
 
       - name: Menu and ACL are valid JSON
         run: |
-          jq -e . root/usr/share/luci/menu.d/luci-app-kea.json > /dev/null
-          jq -e . root/usr/share/rpcd/acl.d/luci-app-kea.json > /dev/null
+          jq -e . luci-app-kea/root/usr/share/luci/menu.d/luci-app-kea.json > /dev/null
+          jq -e . luci-app-kea/root/usr/share/rpcd/acl.d/luci-app-kea.json > /dev/null
 
       - name: Every RPC method used by the pages is granted by the ACL
         run: |
-          grep -rhoE 'method: *"[A-Za-z]+"' htdocs | sed -E 's/.*"([A-Za-z]+)"/\1/' | sort -u > used.txt
+          grep -rhoE 'method: *"[A-Za-z]+"' luci-app-kea/htdocs | sed -E 's/.*"([A-Za-z]+)"/\1/' | sort -u > used.txt
           jq -r '.["luci-app-kea"] | (.read.ubus["luci.kea"] + .write.ubus["luci.kea"])[]' \
-            root/usr/share/rpcd/acl.d/luci-app-kea.json | sort -u > granted.txt
+            luci-app-kea/root/usr/share/rpcd/acl.d/luci-app-kea.json | sort -u > granted.txt
           diff used.txt granted.txt
 
       - name: ESLint
@@ -59,9 +71,6 @@ jobs:
   package:
     name: Build with the OpenWrt SDK
     runs-on: ubuntu-latest
-    env:
-      OPENWRT_VERSION: 25.12.6
-      OPENWRT_TARGET: x86/64
     steps:
       - uses: actions/checkout@v4
 
@@ -84,19 +93,22 @@ jobs:
           mv "${sdk%.tar.zst}" sdk
           echo "SDK=$RUNNER_TEMP/sdk" >> "$GITHUB_ENV"
 
+      # The repository is used the way the README tells users to: as a feed.
       - name: Prepare feeds
         working-directory: ${{ env.SDK }}
         run: |
-          ./scripts/feeds update base packages luci
-          ./scripts/feeds install luci-base kea
-          ln -s "$GITHUB_WORKSPACE" package/luci-app-kea
+          cp feeds.conf.default feeds.conf
+          echo "src-link kea $GITHUB_WORKSPACE" >> feeds.conf
+          ./scripts/feeds update base packages luci kea
+          ./scripts/feeds install luci-app-kea
+          test -L package/feeds/kea/luci-app-kea
           make defconfig
 
       - name: Check the package metadata
         working-directory: ${{ env.SDK }}
         run: |
           make --no-print-directory -r DUMP=1 TOPDIR="$PWD" INCLUDE_DIR="$PWD/include" \
-            -C package/luci-app-kea > "$RUNNER_TEMP/metadata.txt"
+            -C package/feeds/kea/luci-app-kea > "$RUNNER_TEMP/metadata.txt"
           cat "$RUNNER_TEMP/metadata.txt"
           grep -qx 'URL: https://github.com/woffko/luci-app-kea' "$RUNNER_TEMP/metadata.txt"
           grep -q '^Depends: .*+kea-uci' "$RUNNER_TEMP/metadata.txt"
@@ -117,20 +129,103 @@ jobs:
       - name: Translation template is up to date
         run: |
           tools/update-pot.sh "$SDK/feeds/luci"
-          git diff --exit-code -- po
+          git diff --exit-code -- luci-app-kea/po
 
       - name: Build the package
         working-directory: ${{ env.SDK }}
-        run: make -C package/luci-app-kea TOPDIR="$PWD" compile V=s
+        run: make -C package/feeds/kea/luci-app-kea TOPDIR="$PWD" compile V=s
 
       - name: Collect the package
         run: |
           mkdir -p "$RUNNER_TEMP/out"
-          cp "$SDK"/bin/packages/*/base/luci-app-kea-*.apk "$RUNNER_TEMP/out/"
+          cp "$SDK"/bin/packages/*/kea/luci-app-kea-*.apk "$RUNNER_TEMP/out/"
           ls -l "$RUNNER_TEMP/out"
+
+      # A version without its section in the changelog cannot be released.
+      - name: The release text can be made for this version
+        run: |
+          tag="$(tools/release-notes.sh --tag)"
+          tools/release-notes.sh "$tag" "$RUNNER_TEMP"/out/luci-app-kea-*.apk
+          if tools/release-notes.sh "$tag-wrong" > /dev/null 2>&1; then
+            echo "A tag that does not fit the version was accepted." >&2
+            exit 1
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
           name: luci-app-kea
           path: ${{ runner.temp }}/out/*.apk
           if-no-files-found: error
+
+  target:
+    name: Tests on OpenWrt in QEMU
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      KEA_VM_DIR: ${{ github.workspace }}/.vm
+      OUT_DIR: ${{ github.workspace }}/.screenshots
+    outputs:
+      tested_on: ${{ steps.report.outputs.tested_on }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install the browser
+        run: npx playwright install --with-deps chromium-headless-shell
+
+      - name: Install QEMU
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils
+
+      # Without this rule the runner user may not open /dev/kvm, and the
+      # machine runs several times slower.
+      - name: Allow the use of KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
+            sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: luci-app-kea
+          path: ${{ runner.temp }}/package
+
+      - name: Start OpenWrt, install Kea and the package
+        run: |
+          test/qemu-target.sh start "$OPENWRT_VERSION"
+          test/qemu-target.sh setup "$RUNNER_TEMP"/package/luci-app-kea-*.apk
+
+      - name: Backend and browser tests on the target
+        run: test/run-target-tests.sh
+
+      - name: Note what the tests ran on
+        id: report
+        run: |
+          tested="$(test/qemu-target.sh ssh '. /etc/openwrt_release
+            echo "OpenWrt $DISTRIB_RELEASE ($DISTRIB_ARCH) with Kea $(kea-dhcp4 -v)"')"
+          echo "$tested"
+          echo "tested_on=$tested" >> "$GITHUB_OUTPUT"
+
+      - name: Keep the screenshots and the console of a failed run
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: target-test-failure
+          path: |
+            .screenshots/
+            .vm/serial.log
+          if-no-files-found: ignore
+          include-hidden-files: true
+
+      - name: Switch the machine off
+        if: always()
+        run: test/qemu-target.sh stop

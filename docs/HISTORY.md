@@ -7,6 +7,38 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-17: Target tests in CI, release from a tag, feed layout (M7)
+
+No change to the package: the files of `0.7.0-r1` built after this work are
+the same as those of the release.
+
+- The package moved into the directory `luci-app-kea/`, the layout of an
+  application in `openwrt/luci`. The repository now works as an OpenWrt
+  feed. It did not before: tried in the SDK, the feed scripts ignore a
+  package whose Makefile is at the root of the feed. CI builds from a
+  `src-link` feed. `src-git` was tried by hand with the branch of this
+  work; a tag is fetched the same way (tried with `v0.7.0`), but no tag has
+  the new layout yet.
+- `test/qemu-target.sh` boots the official OpenWrt image under QEMU and
+  installs Kea and the package; `test/run-target-tests.sh` runs the
+  on-target tests and the five browser tests against a target, with the
+  fixtures loaded and removed. Both replace commands that were typed by
+  hand before every release.
+- A third CI job runs them for every pull request and for `main`. It took
+  1 minute 44 seconds in its first run, with KVM on the GitHub runner; the
+  whole CI run took a little over 5 minutes.
+- `.github/workflows/release.yml` prepares a draft release from a version
+  tag: it checks the tag against the Makefile and the changelog, runs the CI
+  jobs on the tagged commit and attaches the package with its checksum.
+  `tools/release-notes.sh` writes the text and runs in CI for every build.
+- Playwright became a development dependency.
+- `PKG_LICENSE_FILES` was dropped from the Makefile: the license text stays
+  at the root of the repository.
+- Not done: a signed package repository for `apk`, and a real DHCP client in
+  the CI machine. The creation of the draft itself runs for the first time
+  with the next tag; everything before it is rehearsed on pull requests that
+  change the workflow.
+
 ## 2026-11-17: First release, `v0.7.0`
 
 - Tag `v0.7.0` on `main` and a GitHub release, marked as a pre-release, with

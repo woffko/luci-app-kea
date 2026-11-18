@@ -6,7 +6,8 @@
 #   test/run-ucode-tests.sh --target     also the tests in test/ucode/target,
 #                                        which need OpenWrt with Kea installed
 #   test/run-ucode-tests.sh --installed  test the library installed in
-#                                        /usr/share/ucode instead of ./ucode
+#                                        /usr/share/ucode instead of the
+#                                        one in luci-app-kea/ucode
 #
 # Set UCODE to the interpreter to use (default: ucode from PATH).
 
@@ -36,7 +37,7 @@ trap 'rm -rf "$TMP"' EXIT
 # The library is installed as the "luci.kea" modules. Give the repository
 # copy the same name on a search path of its own.
 if [ "$INSTALLED" = 0 ]; then
-	ln -s "$ROOT_DIR/ucode" "$TMP/luci"
+	ln -s "$ROOT_DIR/luci-app-kea/ucode" "$TMP/luci"
 fi
 
 run() {

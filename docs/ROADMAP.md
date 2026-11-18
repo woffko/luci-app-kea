@@ -218,10 +218,17 @@ are no longer in use.
 - [x] Tag `v0.x` releases. `v0.7.0` on 2026-11-17 is the first, made by
       hand with the package of its CI run attached.
 - [x] Document installation of the package that CI builds.
-- [ ] Run the on-target and browser tests in CI against an OpenWrt root
-      filesystem or virtual machine.
-- [ ] Attach built packages to GitHub releases automatically, from the tag.
-- [ ] Document installation as a custom feed.
+- [x] Run the on-target and browser tests in CI against an OpenWrt root
+      filesystem or virtual machine. Done with the official image under
+      QEMU.
+- [x] Attach built packages to GitHub releases automatically, from the tag.
+      A workflow prepares a draft; the owner publishes it.
+- [x] Document installation as a custom feed. The package moved into a
+      subdirectory for it.
+- [ ] A package repository for `apk`, with signed packages, so that a
+      router installs and upgrades the application without a downloaded
+      file. Needs a signing key kept in the repository secrets, which is a
+      decision for the owner.
 - [ ] Prepare the submission to `openwrt/luci`: meet the extra requirements in
       [PACKAGING.md](PACKAGING.md), including a maintainer with a real name
       and e-mail address. Put off by the owner; see decision 6.
@@ -277,6 +284,24 @@ They follow the recommendation at the time and can be revisited.
 - Backups go to `/etc/kea/backups/`, ten per config file.
 - Version numbers: packaging-only changes bump `PKG_RELEASE`; changes in
   behavior bump `PKG_VERSION`. Spelled out in [RELEASING.md](RELEASING.md).
+
+Taken while implementing M7:
+
+- **The target tests run for every pull request**, not only for `main`. A
+  change is then tested on a real system before it is merged, which is the
+  point of having them in CI. The job takes about two minutes and costs
+  nothing for a public repository. Running it for `main` only would be one
+  `if:` on the job.
+- **The Kea packages are not cached in CI.** Each run installs them from the
+  OpenWrt package repository, as a router would that day, so a change there
+  is noticed. The price is a job that can fail when the download fails;
+  downloads are tried again.
+- **The release workflow makes a draft.** The owner reads it and publishes
+  it; nothing becomes public from a pushed tag alone. A 0.x version is
+  marked as a pre-release.
+- **The repository is the feed.** The package moved into `luci-app-kea/`
+  instead of a second repository being kept in step with this one. It is
+  also the layout of `openwrt/luci`.
 
 Taken while implementing M6:
 

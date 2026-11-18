@@ -3,29 +3,39 @@
 ## Repository layout
 
 ```text
-Makefile                                      OpenWrt package definition (includes luci.mk)
-htdocs/luci-static/resources/view/kea/        LuCI JavaScript views (one per page)
-htdocs/luci-static/resources/kea/             shared modules: model, ha, backend, widgets, dialogs, editor, hatab
-root/usr/share/rpcd/ucode/luci.kea            rpcd plugin: maps ubus methods to the library
-ucode/kea/                                    backend library, installed as the luci.kea.* modules
-root/usr/share/luci/menu.d/luci-app-kea.json  menu entries
-root/usr/share/rpcd/acl.d/luci-app-kea.json   rpcd ACL
-po/templates/kea.pot                          translation template
+luci-app-kea/                                 the OpenWrt package; nothing outside it is packaged
+  Makefile                                      package definition (includes luci.mk)
+  htdocs/luci-static/resources/view/kea/        LuCI JavaScript views (one per page)
+  htdocs/luci-static/resources/kea/             shared modules: model, ha, backend, widgets, dialogs, editor, hatab
+  root/usr/share/rpcd/ucode/luci.kea            rpcd plugin: maps ubus methods to the library
+  ucode/kea/                                    backend library, installed as the luci.kea.* modules
+  root/usr/share/luci/menu.d/luci-app-kea.json  menu entries
+  root/usr/share/rpcd/acl.d/luci-app-kea.json   rpcd ACL
+  po/templates/kea.pot                          translation template
 tools/update-pot.sh                           regenerates the template
+tools/release-notes.sh                        writes the text of a release
 test/js/                                      unit tests for the configuration model (Node.js)
 test/ucode/                                   tests for the backend library (ucode)
 test/browser/                                 browser tests (Playwright)
 test/fixtures/                                Kea and UCI fixtures
 test/make-lease-fixture.sh                    writes lease files for the Leases page test
-package.json, eslint.config.mjs               development tooling (ESLint)
+test/qemu-target.sh                           a disposable OpenWrt machine under QEMU
+test/run-target-tests.sh                      every test that needs a target, in one run
+package.json, eslint.config.mjs               development tooling (ESLint, Playwright)
 .github/workflows/ci.yml                      CI
+.github/workflows/release.yml                 draft release from a version tag
 CHANGELOG.md                                  what changed for users, by version
 docs/                                         project documentation
 ```
 
+The package is in a directory of its own, as an application is in
+`openwrt/luci`. That is what makes the repository usable as an OpenWrt
+feed: the feed scripts do not find a package whose Makefile is at the root
+of a feed. Below, the paths of package files (`htdocs/`, `root/`, `ucode/`,
+`po/`) are relative to `luci-app-kea/`.
+
 `luci.mk` installs `htdocs/` to `/www/`, `root/` to `/` and `ucode/` to
-`/usr/share/ucode/luci/`, and builds translation packages from `po/`. Nothing
-else in the repository is packaged.
+`/usr/share/ucode/luci/`, and builds translation packages from `po/`.
 
 View names are part of the page URL. Keep them stable.
 
@@ -101,24 +111,34 @@ the plugin shows up in `logread -e rpcd`.
 ## Building
 
 The Makefile includes `$(TOPDIR)/feeds/luci/luci.mk`, so the `luci` feed must
-be installed in the build tree.
+be installed in the build tree. The repository itself is added as one more
+feed. For a working copy, a `src-link` feed builds what is on disk:
 
 ```sh
 cd /path/to/openwrt
-git clone https://github.com/woffko/luci-app-kea.git package/luci-app-kea
+[ -f feeds.conf ] || cp feeds.conf.default feeds.conf
+echo "src-link kea /path/to/luci-app-kea" >> feeds.conf
 ./scripts/feeds update -a
 ./scripts/feeds install -a
 make menuconfig
 make package/luci-app-kea/compile V=s
 ```
 
+`src-git kea https://github.com/woffko/luci-app-kea.git` in place of the
+`src-link` line fetches the repository instead; `;<branch or tag>` at its
+end selects something other than `main`.
+
 In menuconfig, select at least one Kea daemon first (**Network > IP Addresses
 and Names**: `kea-dhcp4`, `kea-dhcp6`, `kea-dhcp-ddns` or `kea-ctrl`).
 `luci-app-kea` (**LuCI > 3. Applications**) is hidden until then, because it
 depends on `kea-uci`, which requires one of them.
 
-A package placed under `package/` is written to
-`bin/packages/<arch>/base/luci-app-kea-<version>.apk`.
+The package is written to `bin/packages/<arch>/kea/luci-app-kea-<version>.apk`,
+in a directory named after the feed.
+
+The feed scripts keep what they found. After the package was moved or a feed
+was replaced in an existing tree, remove `tmp/` there and run
+`./scripts/feeds install luci-app-kea` again.
 
 ### Building with the SDK
 
@@ -127,13 +147,17 @@ drop the Windows directories).
 
 ```sh
 cd /path/to/openwrt-sdk
-./scripts/feeds update base packages luci
-./scripts/feeds install luci-base kea
-ln -s /path/to/luci-app-kea package/luci-app-kea
+cp feeds.conf.default feeds.conf
+echo "src-link kea /path/to/luci-app-kea" >> feeds.conf
+./scripts/feeds update base packages luci kea
+./scripts/feeds install luci-app-kea
 make defconfig
 make package/feeds/luci/luci-base/host/compile
-make -C package/luci-app-kea TOPDIR="$PWD" compile
+make -C package/feeds/kea/luci-app-kea TOPDIR="$PWD" compile
 ```
+
+Run `make defconfig` after the install: it is what selects the package, and
+without it the last command builds nothing and still succeeds.
 
 `make package/feeds/base/ucode/host/compile` additionally gives a host ucode
 interpreter in `staging_dir/hostpkg/bin/ucode` for the backend tests.
@@ -147,13 +171,13 @@ To inspect the metadata without building:
 
 ```sh
 make -r DUMP=1 TOPDIR=/path/to/openwrt INCLUDE_DIR=/path/to/openwrt/include \
-    -C /path/to/luci-app-kea
+    -C /path/to/luci-app-kea/luci-app-kea
 ```
 
 ## Installing on a test target
 
 ```sh
-scp -O bin/packages/<arch>/base/luci-app-kea-*.apk root@<target>:/tmp/
+scp -O bin/packages/<arch>/kea/luci-app-kea-*.apk root@<target>:/tmp/
 ssh root@<target> 'apk add --allow-untrusted /tmp/luci-app-kea-*.apk'
 ```
 
@@ -166,6 +190,7 @@ The package post-install step clears the LuCI caches and reloads `rpcd`.
 Files can be copied straight to a test target:
 
 ```sh
+cd luci-app-kea
 T=root@<target>
 scp -O root/usr/share/rpcd/ucode/luci.kea           $T:/usr/share/rpcd/ucode/
 scp -O ucode/kea/*.uc                               $T:/usr/share/ucode/luci/kea/
@@ -203,11 +228,11 @@ For hand-copied files, either:
 Run before every commit. These need Node.js and `jq`:
 
 ```sh
-npm ci                           # once: installs ESLint
-find htdocs test -name '*.js' -exec node --check {} \;
+npm ci                           # once: installs ESLint and Playwright
+find luci-app-kea/htdocs test -name '*.js' -exec node --check {} \;
 for f in test/*.sh tools/*.sh; do sh -n "$f"; done
-jq -e . root/usr/share/luci/menu.d/luci-app-kea.json >/dev/null
-jq -e . root/usr/share/rpcd/acl.d/luci-app-kea.json >/dev/null
+jq -e . luci-app-kea/root/usr/share/luci/menu.d/luci-app-kea.json >/dev/null
+jq -e . luci-app-kea/root/usr/share/rpcd/acl.d/luci-app-kea.json >/dev/null
 npm run lint                     # ESLint with the LuCI rules, no warnings allowed
 npm test                         # configuration model
 ```
@@ -231,9 +256,38 @@ After changing a user-visible string, regenerate the translation template:
 tools/update-pot.sh /path/to/luci-checkout
 ```
 
+### Tests on a target
+
 More backend tests need OpenWrt itself: the real Kea binary, UCI and procd.
-Copy `ucode/` and `test/` to a target that has `kea-dhcp-ddns` installed and
-run there:
+The browser tests drive LuCI on a target. Both need a system with Kea and
+the package installed. `test/run-target-tests.sh` runs all of them; with
+the machine of [A disposable test target](#a-disposable-test-target) that
+is:
+
+```sh
+npx playwright install chromium-headless-shell   # once: the browser
+test/qemu-target.sh start
+test/qemu-target.sh setup /path/to/luci-app-kea-<version>.apk
+test/run-target-tests.sh
+test/qemu-target.sh stop
+```
+
+CI does exactly this for every pull request. Against another test machine,
+tell the script how to reach it:
+
+```sh
+TARGET_SSH="ssh root@<target>" BASE_URL=http://<target> \
+    LUCI_PASSWORD=<password> test/run-target-tests.sh
+```
+
+The script copies the tests to the target, runs the backend tests against
+the installed library, loads the fixtures the browser tests need, runs the
+five browser tests, and removes the fixtures again, also when a test
+failed. The rest of this section is what it does, step by step, for running
+one test by hand.
+
+For the backend tests, copy `luci-app-kea/ucode/` and `test/` to a target
+that has `kea-dhcp-ddns` installed, keeping the two paths, and run there:
 
 ```sh
 sh test/run-ucode-tests.sh --target               # the library copied with the tests
@@ -244,11 +298,10 @@ They work in a temporary root and do not touch `/etc/kea` or `/etc/config`.
 One of them writes a line tagged `kea-dhcp4` to the system log, to have a
 Kea message to find there.
 
-The browser tests drive LuCI on a target. They need Node.js with the
-`playwright` package:
+The browser tests need Node.js with the `playwright` package, which
+`npm ci` installs, and its browser:
 
 ```sh
-npm install playwright
 npx playwright install chromium-headless-shell
 export BASE_URL=http://<target> LUCI_PASSWORD=<password>
 node test/browser/smoke.js       # every page renders without errors
@@ -320,46 +373,67 @@ Run it after a change to a page and commit the pictures that changed.
 - **Lint and unit tests**: the syntax checks above, ShellCheck, a check that
   the ACL grants exactly the RPC methods the pages use, ESLint and the
   configuration model tests.
-- **Build with the OpenWrt SDK**: downloads the official SDK, checks the
-  package metadata, runs the backend library tests with the SDK's host
-  ucode, checks that `po/templates/kea.pot` is up to date, builds the package
-  and keeps it as a workflow artifact.
+- **Build with the OpenWrt SDK**: downloads the official SDK, adds the
+  repository to it as a feed, checks the package metadata, runs the backend
+  library tests with the SDK's host ucode, checks that `po/templates/kea.pot`
+  is up to date, builds the package and keeps it as a workflow artifact. It
+  also writes the release text for the version, so a version without its
+  section in the changelog fails here.
+- **Tests on OpenWrt in QEMU**: boots the official OpenWrt image, installs
+  Kea from the OpenWrt package repository and the package of the build job,
+  and runs `test/run-target-tests.sh`: the backend tests on the router and
+  the five browser tests. A failed run keeps its screenshots and the console
+  of the machine as the artifact `target-test-failure`. The job takes about
+  two minutes; the runner lets it use KVM.
 
-The on-target tests and the browser tests are not part of CI; they need a
-running OpenWrt system.
+The third job depends on `downloads.openwrt.org` twice, for the image and
+for the Kea packages, which are not cached: the job is meant to see the
+repository as a router sees it today. A download that fails is tried again;
+when the job still fails for that reason, run it again.
 
-The package of a CI run on `main` is what the README tells users to
-install until there are releases. Version numbers and the steps of a
-release are in [RELEASING.md](RELEASING.md).
+The OpenWrt release that the SDK and the image come from is `OPENWRT_VERSION`
+at the top of the workflow.
+
+`.github/workflows/release.yml` runs when a version tag is pushed. It runs
+the three jobs above for the tagged commit and prepares a draft release; see
+[RELEASING.md](RELEASING.md). A pull request that changes that workflow or
+`tools/release-notes.sh` runs it as a rehearsal, without creating a release.
+
+The package of a CI run on `main` is what the README calls the development
+version.
 
 ## A disposable test target
 
-The official x86-64 image runs under QEMU without KVM. With two network
-cards, the first is the LAN (`192.168.1.1`) and the second can serve as WAN:
+`test/qemu-target.sh` runs the official x86-64 image of an OpenWrt release
+under QEMU. It needs `qemu-system-x86_64`, `qemu-img`, `curl` and `ssh`.
 
 ```sh
-gunzip -k openwrt-<version>-x86-64-generic-ext4-combined.img.gz
-qemu-system-x86_64 -m 512 -display none \
-    -drive file=openwrt-<version>-x86-64-generic-ext4-combined.img,format=raw,if=ide \
-    -netdev user,id=lan,net=192.168.1.0/24,host=192.168.1.2,restrict=on,hostfwd=tcp:127.0.0.1:2222-192.168.1.1:22,hostfwd=tcp:127.0.0.1:8080-192.168.1.1:80 \
-    -device e1000,netdev=lan \
-    -netdev user,id=wan -device e1000,netdev=wan
+test/qemu-target.sh start            # download the image, check it, boot it
+test/qemu-target.sh setup /path/to/luci-app-kea-<version>.apk
+test/qemu-target.sh ssh 'ubus call luci.kea getStatus'
+test/qemu-target.sh stop             # switch it off and delete its disk
 ```
 
-The image has no WAN interface configured. Add one on the guest, then install
-Kea:
+LuCI is then at `http://127.0.0.1:8080`, and SSH at port 2222 on this host,
+for `root` without a password. Nothing outside this host can reach the
+machine. `start 25.12.5` boots another release; the environment variables
+at the top of the script move the ports and the directory of the machine.
 
-```sh
-uci set network.wan=interface
-uci set network.wan.device=eth1
-uci set network.wan.proto=dhcp
-uci commit network
-/etc/init.d/network reload
-apk update
-apk add kea-dhcp4 kea-dhcp6 kea-dhcp-ddns kea-ctrl kea-uci
-```
+What the script does:
 
-LuCI is then at `http://127.0.0.1:8080` and SSH at port 2222 on the host.
+- **start** downloads the image once and checks it against the checksum
+  list of the release. The machine writes to a disk layered over the image,
+  so every start is a fresh system. It gets two network cards: the first is
+  the LAN of the image (`192.168.1.1`), cut off from the outside except for
+  the two forwarded ports; the second is for the WAN. KVM is used when
+  `/dev/kvm` is writable. Without it the machine works too, several times
+  slower.
+- **setup** configures the WAN on the second card (the image has none),
+  installs the Kea daemons and the two hook libraries the tests use from
+  the OpenWrt package repository, and then the package file.
+
+The Kea components stay switched off in `/etc/config/kea`, as after any
+fresh install.
 
 ## Debugging the backend on a target
 
