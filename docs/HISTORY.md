@@ -7,6 +7,15 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-18: More pictures of the high availability tab
+
+- Three pictures added to `docs/SCREENSHOTS.md`: load balancing with a
+  backup server, input the form refuses, and the lines that switching high
+  availability on adds to the file. The README shows the tab on its front
+  page.
+- `test/browser/screenshots.js` takes them, and accepts picture names to
+  take only some.
+
 ## 2026-11-17: Target tests in CI, release from a tag, feed layout (M7)
 
 No change to the package: the files of `0.7.0-r1` built after this work are

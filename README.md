@@ -76,6 +76,11 @@ What a save would change, before it is made.
 
 <img src="docs/images/changes.png" alt="Dialog listing the lines of the configuration file that a save would change" width="820">
 
+High availability for a pair of routers, on a tab of the same page when
+`kea-hook-ha` is installed.
+
+<img src="docs/images/ha.png" alt="High availability tab with a hot standby pair of two routers, their URLs, roles and timers" width="820">
+
 The import of OpenWrt static leases. Every lease gets a state and, where it
 cannot be imported, the reason.
 

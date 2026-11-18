@@ -364,6 +364,13 @@ node test/browser/screenshots.js
 ```
 
 Run it after a change to a page and commit the pictures that changed.
+Picture names as arguments limit the run to those pictures and to what they
+need. This takes two of the high availability pictures and needs only the
+`kea-hook-ha` package on the target:
+
+```sh
+node test/browser/screenshots.js ha ha-checks
+```
 
 ## CI
 
