@@ -65,26 +65,55 @@ export function version(ctx) {
 
 // ---- system log -------------------------------------------------------------
 
-// "Fri Nov 13 03:36:22 2026 local0.info kea-dhcp6: INFO  [kea-dhcp6.dhcp6.1405]
-// DHCP6_STARTED ..." -> { time, daemon, severity, text }. A line of another
-// shape is returned as text only.
+// A line of the system log -> { time, daemon, severity, text }. Kea's
+// messages arrive there in two shapes. Written to syslog by Kea itself:
+//
+//   Fri Nov 13 03:36:22 2026 local0.info kea-dhcp6: INFO  [kea-dhcp6.dhcp6.1405]
+//   DHCP6_STARTED ...
+//
+// Printed by the daemon and passed on by procd, which is how the lines
+// before the loggers are set up arrive, and everything when a logger writes
+// to the standard output. Kea then puts its own time in front:
+//
+//   Thu Nov 19 17:07:07 2026 daemon.info kea-dhcp4[4019]: 2026-11-19
+//   17:07:07.396 INFO  [kea-dhcp4.dhcp4/4019.1403] DHCP4_STARTING ...
+//
+// The severity is Kea's, not the level procd logged the line with. A line
+// of another shape is returned as text only.
 export function parse_log_line(line) {
 	let m = match(line, /^(\S+ +\S+ +[0-9]+ +[0-9:]+ +[0-9]+) +\S+ +(kea-[a-z0-9-]+)(\[[0-9]+\])?: +(.*)$/);
 
 	if (!m)
 		return { time: '', daemon: '', severity: '', text: line };
 
-	let body = match(m[4], /^([A-Z]+) +\[[^\]]*\] +(.*)$/);
+	let body = match(m[4], /^([0-9-]+ +[0-9:.]+ +)?([A-Z]+) +\[[^\]]*\] +(.*)$/);
 
 	return {
 		time: m[1],
 		daemon: m[2],
-		severity: body ? body[1] : '',
-		text: body ? body[2] : m[4]
+		severity: body ? body[2] : '',
+		text: body ? body[3] : m[4]
 	};
 };
 
-// The last Kea messages in the system log, oldest first.
+// Where each installed daemon writes its log, from its configuration:
+// { name: [ output, ... ] }, see config.log_outputs().
+function log_outputs(ctx) {
+	let outputs = {};
+
+	for (let name in config.CONFIG_ORDER) {
+		let file = config.path(ctx, name);
+
+		if (fs.access(config.binary(ctx, name), 'x') && config.is_file(file))
+			outputs[name] = config.log_outputs(ctx, name, fs.readfile(file));
+	}
+
+	return outputs;
+}
+
+// The last Kea messages in the system log, oldest first, and where the
+// daemons are configured to write their log: not everything goes to the
+// system log.
 export function log(ctx, count) {
 	count = +count;
 
@@ -106,7 +135,7 @@ export function log(ctx, count) {
 		let pipe = fs.popen('logread -e kea- 2>/dev/null', 'r');
 
 		if (!pipe)
-			return { result: false, error: 'failed to read the system log', lines: [] };
+			return { result: false, error: 'failed to read the system log', lines: [], outputs: {} };
 
 		text = pipe.read('all') ?? '';
 		pipe.close();
@@ -116,7 +145,8 @@ export function log(ctx, count) {
 
 	return {
 		result: true,
-		lines: map(slice(lines, max(0, length(lines) - count)), parse_log_line)
+		lines: map(slice(lines, max(0, length(lines) - count)), parse_log_line),
+		outputs: log_outputs(ctx)
 	};
 };
 

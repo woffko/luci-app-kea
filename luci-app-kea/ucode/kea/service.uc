@@ -8,31 +8,13 @@ import { connect } from 'ubus';
 import * as config from 'luci.kea.config';
 import * as runtime from 'luci.kea.runtime';
 import { interface_addresses } from 'luci.kea.net';
+import { text, uci_bool, dhcp_services } from 'luci.kea.openwrt';
 
 // Service state and control: the Kea init service and its components, the
 // competing OpenWrt DHCP services, and the runtime files Kea needs.
 
 const INIT_ACTIONS = [ 'enable', 'disable', 'start', 'stop', 'restart', 'reload' ];
 const CONFLICT_SERVICES = [ 'dnsmasq', 'odhcpd' ];
-
-function text(value) {
-	if (type(value) == 'array')
-		return join(' ', value);
-
-	return value == null ? '' : `${value}`;
-}
-
-function uci_bool(value, fallback) {
-	value = text(value);
-
-	if (value in [ '1', 'on', 'true', 'yes', 'enabled' ])
-		return true;
-
-	if (value in [ '0', 'off', 'false', 'no', 'disabled' ])
-		return false;
-
-	return fallback;
-}
 
 function init_script(ctx, name) {
 	return ctx.init_dir + '/' + name;
@@ -73,31 +55,19 @@ function any_running(states) {
 	return false;
 }
 
-// The interfaces on which the OpenWrt DHCP services are configured to
-// answer: { name: { v4, v6 } }, from the "dhcp" sections of /etc/config/dhcp.
-// dnsmasq serves DHCPv4 unless the section is ignored or says "disabled";
-// DHCPv6 is served only where it is asked for.
+// What dnsmasq and odhcpd are configured to serve, from /etc/config/dhcp.
 function openwrt_dhcp(uci) {
-	let served = {};
+	let sections = { dnsmasq: [], dhcp: [], odhcpd: [] };
 
-	uci.foreach('dhcp', 'dhcp', s => {
-		let name = text(s['interface']);
+	for (let kind in sections)
+		uci.foreach('dhcp', kind, s => push(sections[kind], s));
 
-		if (name == '' || uci_bool(s.ignore, false))
-			return;
-
-		served[name] = {
-			v4: text(s.dhcpv4) != 'disabled',
-			v6: text(s.dhcpv6) in [ 'server', 'relay', 'hybrid' ]
-		};
-	});
-
-	return served;
+	return dhcp_services(sections);
 }
 
 export function network_interfaces(ctx) {
 	let uci = cursor(ctx.uci_dir, ctx.uci_savedir);
-	let served = openwrt_dhcp(uci);
+	let served = openwrt_dhcp(uci).interfaces;
 	let items = [];
 
 	uci.foreach('network', 'interface', s => {
@@ -243,6 +213,7 @@ export function status(ctx) {
 	let binaries = {};
 	let configs = {};
 	let conflicts = {};
+	let serves = openwrt_dhcp(cursor(ctx.uci_dir, ctx.uci_savedir));
 
 	for (let name in config.CONFIG_ORDER) {
 		let bin = config.binary(ctx, name);
@@ -263,7 +234,9 @@ export function status(ctx) {
 			installed: init_installed(ctx, name),
 			enabled: init_enabled(ctx, name),
 			running: any_running(instances(ctx, name)),
-			init: '/etc/init.d/' + name
+			init: '/etc/init.d/' + name,
+			// What the service is configured to serve, whether it runs or not.
+			serves: serves[name]
 		};
 
 	return {

@@ -3,6 +3,7 @@
 'use strict';
 
 import * as fs from 'fs';
+import * as jsonc from 'luci.kea.jsonc';
 
 // Reading, validating, writing, backing up and restoring the Kea
 // configuration files.
@@ -11,35 +12,49 @@ import * as fs from 'fs';
 // with a temporary root and, where no Kea binary is available, their own
 // validator.
 
-// "hooks" marks the daemons whose binary has the stricter check "-T".
+// "root" is the name of the top-level object of the file. "hooks" marks the
+// daemons whose binary has the stricter check "-T". "late_paths" marks the
+// daemons that look at the directories of their lease and log files only
+// when they start; see start_warnings().
 export const CONFIGS = {
 	dhcp4: {
 		file: 'kea-dhcp4.conf',
 		binary: 'kea-dhcp4',
 		title: 'DHCPv4 server',
 		instance: 'dhcp4',
-		hooks: true
+		root: 'Dhcp4',
+		hooks: true,
+		late_paths: true
 	},
 	dhcp6: {
 		file: 'kea-dhcp6.conf',
 		binary: 'kea-dhcp6',
 		title: 'DHCPv6 server',
 		instance: 'dhcp6',
-		hooks: true
+		root: 'Dhcp6',
+		hooks: true,
+		late_paths: true
 	},
 	dhcp_ddns: {
 		file: 'kea-dhcp-ddns.conf',
 		binary: 'kea-dhcp-ddns',
 		title: 'DHCP DDNS',
-		instance: 'dhcp-ddns'
+		instance: 'dhcp-ddns',
+		root: 'DhcpDdns'
 	},
 	ctrl_agent: {
 		file: 'kea-ctrl-agent.conf',
 		binary: 'kea-ctrl-agent',
 		title: 'Control Agent',
-		instance: 'ctrl-agent'
+		instance: 'ctrl-agent',
+		root: 'Control-agent'
 	}
 };
+
+// Kea 3 keeps its lease files and its log files in fixed directories of
+// its build. These are the ones of the OpenWrt packages.
+export const LEASE_DIR = '/var/lib/kea';
+export const LOG_DIR = '/var/log/kea';
 
 export const CONFIG_ORDER = [ 'dhcp4', 'dhcp6', 'dhcp_ddns', 'ctrl_agent' ];
 
@@ -205,6 +220,137 @@ export function validate_file(ctx, name, file) {
 	return check;
 };
 
+// ---- what the check of the Kea binary does not see -------------------------
+
+// The top-level object of a configuration text, or null.
+function root_of(name, content) {
+	let parsed = jsonc.parse(content ?? '');
+	let root = type(parsed.config) == 'object' ? parsed.config[CONFIGS[name]?.root] : null;
+
+	return type(root) == 'object' ? root : null;
+}
+
+// The directory of a path as Kea takes it: the text before the last slash,
+// unchanged. null for a name without a slash.
+function directory(path) {
+	let at = rindex(path, '/');
+
+	return at < 0 ? null : substr(path, 0, at);
+}
+
+// The outputs of the loggers: [ { logger, output } ]. Kea 3.0 still reads
+// the older spelling "output_options".
+function logger_outputs(root) {
+	let outputs = [];
+
+	for (let logger in (type(root.loggers) == 'array' ? root.loggers : [])) {
+		if (type(logger) != 'object')
+			continue;
+
+		let options = logger['output-options'] ?? logger['output_options'];
+
+		for (let option in (type(options) == 'array' ? options : []))
+			if (type(option) == 'object' && type(option.output) == 'string')
+				push(outputs, { logger: `${logger.name ?? ''}`, output: option.output });
+	}
+
+	return outputs;
+}
+
+function log_kind(output) {
+	if (output == 'syslog' || index(output, 'syslog:') == 0)
+		return 'syslog';
+
+	return output in [ 'stdout', 'stderr' ] ? 'console' : 'file';
+}
+
+// Settings that the check of the Kea binary accepts, also with "-T", and
+// that stop the daemon when it starts. Measured with Kea 3.0.4:
+//
+// - a lease file whose directory is not LEASE_DIR. Kea compares the text
+//   before the last slash, so "/var/lib/kea//x" and a subdirectory are
+//   refused as well. A name without a slash is placed in LEASE_DIR. The
+//   name is not looked at when the leases are not written ("persist").
+// - a log file whose directory is not LOG_DIR, by the same comparison.
+//
+// Only the DHCP daemons are affected: kea-dhcp-ddns and kea-ctrl-agent
+// refuse such a log file in their check.
+//
+// Returns a list of { code, value, directory } with the code "lease-path"
+// or "log-path"; a "log-path" entry also names its logger.
+export function start_warnings(ctx, name, content) {
+	let warnings = [];
+	let root = CONFIGS[name]?.late_paths ? root_of(name, content) : null;
+
+	if (!root)
+		return warnings;
+
+	let database = root['lease-database'];
+
+	if (type(database) == 'object' && (database.type ?? 'memfile') == 'memfile' &&
+	    database.persist !== false && type(database.name) == 'string') {
+		let dir = directory(database.name);
+
+		if (dir != null && (dir != LEASE_DIR || substr(database.name, -1) == '/'))
+			push(warnings, { code: 'lease-path', value: database.name, directory: LEASE_DIR });
+	}
+
+	for (let item in logger_outputs(root)) {
+		let dir = log_kind(item.output) == 'file' ? directory(item.output) : null;
+
+		if (dir != null && dir != LOG_DIR)
+			push(warnings, {
+				code: 'log-path',
+				value: item.output,
+				logger: item.logger,
+				directory: LOG_DIR
+			});
+	}
+
+	return warnings;
+};
+
+// Where the loggers of a configuration write, each output once:
+// [ { output, kind, path, lost } ]. "kind" is "syslog", "console" (standard
+// output or error, which procd passes on to the system log) or "file". A
+// file has its "path"; "lost" says that it belongs in LOG_DIR and that
+// directory does not exist, in which case Kea writes no log at all.
+// Without loggers Kea writes to its standard output.
+export function log_outputs(ctx, name, content) {
+	let root = root_of(name, content);
+	let result = [];
+	let seen = {};
+
+	if (!root)
+		return result;
+
+	let outputs = logger_outputs(root);
+
+	if (!length(outputs))
+		outputs = [ { output: 'stdout' } ];
+
+	for (let item in outputs) {
+		if (seen[item.output])
+			continue;
+
+		seen[item.output] = true;
+
+		let kind = log_kind(item.output);
+		let entry = { output: item.output, kind };
+
+		if (kind == 'file') {
+			let dir = directory(item.output);
+
+			entry.path = dir == null ? LOG_DIR + '/' + item.output : item.output;
+			entry.lost = (dir == null || dir == LOG_DIR) && !is_dir(ctx.root + LOG_DIR);
+		}
+
+		push(result, entry);
+	}
+
+	return result;
+};
+
 export function validate_all(ctx) {
 	let result = {};
 
@@ -222,7 +368,8 @@ export function validate_all(ctx) {
 			installed,
 			exists,
 			valid: check.valid,
-			output: check.output
+			output: check.output,
+			warnings: check.valid ? start_warnings(ctx, name, fs.readfile(file)) : []
 		};
 	}
 
@@ -266,7 +413,8 @@ export function read(ctx, name) {
 		path: file,
 		content,
 		valid: check.valid,
-		validation: check.output
+		validation: check.output,
+		warnings: check.valid ? start_warnings(ctx, name, content) : []
 	};
 };
 
@@ -439,7 +587,13 @@ export function save(ctx, name, content) {
 		return { result: false, error: 'failed to replace config' };
 	}
 
-	return { result: true, path: file, backup: id, validation: check.output };
+	return {
+		result: true,
+		path: file,
+		backup: id,
+		validation: check.output,
+		warnings: start_warnings(ctx, name, content)
+	};
 };
 
 export function restore(ctx, name, id) {
@@ -470,5 +624,11 @@ export function restore(ctx, name, id) {
 		return saved;
 	}
 
-	return { result: true, path: saved.path, restored: id, backup: saved.backup };
+	return {
+		result: true,
+		path: saved.path,
+		restored: id,
+		backup: saved.backup,
+		warnings: saved.warnings
+	};
 };

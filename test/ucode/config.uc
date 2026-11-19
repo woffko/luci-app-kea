@@ -51,7 +51,7 @@ test('read reports a missing file and an unknown name', () => {
 test('the first save creates the file without a backup', () => {
 	let saved = config.save(ctx, 'dhcp4', body(1));
 
-	equal(saved, { result: true, path: file, backup: '', validation: 'accepted dhcp4' });
+	equal(saved, { result: true, path: file, backup: '', validation: 'accepted dhcp4', warnings: [] });
 	equal(fs.readfile(file), body(1));
 	equal(mode(file), '600');
 	equal(backups(), []);
@@ -133,7 +133,7 @@ test('restore puts a backup back and backs up the replaced file', () => {
 
 	let restored = config.restore(ctx, 'dhcp4', '20261111T163833Z');
 
-	equal(restored, { result: true, path: file, restored: '20261111T163833Z', backup: '20261111T163933Z' });
+	equal(restored, { result: true, path: file, restored: '20261111T163833Z', backup: '20261111T163933Z', warnings: [] });
 	equal(fs.readfile(file), body(1));
 	equal(fs.readfile(ctx.backup_dir + '/kea-dhcp4.20261111T163933Z.conf'), body(4));
 });
@@ -199,7 +199,7 @@ test('validate_all covers the control agent and reports missing parts', () => {
 	let all = config.validate_all(ctx);
 
 	equal(sort(keys(all)), [ 'ctrl_agent', 'dhcp4', 'dhcp6', 'dhcp_ddns' ]);
-	equal(all.dhcp4, { config: file, installed: true, exists: true, valid: true, output: 'accepted dhcp4' });
+	equal(all.dhcp4, { config: file, installed: true, exists: true, valid: true, output: 'accepted dhcp4', warnings: [] });
 	equal(all.ctrl_agent.installed, false);
 	equal(all.ctrl_agent.valid, false);
 	equal(all.ctrl_agent.output, 'binary or config file is missing');
@@ -261,6 +261,112 @@ test('the reason a hook gives for a refusal is put first', () => {
 	equal(split(check.output, '\n')[0], 'HA_CONFIGURATION_FAILED unsupported value for mode');
 	equal(split(check.output, '\n')[2], '', 'a blank line separates the reasons from the full output');
 	equal(split(check.output, '\n')[3], log[0]);
+});
+
+// ---- what the check of the Kea binary does not see -------------------------
+//
+// The cases are the ones measured with Kea 3.0.4: each of the refused names
+// below passed "kea-dhcp4 -t" and "-T" and stopped the daemon at start.
+
+const dhcp4 = members => sprintf('{ "Dhcp4": { %s } }', members);
+const lease = name => dhcp4(sprintf('"lease-database": { "type": "memfile", "name": "%s" }', name));
+const logger = output => dhcp4(sprintf(
+	'"loggers": [ { "name": "kea-dhcp4", "output-options": [ { "output": "%s" } ] } ]', output));
+
+test('a lease file outside the lease directory is reported', () => {
+	for (let name in [ '/tmp/kea-leases4.csv', '/var/lib/kea/sub/x.csv', 'sub/x.csv', './x.csv',
+	                   '/var/lib/kea//x.csv', '/var/lib/../lib/kea/x.csv', '/var/lib/kea/' ])
+		equal(config.start_warnings(ctx, 'dhcp4', lease(name)),
+			[ { code: 'lease-path', value: name, directory: '/var/lib/kea' } ], name);
+
+	equal(config.start_warnings(ctx, 'dhcp6',
+		'{ "Dhcp6": { "lease-database": { "name": "/tmp/x6.csv" } } }'),
+		[ { code: 'lease-path', value: '/tmp/x6.csv', directory: '/var/lib/kea' } ],
+		'memfile is the type when none is named');
+});
+
+test('a lease file Kea starts with is not reported', () => {
+	for (let name in [ 'other4.csv', '/var/lib/kea/other4.csv' ])
+		equal(config.start_warnings(ctx, 'dhcp4', lease(name)), [], name);
+
+	equal(config.start_warnings(ctx, 'dhcp4', dhcp4('"lease-database": { "type": "memfile" }')), []);
+	equal(config.start_warnings(ctx, 'dhcp4', dhcp4('"valid-lifetime": 600')), []);
+	equal(config.start_warnings(ctx, 'dhcp4', dhcp4(
+		'"lease-database": { "type": "memfile", "persist": false, "name": "/tmp/x.csv" }')), [],
+		'the name is not used when the leases are not written');
+});
+
+test('a log file outside the log directory is reported with its logger', () => {
+	for (let output in [ '/tmp/kea.log', '/var/log/kea/sub/x.log', 'sub/x.log', '/var/log/kea//x.log' ])
+		equal(config.start_warnings(ctx, 'dhcp4', logger(output)),
+			[ { code: 'log-path', value: output, logger: 'kea-dhcp4', directory: '/var/log/kea' } ], output);
+
+	for (let output in [ 'kea-dhcp4.log', '/var/log/kea/kea-dhcp4.log', 'syslog', 'syslog:kea4', 'stdout', 'stderr' ])
+		equal(config.start_warnings(ctx, 'dhcp4', logger(output)), [], output);
+
+	equal(length(config.start_warnings(ctx, 'dhcp4', dhcp4(
+		'"loggers": [ { "name": "a", "output_options": [ { "output": "/tmp/a.log" }, { "output": "syslog" } ] },' +
+		' { "name": "b", "output-options": [ { "output": "/tmp/b.log" } ] } ],' +
+		' "lease-database": { "name": "/tmp/x.csv" }'))), 3,
+		'both spellings of the option list, every logger, and the lease file');
+});
+
+test('only the DHCP daemons are checked, and only files that can be read', () => {
+	// kea-dhcp-ddns and kea-ctrl-agent refuse such a log file in their check.
+	equal(config.start_warnings(ctx, 'dhcp_ddns',
+		'{ "DhcpDdns": { "loggers": [ { "name": "x", "output-options": [ { "output": "/tmp/x.log" } ] } ] } }'), []);
+	equal(config.start_warnings(ctx, 'ctrl_agent',
+		'{ "Control-agent": { "loggers": [ { "name": "x", "output-options": [ { "output": "/tmp/x.log" } ] } ] } }'), []);
+	equal(config.start_warnings(ctx, 'dhcp4', 'not json'), []);
+	equal(config.start_warnings(ctx, 'dhcp4', null), []);
+	equal(config.start_warnings(ctx, 'dhcp4', '{ "Dhcp6": { "lease-database": { "name": "/tmp/x.csv" } } }'), []);
+	equal(config.start_warnings(ctx, 'nope', lease('/tmp/x.csv')), []);
+	equal(length(config.start_warnings(ctx, 'dhcp4',
+		'// a comment\n{ "Dhcp4": { /* another */ "lease-database": { "name": "/tmp/x.csv" } } }\n')), 1,
+		'comments do not hide the setting');
+});
+
+test('save, read and validate_all pass the warnings on; nothing is refused for them', () => {
+	let before = fs.readfile(file);
+	let saved = config.save(ctx, 'dhcp4', lease('/tmp/x.csv'));
+	let expected = [ { code: 'lease-path', value: '/tmp/x.csv', directory: '/var/lib/kea' } ];
+
+	equal(saved.result, true);
+	equal(saved.warnings, expected);
+	equal(fs.readfile(file), lease('/tmp/x.csv'));
+	equal(config.read(ctx, 'dhcp4').warnings, expected);
+	equal(config.validate_all(ctx).dhcp4.warnings, expected);
+	equal(config.save(ctx, 'dhcp4', before).warnings, []);
+});
+
+test('where the loggers write', () => {
+	equal(config.log_outputs(ctx, 'dhcp4', dhcp4('"valid-lifetime": 600')),
+		[ { output: 'stdout', kind: 'console' } ], 'without loggers Kea prints');
+	equal(config.log_outputs(ctx, 'dhcp4', logger('syslog')), [ { output: 'syslog', kind: 'syslog' } ]);
+	equal(config.log_outputs(ctx, 'dhcp4', logger('syslog:kea4')), [ { output: 'syslog:kea4', kind: 'syslog' } ]);
+	equal(config.log_outputs(ctx, 'dhcp4', logger('stderr')), [ { output: 'stderr', kind: 'console' } ]);
+	equal(config.log_outputs(ctx, 'dhcp4', 'not json'), []);
+
+	// As in the files shipped with Kea: a name without a directory, and
+	// OpenWrt has no /var/log/kea.
+	equal(config.log_outputs(ctx, 'dhcp4', logger('kea-dhcp4.log')),
+		[ { output: 'kea-dhcp4.log', kind: 'file', path: '/var/log/kea/kea-dhcp4.log', lost: true } ]);
+	equal(config.log_outputs(ctx, 'dhcp_ddns',
+		'{ "DhcpDdns": { "loggers": [ { "name": "x", "output-options": [ { "output": "kea-ddns.log" } ] } ] } }'),
+		[ { output: 'kea-ddns.log', kind: 'file', path: '/var/log/kea/kea-ddns.log', lost: true } ]);
+
+	config.mkdir_p(root + '/var/log/kea', 0o755);
+
+	equal(config.log_outputs(ctx, 'dhcp4', logger('kea-dhcp4.log'))[0].lost, false);
+	equal(config.log_outputs(ctx, 'dhcp4', logger('/var/log/kea/x.log')),
+		[ { output: '/var/log/kea/x.log', kind: 'file', path: '/var/log/kea/x.log', lost: false } ]);
+	equal(config.log_outputs(ctx, 'dhcp4', logger('/tmp/x.log')),
+		[ { output: '/tmp/x.log', kind: 'file', path: '/tmp/x.log', lost: false } ],
+		'a file elsewhere is a matter for start_warnings');
+	equal(map(config.log_outputs(ctx, 'dhcp4', dhcp4(
+		'"loggers": [ { "name": "a", "output-options": [ { "output": "syslog" }, { "output": "a.log" } ] },' +
+		' { "name": "b", "output-options": [ { "output": "syslog" } ] } ]')), item => item.output),
+		[ 'syslog', 'a.log' ], 'each output once');
 });
 
 test('write_private and mkdir_p', () => {
