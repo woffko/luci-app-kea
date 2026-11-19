@@ -335,11 +335,21 @@ last word.
 - Read only: a lease cannot be removed from the page. That needs the lease
   commands hook and the control channel of the daemon.
 - On OpenWrt the lease files are in `/var/lib/kea`, which is in memory, so
-  Kea itself forgets its leases at a reboot unless the configuration names
-  another place.
-- The log on Overview is the system log. Messages are missing there when
-  the loggers of the configuration write to a file, and after the ring
-  buffer of the system log has moved on.
+  Kea itself forgets its leases at a reboot. The configuration cannot name
+  another place: Kea 3.0 takes a lease file from that directory only (see
+  [Backend](#backend-1)). A file name without a directory is placed there.
+- The log on Overview is the system log, and the configuration files
+  shipped with Kea do not write there. They name a log file, which Kea 3.0
+  places in `/var/log/kea`, a directory OpenWrt does not have. With such a
+  configuration the page shows only the lines a daemon prints before it has
+  read its loggers, among them the reason when it cannot start; everything
+  after that is lost. With `"output": "syslog"` in the loggers of the
+  configuration, all messages arrive.
+- Lines that reach the system log through procd, which are those early
+  lines and everything a logger writes to `stdout`, are shown whole, without
+  the severity in its own column.
+- Messages are gone from the page after the ring buffer of the system log
+  has moved on.
 - At most 2000 leases per protocol are sent to the browser, and a lease
   file above 8 MB is not read.
 
@@ -348,6 +358,15 @@ last word.
 - The Kea binary's check does not guarantee that the daemon starts: a port
   in use or a missing interface shows only then. Save & Apply reports a
   daemon that is gone after the reload, but nothing warns before.
+- Two settings pass the check of Kea 3.0.4, also with the hook libraries
+  loaded (`-T`), and stop the daemon when it starts: a lease file
+  (`lease-database`, `name`) in a directory other than `/var/lib/kea`, and
+  a log file (`output` of a logger) in a directory other than
+  `/var/log/kea`. The application reports such a file as valid. The reason
+  is in the system log afterwards, and so on Overview. A lease file is not
+  looked at when `persist` is false. A control socket outside
+  `/var/run/kea` and a hook library outside the hook directory are refused
+  by the check itself.
 - `kea-dhcp-ddns` and `kea-ctrl-agent` have no check that loads their hook
   libraries.
 - The plugin runs inside `rpcd`, so a call blocks other LuCI requests for

@@ -7,6 +7,29 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-19: Lease and log paths of Kea 3, corrected documentation
+
+Another project ran the release with a configuration it had generated and
+reported that Kea did not start with a lease file in `/tmp`, although the
+check had accepted the file. Measured again on the test machine with
+Kea 3.0.4; no change to the package yet.
+
+- A lease file outside `/var/lib/kea` and a log file outside `/var/log/kea`
+  pass `-t` and `-T` and stop the daemon at start. A control socket or a
+  hook library in a wrong directory is refused by the check.
+- The configuration files shipped with Kea name a log file. `/var/log/kea`
+  does not exist on OpenWrt, so their messages are lost, except the lines a
+  daemon prints before it has read its loggers.
+- Two statements in these documents were wrong and are corrected: that a
+  configuration can name another place for the lease file, and that the
+  shipped configurations log to syslog. The Overview picture shows a full
+  log because its test configuration logged to syslog.
+- Log lines that arrive through procd are shown without their severity
+  split off.
+- Proposed as roadmap milestone M8: warnings for such paths, the log
+  destination on Overview, and a Services page that says what dnsmasq and
+  odhcpd still serve.
+
 ## 2026-11-18: More pictures of the high availability tab
 
 - Three pictures added to `docs/SCREENSHOTS.md`: load balancing with a

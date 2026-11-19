@@ -233,6 +233,28 @@ are no longer in use.
       [PACKAGING.md](PACKAGING.md), including a maintainer with a real name
       and e-mail address. Put off by the owner; see decision 6.
 
+## M8: After the first release
+
+Proposed, not yet approved by the owner. Found on 2026-11-19, when another
+project ran the release against a configuration it had generated, and
+measured again on the test machine with Kea 3.0.4.
+
+- [ ] Warn about settings that pass the Kea check and stop the daemon at
+      start: a lease file outside `/var/lib/kea`, a log file outside
+      `/var/log/kea`. A warning next to the result of the check, never a
+      refused save: another Kea version or build may allow other paths.
+- [ ] Say on Overview where a daemon writes its log when that is not the
+      system log, and that a log file in the missing `/var/log/kea` is lost.
+      Offer the logger output as a field of the Global settings tab.
+- [ ] Split the severity off log lines that arrive through procd.
+- [ ] Services page: show what dnsmasq and odhcpd still serve (DHCP on
+      which interfaces, DNS, router advertisements). A service that no
+      longer answers DHCP is listed as a potential conflict all the same,
+      and the page offers to stop dnsmasq where it is the DNS server.
+- [ ] Idea: the names of Kea leases in the local DNS. dnsmasq accepts no
+      DNS updates and the OpenWrt 25.12 repository has no run-script hook
+      for Kea, so it would be a copy made from the lease files.
+
 ## Decisions
 
 Made by the project owner.
@@ -313,9 +335,13 @@ Taken while implementing M6:
   Kea loads the files were taken from the Kea 3.0.4 sources and checked
   against files written for a real client. The price: the page cannot
   remove a lease, which would need the `lease_cmds` hook.
-- **The log is the system log.** The configuration files shipped with Kea
-  on OpenWrt log to syslog, and `logread` needs no knowledge of log file
-  paths.
+- **The log is the system log.** `logread` needs no knowledge of log file
+  paths, and it also holds what a daemon says when it cannot start.
+  Corrected on 2026-11-19: the reason first given here, that the
+  configuration files shipped with Kea on OpenWrt log to syslog, was wrong.
+  They name a log file in a directory that OpenWrt does not have, so with
+  them the page shows little; see
+  [STATUS.md](STATUS.md#leases-and-log) and M8.
 
 Taken while implementing M5:
 

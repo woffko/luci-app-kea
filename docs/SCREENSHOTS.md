@@ -8,7 +8,9 @@ regenerates them; see [DEVELOPMENT.md](DEVELOPMENT.md#screenshots).
 
 The Kea version, installed components, configuration files, the result of
 checking each file with its Kea daemon, and the recent Kea messages of the
-system log: here a DHCPv4 and a DHCPv6 client being served.
+system log: here a DHCPv4 and a DHCPv6 client being served. The messages
+are there because the configuration of this test logs to syslog; the
+configuration files shipped with Kea do not.
 
 ![Overview page](images/overview.png)
 

@@ -445,6 +445,11 @@ What the script does:
 The Kea components stay switched off in `/etc/config/kea`, as after any
 fresh install.
 
+The LAN card of the machine is not a place to test Kea with a real client:
+QEMU has a DHCP server of its own on that network, and it answers first.
+Use a pair of virtual interfaces inside the machine instead (`kmod-veth`
+and `ip-full`), with Kea listening on one end and the client on the other.
+
 ## Debugging the backend on a target
 
 ```sh
@@ -484,7 +489,9 @@ apk list --installed | grep -E '^(kea|luci-app-kea)-'
   the ten newest per file are kept, so a test that saves many times pushes
   older backups out.
 - A config that passes `kea-dhcp4 -t` can still fail to start. Check the
-  system log (`logread | grep kea`) after starting a daemon.
+  system log (`logread | grep kea`) after starting a daemon. Known cases
+  with Kea 3.0.4 are a lease file outside `/var/lib/kea` and a log file
+  outside `/var/log/kea`; `-T` accepts them as well.
 - Do not judge whether a daemon runs with `pgrep -f`: it also matches your
   own shell when the command line names the daemon. Use `pidof kea-dhcp4` or
   `ubus call service list '{"name":"kea"}'`.
