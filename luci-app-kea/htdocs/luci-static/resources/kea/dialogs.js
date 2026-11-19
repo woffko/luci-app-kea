@@ -3,8 +3,8 @@
 "require ui";
 
 /*
- * Dialogs shared by the Kea pages: a confirmation, and a view of what a
- * save would change.
+ * Dialogs shared by the Kea pages: a confirmation, a question, and a view
+ * of what a save would change.
  */
 
 var DIFF_STYLE = {
@@ -32,6 +32,31 @@ return baseclass.extend({
 				}, confirmLabel)
 			])
 		]);
+	},
+
+	/*
+	 * Ask a question that the caller waits for: resolves to true when the
+	 * user confirms and to false otherwise. "message" is a text or a list
+	 * of nodes.
+	 */
+	ask: function(title, message, confirmLabel) {
+		return new Promise(function(resolve) {
+			var answer = function(value) {
+				return function() {
+					ui.hideModal();
+					resolve(value);
+				};
+			};
+
+			ui.showModal(title, [
+				E("div", {}, typeof message === "string" ? E("p", message) : message),
+				E("div", { "class": "right" }, [
+					E("button", { "class": "btn", "click": answer(false) }, _("Cancel")),
+					" ",
+					E("button", { "class": "btn cbi-button-negative important", "click": answer(true) }, confirmLabel)
+				])
+			]);
+		});
 	},
 
 	/*

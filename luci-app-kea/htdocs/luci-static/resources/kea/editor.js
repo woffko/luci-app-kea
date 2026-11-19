@@ -49,8 +49,30 @@ var field = widgets.field;
 var mark = widgets.mark;
 var textInput = widgets.textInput;
 var checkbox = widgets.checkbox;
+var select = widgets.select;
 var notice = widgets.notice;
 var rowTable = widgets.rowTable;
+
+/*
+ * The choices of the log output field: what the form can set, and in front
+ * of them what the file had when it was loaded, if that is something else.
+ */
+function logOutputChoices(global) {
+	var initial = global.initial.logOutput;
+	var choices = [
+		[ "syslog", _("System log") ],
+		[ "stdout", _("Standard output, which also reaches the system log") ]
+	];
+
+	if (initial === "")
+		choices.unshift([ "", _("Not set: standard output, which also reaches the system log") ]);
+	else if (initial === model.MIXED_OUTPUTS)
+		choices.unshift([ initial, _("Several outputs, as they are in the file") ]);
+	else if (model.LOG_OUTPUTS.indexOf(initial) < 0)
+		choices.unshift([ initial, _("File") + ": " + initial ]);
+
+	return choices;
+}
 
 function createView(familyName) {
 	var family = model.family(familyName);
@@ -73,6 +95,8 @@ function createView(familyName) {
 			this.parseError = parsed.error;
 			this.config = parsed.config;
 			this.hasComments = parsed.hasComments;
+			/* What the file on disk has that Kea will not start with. */
+			this.warnings = response.warnings || [];
 			this.tabs = parsed.error ? [] : model.buildTabs(familyName, parsed.config, this.interfaces);
 			this.global = parsed.error ? null : model.buildGlobal(familyName, parsed.config);
 			this.ha = parsed.error ? null : haModel.build(familyName, parsed.config);
@@ -113,6 +137,9 @@ function createView(familyName) {
 				]));
 				return;
 			}
+
+			if (this.warnings.length)
+				nodes.push(backend.renderWarnings(this.warnings));
 
 			samples = model.countSamples(familyName, this.config);
 
@@ -197,7 +224,7 @@ function createView(familyName) {
 				(conflicts.odhcpd && conflicts.odhcpd.running);
 
 			if (tab.enabled && tab.served && running)
-				node.replaceChildren(notice("warning", E("p", _("OpenWrt also serves DHCP on this interface (dnsmasq or odhcpd). Two DHCP servers on one network hand out conflicting leases. Switch the OpenWrt service off for this interface, or stop it on the Services page, before Kea answers here."))));
+				node.replaceChildren(notice("warning", E("p", _("OpenWrt also serves DHCP on this interface (dnsmasq or odhcpd). Two DHCP servers on one network hand out conflicting leases. Switch DHCP off for this interface in the OpenWrt configuration (Network > Interfaces > DHCP Server) before Kea answers here. The Services page shows what dnsmasq and odhcpd serve."))));
 			else
 				node.replaceChildren();
 		},
@@ -474,7 +501,10 @@ function createView(familyName) {
 					textInput(global, "lfcInterval", "3600", "number", check("lfcInterval")),
 					_("How often, in seconds, the lease file is compacted; 0 turns it off. Needs the kea-lfc package.") +
 						(global.leaseType && global.leaseType !== "memfile" ?
-							" " + _("The lease database is not a memfile, so this setting has no effect.") : ""))
+							" " + _("The lease database is not a memfile, so this setting has no effect.") : "")),
+				field(model.label("logOutput"),
+					select(global, "logOutput", logOutputChoices(global)),
+					_("Where the loggers of this daemon write. The Overview page shows what reaches the system log. Kea keeps log files in /var/log/kea, a directory OpenWrt does not have unless something creates it after every boot; without it nothing is logged."))
 			);
 
 			this.editorNode.replaceChildren(
@@ -538,18 +568,10 @@ function createView(familyName) {
 		write: function(config, apply) {
 			var self = this;
 
-			return backend.saveConfig(familyName, model.serialize(config)).then(function(saved) {
+			return backend.write(familyName, model.serialize(config), apply).then(function(saved) {
 				/* Kea refused the file: the form keeps what was typed. */
-				if (!saved)
-					return;
-
-				if (!apply)
-					backend.notify(backend.daemonName(familyName) + ": " +
-						_("configuration saved. Reload or restart Kea to apply it."));
-
-				return Promise.resolve(apply ? backend.applyConfig(familyName) : null).then(function() {
+				if (saved)
 					return self.reload();
-				});
 			});
 		},
 

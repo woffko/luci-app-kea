@@ -25,8 +25,34 @@ var callValidate = rpc.declare({
 	expect: { validation: {} }
 });
 
+/* The daemons in the order of the page, by their name in the backend. */
+var DAEMONS = [ "dhcp4", "dhcp6", "dhcp_ddns", "ctrl_agent" ];
+
 function boolLabel(value) {
 	return value ? _("Yes") : _("No");
+}
+
+/*
+ * The log files the daemons are configured to write, which the list of
+ * messages below cannot show: one sentence per file.
+ */
+function logFileNotes(outputs) {
+	var notes = [];
+
+	DAEMONS.forEach(function(name) {
+		(outputs[name] || []).forEach(function(output) {
+			if (output.kind !== "file")
+				return;
+
+			notes.push(output.lost ?
+				_("%s writes its log to the file %s. The directory of the file does not exist, so these messages are lost.")
+					.format(backend.daemonName(name), output.path) :
+				_("%s writes its log to the file %s, not to the system log.")
+					.format(backend.daemonName(name), output.path));
+		});
+	});
+
+	return notes;
 }
 
 function renderObjectTable(title, rows) {
@@ -55,16 +81,28 @@ return view.extend({
 		]);
 	},
 
-	renderLog: function(lines) {
+	renderLog: function(log) {
 		var titles = [ _("Time"), _("Daemon"), _("Severity"), _("Message") ];
+		var lines = log.lines || [];
+		var notes = logFileNotes(log.outputs || {});
+		var nodes = [];
+
+		if (notes.length)
+			nodes.push(E("div", { "class": "alert-message warning kea-log-outputs" }, [
+				E("ul", {}, notes.map(function(note) {
+					return E("li", {}, note);
+				})),
+				E("p", {}, _("Messages appear here when the loggers of a daemon write to syslog. For the DHCP daemons that is the field Log Output on the Global settings tab of their page; for the others it is the output of the loggers on the Configuration page."))
+			]));
 
 		if (!lines.length) {
-			this.logNode.replaceChildren(E("p", {},
-				_("No Kea messages in the system log. Kea writes there when its loggers use the syslog output and a daemon has been started since the last boot.")));
+			nodes.push(E("p", {},
+				_("No Kea messages in the system log. They arrive there when a daemon has been started since the last boot and its loggers write to syslog or to the standard output.")));
+			this.logNode.replaceChildren.apply(this.logNode, nodes);
 			return;
 		}
 
-		this.logNode.replaceChildren(E("table", { "class": "table kea-log" }, [
+		nodes.push(E("table", { "class": "table kea-log" }, [
 			E("thead", {}, E("tr", { "class": "tr table-titles" }, titles.map(function(title) {
 				return E("th", { "class": "th left" }, title);
 			}))),
@@ -77,6 +115,8 @@ return view.extend({
 				]);
 			}))
 		]));
+
+		this.logNode.replaceChildren.apply(this.logNode, nodes);
 	},
 
 	render: function(data) {
@@ -89,7 +129,7 @@ return view.extend({
 		var validationRows = [];
 
 		this.logNode = E("div", {});
-		this.renderLog(data[2] || []);
+		this.renderLog(data[2] || {});
 
 		Object.keys(validation).forEach(function(name) {
 			var item = validation[name] || {};
@@ -97,6 +137,7 @@ return view.extend({
 				name,
 				E("span", {}, [
 					item.valid ? _("Valid") : _("Invalid"),
+					item.valid ? (backend.renderWarnings(item.warnings) || "") : "",
 					/* What Kea prints for a file it accepts is of interest only on demand. */
 					item.output ? E("details", { "open": item.valid ? null : "open" }, [
 						E("summary", { "style": "cursor: pointer" }, _("Output of the check")),
@@ -150,8 +191,8 @@ return view.extend({
 					"click": function(ev) {
 						ev.preventDefault();
 
-						return backend.getLog(LOG_LINES).then(function(lines) {
-							self.renderLog(lines);
+						return backend.getLog(LOG_LINES).then(function(log) {
+							self.renderLog(log);
 						});
 					}
 				}, _("Refresh")))
