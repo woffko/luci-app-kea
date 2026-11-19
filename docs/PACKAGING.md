@@ -3,7 +3,7 @@
 Audit date: 2026-11-11. Audited revision: `b6eedcf` (package version
 `0.1.0-r1`). The findings marked "fixed" below were resolved in `0.1.0-r2`
 (roadmap milestone M0) and re-checked with a real build and install. The
-current version is `0.7.0-r1`.
+current version is `0.8.0-r1`.
 
 ## References
 
@@ -58,7 +58,7 @@ time.
 ```text
 Package: luci-app-kea
 Submenu: 3. Applications
-Version: 0.7.0-r1
+Version: 0.8.0-r1
 Depends: +libc +luci-base +kea-uci +kea-lfc
 Section: luci
 Category: LuCI
@@ -166,6 +166,11 @@ to display anything. Revisit if reviewers of an upstream submission object.
 `getLeases` and `getLog`, added in `0.7.0`, are read-level as well. They
 return the addresses, MAC addresses and host names of DHCP clients, which
 LuCI read access already shows for dnsmasq and odhcpd on its status pages.
+
+`0.8.0` added no method. `getStatus` now also returns what dnsmasq and
+odhcpd are configured to serve, read from `/etc/config/dhcp`, and `getLog`
+the log outputs named in the Kea configuration files; both are less than
+`getConfig` already returns.
 
 ### Translations (item 16)
 

@@ -235,22 +235,23 @@ are no longer in use.
 
 ## M8: After the first release
 
-Proposed, not yet approved by the owner. Found on 2026-11-19, when another
-project ran the release against a configuration it had generated, and
-measured again on the test machine with Kea 3.0.4.
+Found on 2026-11-19, when another project ran the release against a
+configuration it had generated, and measured again on the test machine with
+Kea 3.0.4. Approved by the owner the same day. Done in `0.8.0-r1`, except
+the last item.
 
-- [ ] Warn about settings that pass the Kea check and stop the daemon at
+- [x] Warn about settings that pass the Kea check and stop the daemon at
       start: a lease file outside `/var/lib/kea`, a log file outside
       `/var/log/kea`. A warning next to the result of the check, never a
       refused save: another Kea version or build may allow other paths.
-- [ ] Say on Overview where a daemon writes its log when that is not the
+      Save & Apply asks before it reloads a running daemon with them.
+- [x] Say on Overview where a daemon writes its log when that is not the
       system log, and that a log file in the missing `/var/log/kea` is lost.
       Offer the logger output as a field of the Global settings tab.
-- [ ] Split the severity off log lines that arrive through procd.
-- [ ] Services page: show what dnsmasq and odhcpd still serve (DHCP on
-      which interfaces, DNS, router advertisements). A service that no
-      longer answers DHCP is listed as a potential conflict all the same,
-      and the page offers to stop dnsmasq where it is the DNS server.
+- [x] Split the severity off log lines that arrive through procd.
+- [x] Services page: show what dnsmasq and odhcpd still serve (DHCP on
+      which interfaces, DNS, router advertisements), and ask before stopping
+      a service that the network needs for something else.
 - [ ] Idea: the names of Kea leases in the local DNS. dnsmasq accepts no
       DNS updates and the OpenWrt 25.12 repository has no run-script hook
       for Kea, so it would be a copy made from the lease files.
@@ -306,6 +307,22 @@ They follow the recommendation at the time and can be revisited.
 - Backups go to `/etc/kea/backups/`, ten per config file.
 - Version numbers: packaging-only changes bump `PKG_RELEASE`; changes in
   behavior bump `PKG_VERSION`. Spelled out in [RELEASING.md](RELEASING.md).
+
+Taken while implementing M8:
+
+- **A setting Kea will not start with is warned about, not refused.** The
+  rule comes from measurements of one Kea version. A refusal would block a
+  file that another build or a later version accepts, and would break the
+  rule that a file Kea accepts can always be saved again.
+- **No check of the Kea version.** The application is for OpenWrt 25.12,
+  which has Kea 3. The on-target tests save such a file with the Kea of the
+  target; if a later Kea refuses it in its own check, that test fails and
+  says the warning is no longer needed.
+- **The form offers the system log and the standard output, no log file.**
+  A log file is the one output that silently loses messages on OpenWrt.
+- **dnsmasq and odhcpd stay in the table of potential conflicts** when they
+  no longer answer DHCP. The table now says what they serve; leaving them
+  out would hide the buttons that a user moving back from Kea needs.
 
 Taken while implementing M7:
 

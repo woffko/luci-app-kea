@@ -1,8 +1,11 @@
 # Screenshots
 
-Taken with version `0.7.0` on OpenWrt 25.12.6 with Kea 3.0.4, using the test
-fixtures of this repository as configuration. `test/browser/screenshots.js`
-regenerates them; see [DEVELOPMENT.md](DEVELOPMENT.md#screenshots).
+Taken on OpenWrt 25.12.6 with Kea 3.0.4, using the test fixtures of this
+repository as configuration. The pictures of the Overview page as a whole,
+of high availability, the leases, the raw editor and the import are from
+version `0.7.0`, where these pages look the same; the others are from
+`0.8.0`. `test/browser/screenshots.js` regenerates them; see
+[DEVELOPMENT.md](DEVELOPMENT.md#screenshots).
 
 ## Overview
 
@@ -17,7 +20,9 @@ configuration files shipped with Kea do not.
 ## Services
 
 The Kea init service, the DHCP services of OpenWrt that would compete with
-Kea, and the Kea components with their enable switches.
+Kea, and the Kea components with their enable switches. The middle table
+says what dnsmasq and odhcpd are configured to serve: here both still answer
+DHCP on `lan`, and dnsmasq is the DNS server as well.
 
 ![Services page](images/services.png)
 
@@ -35,7 +40,8 @@ dnsmasq serves DHCP on the same interface of the test machine.
 ## Global settings
 
 The last tab: timers and lifetimes for every subnet that does not set its
-own, the lease file cleanup interval, and the options sent to every subnet.
+own, the lease file cleanup interval, where the loggers write, and the
+options sent to every subnet.
 
 ![Global settings tab](images/global.png)
 
@@ -73,6 +79,21 @@ the gateway was changed and one reservation switched off, which moves it
 into the subnet's `user-context`.
 
 ![View of the pending changes](images/changes.png)
+
+## What Kea would not start with
+
+Kea accepts a lease file outside `/var/lib/kea` when it checks a
+configuration, and then does not start with it. The application reports the
+file as valid, which it is for Kea, and says what will happen. Below that,
+Overview names the daemons whose log goes to a file and never arrives
+there: here the two that still have the configuration shipped with Kea.
+
+![Overview with a warning for the DHCPv4 file and a note on two log files](images/warnings.png)
+
+**Save & Apply** with such a file and the daemon running: the file is
+saved, and the reload is a question.
+
+![Question before the reload of a running daemon](images/reload.png)
 
 ## DHCPv6
 

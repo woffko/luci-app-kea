@@ -7,6 +7,39 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-19: Warnings beyond the Kea check (M8, `0.8.0-r1`)
+
+The work proposed after the measurements of the same day, approved by the
+owner.
+
+- The rules were measured first, with Kea 3.0.4 on the QEMU machine. Kea
+  compares the text before the last slash of a lease or log file name with
+  its directory, so a subdirectory, `./` and a doubled slash are refused
+  like `/tmp`. `kea-dhcp-ddns` and `kea-ctrl-agent` refuse a wrong log
+  directory in their check, the DHCP daemons only when they start. Without
+  loggers, and with the output `stdout`, every message reaches the system
+  log through procd; with the files of the package, only what a daemon
+  prints before it has read its loggers.
+- Backend: `start_warnings()` and `log_outputs()` in `config.uc`; the
+  warnings travel with the result of the check, with a file that is read and
+  with a save; `getLog` also returns the log outputs. `openwrt.uc` reads
+  what dnsmasq and odhcpd serve. `parse_log_line()` splits the lines that
+  come through procd.
+- Pages: the warning box, the question before a reload of a running daemon,
+  the log file note on Overview, the Log Output field, and the "Configured
+  to serve" column with the question before stopping dnsmasq or odhcpd.
+- Checked by hand on the QEMU machine with `kea-dhcp4` running: with the
+  answer no the daemon keeps running, with the answer yes it is gone after
+  the reload.
+- Tests: 88 ucode cases on any machine, 117 on a target, 72 JavaScript
+  cases, and a sixth browser test, `warnings.js`, which answers the calls
+  that would act on a service itself.
+- Found on the way and written down, not changed: on a fresh installation
+  the control agent file is reported as invalid until Kea was started once,
+  because its password file does not exist yet.
+- Not done: the names of Kea leases in the local DNS. `0.8.0-r1` was not
+  installed on the second test machine.
+
 ## 2026-11-19: Lease and log paths of Kea 3, corrected documentation
 
 Another project ran the release with a configuration it had generated and

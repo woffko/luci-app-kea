@@ -85,8 +85,12 @@ The rpcd plugin `root/usr/share/rpcd/ucode/luci.kea` contains no logic. Each
 ubus method calls one function of the library in `ucode/kea/`:
 
 - `config.uc`: paths, validation with `kea-* -t`, read, save, backups,
-  restore;
+  restore; `start_warnings()` and `log_outputs()` read a configuration for
+  what the Kea check does not see;
 - `service.uc`: component state from procd, init actions, runtime files;
+- `openwrt.uc`: what dnsmasq and odhcpd are configured to serve. Pure: it
+  takes the UCI sections as objects, so it is tested without UCI;
+- `runtime.uc`: version, system log and lease files;
 - `importer.uc`: static lease classification and import. `classify_all()`
   is pure; `preview()` and `commit()` read and write the files;
 - `jsonc.uc`, `net.uc`: comment stripping and IPv4 helpers.
@@ -282,7 +286,7 @@ TARGET_SSH="ssh root@<target>" BASE_URL=http://<target> \
 
 The script copies the tests to the target, runs the backend tests against
 the installed library, loads the fixtures the browser tests need, runs the
-five browser tests, and removes the fixtures again, also when a test
+six browser tests, and removes the fixtures again, also when a test
 failed. The rest of this section is what it does, step by step, for running
 one test by hand.
 
@@ -308,11 +312,13 @@ node test/browser/smoke.js       # every page renders without errors
 node test/browser/editor.js      # editors, input checks, raw editor and backups end to end
 node test/browser/ha.js          # high availability tab end to end
 node test/browser/leases.js      # Leases page, version and log on Overview
+node test/browser/warnings.js    # warnings for a file Kea will not start with, log output, Services
 node test/browser/import.js      # static lease import end to end
 ```
 
-`editor.js`, `ha.js` and `import.js` rewrite `/etc/kea/kea-dhcp4.conf` and
-`kea-dhcp6.conf` while they run and put the originals back at the end. Run
+`editor.js`, `ha.js`, `warnings.js` and `import.js` rewrite
+`/etc/kea/kea-dhcp4.conf` and `kea-dhcp6.conf` while they run and put the
+originals back at the end. Run
 them only against a test target whose LAN is `192.168.1.1/24` on `br-lan`.
 Set `OUT_DIR` to keep screenshots; a failing test leaves `failure.png` there.
 
@@ -330,6 +336,14 @@ ssh root@<target> 'cp /tmp/dhcp.before /etc/config/dhcp'
 
 dnsmasq is not reloaded, so the fixture leases never take effect. Static
 leases the target already has are left out of the import by the test.
+
+`warnings.js` saves a file with a lease file in `/tmp`, which Kea accepts
+and would not start with, and shows what the pages say about it. It never
+starts, stops or reloads anything: the calls that would do so
+(`setInitAction`, `setConflictAction`) are answered by the test, and for
+the question before a reload it tells the page that `kea-dhcp4` is running.
+`interceptServiceCalls()` in `lib.js` does this, and the screenshot script
+uses it too.
 
 `ha.js` needs the `kea-hook-ha` and `kea-hook-lease-cmds` packages on the
 target; without them the editors do not offer the tab. It saves without
@@ -357,7 +371,11 @@ loaded, so the configuration, the leases and the static leases they show are
 not those of the target. The log on the Overview picture is the real system
 log of the target, so take the pictures on a test machine. The script needs
 the preconditions of `import.js`, `leases.js` and `ha.js` together: the
-fixture static leases, the lease fixture and the `kea-hook-ha` package.
+fixture static leases, the lease fixture and the `kea-hook-ha` package. On a
+machine where Kea was never started, the control agent file shows as
+invalid on Overview; `ubus call luci.kea setInitAction '{"action":"start"}'`
+with every component switched off creates the password file it misses and
+starts nothing.
 
 ```sh
 node test/browser/screenshots.js
@@ -389,7 +407,7 @@ node test/browser/screenshots.js ha ha-checks
 - **Tests on OpenWrt in QEMU**: boots the official OpenWrt image, installs
   Kea from the OpenWrt package repository and the package of the build job,
   and runs `test/run-target-tests.sh`: the backend tests on the router and
-  the five browser tests. A failed run keeps its screenshots and the console
+  the six browser tests. A failed run keeps its screenshots and the console
   of the machine as the artifact `target-test-failure`. The job takes two to
   six minutes. Starting the machine, installing Kea and running the tests is
   about a minute and a half of that, with KVM, which the runner lets the job
