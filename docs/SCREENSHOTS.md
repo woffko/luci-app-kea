@@ -8,7 +8,9 @@ regenerates them; see [DEVELOPMENT.md](DEVELOPMENT.md#screenshots).
 
 The Kea version, installed components, configuration files, the result of
 checking each file with its Kea daemon, and the recent Kea messages of the
-system log: here a DHCPv4 and a DHCPv6 client being served.
+system log: here a DHCPv4 and a DHCPv6 client being served. The messages
+are there because the configuration of this test logs to syslog; the
+configuration files shipped with Kea do not.
 
 ![Overview page](images/overview.png)
 
@@ -43,6 +45,26 @@ The tab appears when `kea-hook-ha` is installed. A hot standby pair, as it is
 typed in on the first of the two routers.
 
 ![High availability tab](images/ha.png)
+
+Load balancing: two servers share the clients, and a third only keeps a copy
+of the leases. Two timers are set shorter than the Kea defaults, which the
+empty fields show as placeholders, and one parameter that has no field of
+its own is given as JSON.
+
+![High availability tab in load balancing mode](images/ha-load-balancing.png)
+
+Input that Kea would refuse is marked while it is typed: here a name for
+this server that no peer has, a host name in a peer URL, and two primary
+servers. **Save** lists the reasons and writes nothing.
+
+![High availability tab with refused input](images/ha-checks.png)
+
+**Show changes** for the hot standby pair above. Switching high
+availability on adds two entries to the file: the lease commands hook, which
+the servers need to exchange leases, and the high availability hook with
+its parameters.
+
+![Lines that switching high availability on adds to the file](images/ha-changes.png)
 
 ## Changes before saving
 

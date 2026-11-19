@@ -7,6 +7,38 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-19: Lease and log paths of Kea 3, corrected documentation
+
+Another project ran the release with a configuration it had generated and
+reported that Kea did not start with a lease file in `/tmp`, although the
+check had accepted the file. Measured again on the test machine with
+Kea 3.0.4; no change to the package yet.
+
+- A lease file outside `/var/lib/kea` and a log file outside `/var/log/kea`
+  pass `-t` and `-T` and stop the daemon at start. A control socket or a
+  hook library in a wrong directory is refused by the check.
+- The configuration files shipped with Kea name a log file. `/var/log/kea`
+  does not exist on OpenWrt, so their messages are lost, except the lines a
+  daemon prints before it has read its loggers.
+- Two statements in these documents were wrong and are corrected: that a
+  configuration can name another place for the lease file, and that the
+  shipped configurations log to syslog. The Overview picture shows a full
+  log because its test configuration logged to syslog.
+- Log lines that arrive through procd are shown without their severity
+  split off.
+- Proposed as roadmap milestone M8: warnings for such paths, the log
+  destination on Overview, and a Services page that says what dnsmasq and
+  odhcpd still serve.
+
+## 2026-11-18: More pictures of the high availability tab
+
+- Three pictures added to `docs/SCREENSHOTS.md`: load balancing with a
+  backup server, input the form refuses, and the lines that switching high
+  availability on adds to the file. The README shows the tab on its front
+  page.
+- `test/browser/screenshots.js` takes them, and accepts picture names to
+  take only some.
+
 ## 2026-11-17: Target tests in CI, release from a tag, feed layout (M7)
 
 No change to the package: the files of `0.7.0-r1` built after this work are
@@ -25,8 +57,10 @@ the same as those of the release.
   fixtures loaded and removed. Both replace commands that were typed by
   hand before every release.
 - A third CI job runs them for every pull request and for `main`. It took
-  1 minute 44 seconds in its first run, with KVM on the GitHub runner; the
-  whole CI run took a little over 5 minutes.
+  1 minute 44 seconds in its first run, with KVM on the GitHub runner, and
+  6 minutes in a run the next day, in which the runner needed four and a
+  half minutes to install QEMU and the browser. The machine and the tests
+  took the same 80 seconds both times.
 - `.github/workflows/release.yml` prepares a draft release from a version
   tag: it checks the tag against the Makefile and the changelog, runs the CI
   jobs on the tagged commit and attaches the package with its checksum.

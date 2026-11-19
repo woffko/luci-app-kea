@@ -76,6 +76,11 @@ What a save would change, before it is made.
 
 <img src="docs/images/changes.png" alt="Dialog listing the lines of the configuration file that a save would change" width="820">
 
+High availability for a pair of routers, on a tab of the same page when
+`kea-hook-ha` is installed.
+
+<img src="docs/images/ha.png" alt="High availability tab with a hot standby pair of two routers, their URLs, roles and timers" width="820">
+
 The import of OpenWrt static leases. Every lease gets a state and, where it
 cannot be imported, the reason.
 
@@ -211,6 +216,14 @@ where the feed scripts do not find it.
 - Back up `/etc/config/dhcp`, `/etc/config/kea` and `/etc/kea/*.conf`.
 - Do not run Kea and dnsmasq/odhcpd as DHCP servers on the same interface.
   The application shows the state of both and never stops them on its own.
+- Leave the lease file where Kea puts it. Kea 3.0 accepts a lease file only
+  in `/var/lib/kea` and a log file only in `/var/log/kea`. Another directory
+  passes the check of the configuration, also the one this application
+  makes, and the daemon then does not start.
+- To see the messages of Kea on the **Overview** page, set
+  `"output": "syslog"` in the `loggers` of the configuration. The files
+  shipped with Kea name a log file in a directory that OpenWrt does not
+  have, and what is written there is lost.
 
 ## Documentation
 

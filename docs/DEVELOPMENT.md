@@ -364,6 +364,13 @@ node test/browser/screenshots.js
 ```
 
 Run it after a change to a page and commit the pictures that changed.
+Picture names as arguments limit the run to those pictures and to what they
+need. This takes two of the high availability pictures and needs only the
+`kea-hook-ha` package on the target:
+
+```sh
+node test/browser/screenshots.js ha ha-checks
+```
 
 ## CI
 
@@ -383,8 +390,11 @@ Run it after a change to a page and commit the pictures that changed.
   Kea from the OpenWrt package repository and the package of the build job,
   and runs `test/run-target-tests.sh`: the backend tests on the router and
   the five browser tests. A failed run keeps its screenshots and the console
-  of the machine as the artifact `target-test-failure`. The job takes about
-  two minutes; the runner lets it use KVM.
+  of the machine as the artifact `target-test-failure`. The job takes two to
+  six minutes. Starting the machine, installing Kea and running the tests is
+  about a minute and a half of that, with KVM, which the runner lets the job
+  use. The rest is the installation of QEMU and of the browser on the
+  runner, and that varies from run to run.
 
 The third job depends on `downloads.openwrt.org` twice, for the image and
 for the Kea packages, which are not cached: the job is meant to see the
@@ -435,6 +445,11 @@ What the script does:
 The Kea components stay switched off in `/etc/config/kea`, as after any
 fresh install.
 
+The LAN card of the machine is not a place to test Kea with a real client:
+QEMU has a DHCP server of its own on that network, and it answers first.
+Use a pair of virtual interfaces inside the machine instead (`kmod-veth`
+and `ip-full`), with Kea listening on one end and the client on the other.
+
 ## Debugging the backend on a target
 
 ```sh
@@ -474,7 +489,9 @@ apk list --installed | grep -E '^(kea|luci-app-kea)-'
   the ten newest per file are kept, so a test that saves many times pushes
   older backups out.
 - A config that passes `kea-dhcp4 -t` can still fail to start. Check the
-  system log (`logread | grep kea`) after starting a daemon.
+  system log (`logread | grep kea`) after starting a daemon. Known cases
+  with Kea 3.0.4 are a lease file outside `/var/lib/kea` and a log file
+  outside `/var/log/kea`; `-T` accepts them as well.
 - Do not judge whether a daemon runs with `pgrep -f`: it also matches your
   own shell when the command line names the daemon. Use `pidof kea-dhcp4` or
   `ubus call service list '{"name":"kea"}'`.

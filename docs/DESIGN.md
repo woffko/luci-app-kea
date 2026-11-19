@@ -244,7 +244,9 @@ What Kea is doing, without changing anything.
 - **Log**: the Kea messages of the system log (`logread`), the last thirty,
   split into time, daemon, severity and text. `logread` counts before it
   filters and takes no alternatives in its pattern, so the backend filters
-  and cuts the tail itself.
+  and cuts the tail itself. What is there depends on the loggers of the
+  configuration: everything with `"output": "syslog"`, little with the log
+  file that the configuration files shipped with Kea name.
 - **Leases**: read from the lease files of the memfile backend.
 
 ### Lease files
