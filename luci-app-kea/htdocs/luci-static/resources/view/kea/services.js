@@ -2,6 +2,7 @@
 "require rpc";
 "require view";
 "require ui";
+"require kea.dialogs as dialogs";
 
 var callStatus = rpc.declare({
 	object: "luci.kea",
@@ -107,6 +108,49 @@ function actionButton(title, action, buttonClass, handler) {
 
 function boolValue(value) {
 	return value === true || value === 1 || value === "1";
+}
+
+/*
+ * What dnsmasq or odhcpd is configured to serve, as the lines of a table
+ * cell. DHCP, the part that competes with Kea, is set in bold.
+ */
+function servesLines(name, serves) {
+	var lines = [];
+	var add = function(label, interfaces, competes) {
+		if ((interfaces || []).length)
+			lines.push(E("div", { "style": competes ? "font-weight: 600" : "" },
+				label + ": " + interfaces.join(", ")));
+	};
+
+	if (!serves)
+		return [ "-" ];
+
+	add("DHCPv4", serves.dhcp4, true);
+	add("DHCPv6", serves.dhcp6, true);
+	add(_("Router advertisements"), serves.ra, false);
+
+	if (name === "dnsmasq" && serves.dns)
+		lines.push(E("div", {}, "DNS"));
+
+	return lines.length ? lines : [ _("Nothing") ];
+}
+
+/*
+ * What the network loses besides DHCP when the service is stopped, as a
+ * sentence, or null.
+ */
+function otherDuties(name, serves) {
+	if (!serves)
+		return null;
+
+	if (name === "dnsmasq" && serves.dns)
+		return _("dnsmasq is the DNS server of this router. Without it the clients of the network cannot resolve names.");
+
+	if (name === "odhcpd" && (serves.ra || []).length)
+		return _("odhcpd sends the IPv6 router advertisements on %s. Without them the clients lose their IPv6 addresses and routes.")
+			.format(serves.ra.join(", "));
+
+	return null;
 }
 
 function hasOwn(object, key) {
@@ -289,6 +333,29 @@ return view.extend({
 		});
 	},
 
+	/*
+	 * Stopping a service, or keeping it from starting at boot, also ends
+	 * what it does besides DHCP. Ask first when there is such a thing.
+	 */
+	confirmConflictAction: function(name, action) {
+		var self = this;
+		var service = ((this.status || {}).conflicts || {})[name] || {};
+		var duties = action === "stop" || action === "disable" ? otherDuties(name, service.serves) : null;
+
+		if (!duties)
+			return this.handleConflictAction(name, action);
+
+		dialogs.confirm(
+			action === "stop" ? _("Stop the service") : _("Disable autostart"),
+			duties + " " + (action === "stop" ?
+				_("To end only its DHCP service, switch DHCP off for the interfaces Kea serves instead. Stop it anyway?") :
+				_("To end only its DHCP service, switch DHCP off for the interfaces Kea serves instead. Disable it anyway?")),
+			action === "stop" ? _("Stop") : _("Disable autostart"),
+			function() {
+				return self.handleConflictAction(name, action);
+			});
+	},
+
 	handleConflictAction: function(name, action) {
 		var self = this;
 
@@ -367,7 +434,7 @@ return view.extend({
 				actions.push(
 					running ?
 						actionButton(_("Stop"), "stop", "cbi-button-negative", function(action) {
-							return self.handleConflictAction(serviceDef.name, action);
+							return self.confirmConflictAction(serviceDef.name, action);
 						}) :
 						actionButton(_("Start"), "start", "cbi-button-apply", function(action) {
 							return self.handleConflictAction(serviceDef.name, action);
@@ -379,7 +446,7 @@ return view.extend({
 					" ",
 					enabled ?
 						actionButton(_("Disable autostart"), "disable", "cbi-button-negative", function(action) {
-							return self.handleConflictAction(serviceDef.name, action);
+							return self.confirmConflictAction(serviceDef.name, action);
 						}) :
 						actionButton(_("Enable autostart"), "enable", "cbi-button-apply", function(action) {
 							return self.handleConflictAction(serviceDef.name, action);
@@ -396,19 +463,21 @@ return view.extend({
 				E("td", { "class": "td left" }, installed ? badge(true, _("Installed"), _("Missing")) : badge(false, _("Installed"), _("Missing"))),
 				E("td", { "class": "td left" }, enabled ? badge(true, _("Enabled"), _("Disabled")) : badge(false, _("Enabled"), _("Disabled"))),
 				E("td", { "class": "td left" }, running ? badge(true, _("Running"), _("Stopped")) : badge(false, _("Running"), _("Stopped"))),
+				E("td", { "class": "td left kea-serves" }, installed ? servesLines(serviceDef.name, service.serves) : "-"),
 				E("td", { "class": "td left" }, installed ? actions : neutralBadge(_("Unavailable")))
 			]);
 		});
 
 		return E("div", { "class": "cbi-section" }, [
 			E("h3", _("Potential Conflicts")),
-			E("p", {}, _("Kea and the OpenWrt DHCP services should not answer the same clients at the same time. Stop or disable competing services only after the Kea configuration is ready.")),
-			E("table", { "class": "table" }, [
+			E("p", {}, _("Kea and the OpenWrt DHCP services should not answer the same clients at the same time. The table shows what each service is configured to serve, from /etc/config/dhcp. dnsmasq is usually the DNS server of the router as well, and odhcpd sends the IPv6 router advertisements: rather than stopping a service, switch DHCP off for the interfaces Kea serves (Network > Interfaces > DHCP Server), once the Kea configuration is ready.")),
+			E("table", { "class": "table kea-conflicts" }, [
 				E("tr", { "class": "tr table-titles" }, [
 					E("th", { "class": "th left" }, _("Service")),
 					E("th", { "class": "th left" }, _("Installed")),
 					E("th", { "class": "th left" }, _("Autostart")),
 					E("th", { "class": "th left" }, _("Runtime")),
+					E("th", { "class": "th left" }, _("Configured to serve")),
 					E("th", { "class": "th left" }, _("Actions"))
 				])
 			].concat(rows))

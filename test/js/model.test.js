@@ -417,6 +417,101 @@ test("a lease file cleanup interval creates the lease database entry if needed",
 
 /* ---- reservations ------------------------------------------------------ */
 
+/*
+ * The loggers of the files shipped with Kea: one logger that writes to a
+ * file, with options that only matter for a file.
+ */
+function stockLoggers() {
+	return {
+		Dhcp4: {
+			"valid-lifetime": 4000,
+			loggers: [ {
+				name: "kea-dhcp4",
+				"output-options": [ { output: "kea-dhcp4.log", maxsize: 1048576, maxver: 8 } ],
+				severity: "INFO",
+				debuglevel: 0
+			} ]
+		}
+	};
+}
+
+test("the log output of the loggers is one field", () => {
+	assert.equal(model.buildGlobal("dhcp4", stockLoggers()).logOutput, "kea-dhcp4.log");
+	assert.equal(model.buildGlobal("dhcp4", load("kea-dhcp4-rich.conf")).logOutput, "syslog");
+	assert.equal(model.buildGlobal("dhcp4", { Dhcp4: {} }).logOutput, "",
+		"no logger names an output: Kea prints");
+	assert.equal(model.buildGlobal("dhcp4", { Dhcp4: { loggers: [ { name: "kea-dhcp4" } ] } }).logOutput, "");
+	assert.equal(model.buildGlobal("dhcp4", { Dhcp4: { loggers: [
+		{ name: "kea-dhcp4", "output-options": [ { output: "syslog" } ] },
+		{ name: "kea-dhcp4.leases", output_options: [ { output: "leases.log" } ] }
+	] } }).logOutput, model.MIXED_OUTPUTS, "the older spelling of the list is read as well");
+});
+
+test("choosing the system log changes the output and nothing else", () => {
+	const config = stockLoggers();
+	const result = roundTrip("dhcp4", config, (tabs, settings) => {
+		settings.logOutput = "syslog";
+	});
+
+	assert.deepEqual(diffPaths(config, result.config), [ "/Dhcp4/loggers/0/output-options/0/output" ]);
+	assert.equal(result.config.Dhcp4.loggers[0]["output-options"][0].output, "syslog");
+	assert.equal(config.Dhcp4.loggers[0]["output-options"][0].output, "kea-dhcp4.log",
+		"the configuration that was loaded is not touched");
+});
+
+test("every logger is pointed at the chosen output", () => {
+	const config = { Dhcp6: { loggers: [
+		{ name: "kea-dhcp6", "output-options": [ { output: "kea-dhcp6.log" }, { output: "stdout" } ] },
+		{ name: "kea-dhcp6.leases", output_options: [ { output: "leases.log", flush: true } ] }
+	] } };
+	const result = roundTrip("dhcp6", config, (tabs, settings) => {
+		assert.equal(settings.logOutput, model.MIXED_OUTPUTS);
+		settings.logOutput = "stdout";
+	});
+
+	assert.deepEqual(result.config.Dhcp6.loggers, [
+		{ name: "kea-dhcp6", "output-options": [ { output: "stdout" }, { output: "stdout" } ] },
+		{ name: "kea-dhcp6.leases", output_options: [ { output: "stdout", flush: true } ] }
+	]);
+});
+
+test("without an output to change, the form adds one", () => {
+	const none = roundTrip("dhcp6", { Dhcp6: {} }, (tabs, settings) => {
+		settings.logOutput = "syslog";
+	});
+
+	assert.deepEqual(none.config.Dhcp6.loggers, [
+		{ name: "kea-dhcp6", "output-options": [ { output: "syslog" } ], severity: "INFO" }
+	]);
+
+	const bare = roundTrip("dhcp4", { Dhcp4: { loggers: [ { name: "kea-dhcp4", severity: "DEBUG" } ] } },
+		(tabs, settings) => {
+			settings.logOutput = "syslog";
+		});
+
+	assert.deepEqual(bare.config.Dhcp4.loggers, [
+		{ name: "kea-dhcp4", severity: "DEBUG", "output-options": [ { output: "syslog" } ] }
+	]);
+});
+
+test("the loggers stay as they are unless the field was changed to an output the form offers", () => {
+	const config = stockLoggers();
+
+	assert.deepEqual(model.LOG_OUTPUTS, [ "syslog", "stdout" ]);
+	assert.ok(model.deepEqual(roundTrip("dhcp4", config, (tabs, settings) => {
+		settings.renewTimer = "600";
+	}).config.Dhcp4.loggers, config.Dhcp4.loggers));
+
+	/* A value the form does not offer is never written, whatever sets it. */
+	for (const value of [ "/tmp/kea.log", "", model.MIXED_OUTPUTS ]) {
+		const result = roundTrip("dhcp4", config, (tabs, settings) => {
+			settings.logOutput = value;
+		});
+
+		assert.ok(model.deepEqual(result.config, config), JSON.stringify(value));
+	}
+});
+
 test("dhcp4: reservations keyed by client-id and flex-id load and save intact", () => {
 	const config = load("kea-dhcp4-rich.conf");
 	const tabs = model.buildTabs("dhcp4", config, INTERFACES);

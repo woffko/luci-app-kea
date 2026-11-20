@@ -46,6 +46,7 @@ function renderValidation(config) {
 		E("div", {
 			"class": valid ? "alert-message success" : "alert-message warning"
 		}, valid ? _("Valid") : _("Invalid")),
+		valid ? (backend.renderWarnings(config.warnings) || "") : "",
 		config.validation ? E("pre", {
 			"style": "white-space: pre-wrap; max-height: 18rem; overflow: auto"
 		}, config.validation) : ""
@@ -104,18 +105,10 @@ return view.extend({
 			return Promise.resolve();
 		}
 
-		return backend.saveConfig(name, this.textarea.value).then(function(saved) {
+		return backend.write(name, this.textarea.value, apply).then(function(saved) {
 			/* Kea refused the text: it stays in the editor to be corrected. */
-			if (!saved)
-				return;
-
-			if (!apply)
-				backend.notify(backend.daemonName(name) + ": " +
-					_("configuration saved. Reload or restart Kea to apply it."));
-
-			return Promise.resolve(apply ? backend.applyConfig(name) : null).then(function() {
+			if (saved)
 				return self.loadConfig(name);
-			});
 		});
 	},
 

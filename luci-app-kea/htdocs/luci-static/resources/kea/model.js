@@ -27,6 +27,7 @@ var FAMILIES = {
 		name: "dhcp4",
 		version: 4,
 		root: "Dhcp4",
+		logger: "kea-dhcp4",
 		subnets: "subnet4",
 		space: "dhcp4",
 		idTypes: [ "hw-address", "client-id", "duid", "circuit-id", "flex-id" ],
@@ -51,6 +52,7 @@ var FAMILIES = {
 		name: "dhcp6",
 		version: 6,
 		root: "Dhcp6",
+		logger: "kea-dhcp6",
 		subnets: "subnet6",
 		space: "dhcp6",
 		idTypes: [ "duid", "hw-address", "flex-id" ],
@@ -88,8 +90,18 @@ var LABELS = {
 	rebindTimer: _("Rebind Timer"),
 	preferredLifetime: _("Preferred Lifetime"),
 	validLifetime: _("Valid Lifetime"),
-	lfcInterval: _("Lease File Cleanup")
+	lfcInterval: _("Lease File Cleanup"),
+	logOutput: _("Log Output")
 };
+
+/*
+ * The value of the log output field when the loggers of a configuration do
+ * not all write to the same place. The form leaves such loggers alone.
+ */
+var MIXED_OUTPUTS = "*";
+
+/* The log outputs the form can set; a log file is left to the raw editor. */
+var LOG_OUTPUTS = [ "syslog", "stdout" ];
 
 function hasOwn(object, key) {
 	return Object.prototype.hasOwnProperty.call(object, key);
@@ -1280,12 +1292,75 @@ function buildTabs(family, config, interfaces) {
 
 /* ---- global settings -------------------------------------------------- */
 
+/*
+ * The output options of all loggers, as the objects of the configuration.
+ * Kea 3.0 still reads the older spelling "output_options".
+ */
+function loggerOutputOptions(root) {
+	var result = [];
+
+	array(root.loggers).forEach(function(logger) {
+		if (!isObject(logger))
+			return;
+
+		array(logger["output-options"] || logger["output_options"]).forEach(function(option) {
+			if (isObject(option))
+				result.push(option);
+		});
+	});
+
+	return result;
+}
+
+/*
+ * Where the loggers write: the output they share, "" when no logger names
+ * one (Kea then prints to its standard output), or MIXED_OUTPUTS.
+ */
+function logOutput(root) {
+	var outputs = loggerOutputOptions(root).map(function(option) {
+		return text(option.output);
+	});
+	var same = outputs.every(function(output) {
+		return output === outputs[0];
+	});
+
+	if (!outputs.length)
+		return "";
+
+	return same ? outputs[0] : MIXED_OUTPUTS;
+}
+
+/* Point every logger at one output; without loggers, add the daemon's own. */
+function setLogOutput(family, root, output) {
+	var options = loggerOutputOptions(root);
+	var loggers = array(root.loggers).filter(isObject);
+
+	if (options.length) {
+		options.forEach(function(option) {
+			option.output = output;
+		});
+	}
+	else if (loggers.length) {
+		loggers.forEach(function(logger) {
+			logger["output-options"] = [ { output: output } ];
+		});
+	}
+	else {
+		root.loggers = [ {
+			name: family.logger,
+			"output-options": [ { output: output } ],
+			severity: "INFO"
+		} ];
+	}
+}
+
 function buildGlobal(family, config) {
 	var root = isObject(config) && isObject(config[family.root]) ? config[family.root] : {};
 	var database = isObject(root["lease-database"]) ? root["lease-database"] : {};
 	var global = {
 		lfcInterval: text(database["lfc-interval"]),
 		leaseType: text(database.type),
+		logOutput: logOutput(root),
 		options: loadOptionRows(root, null)
 	};
 	var field;
@@ -1293,7 +1368,7 @@ function buildGlobal(family, config) {
 	for (field in family.timers)
 		global[field] = text(root[family.timers[field]]);
 
-	global.initial = snapshot(global, Object.keys(family.timers).concat([ "lfcInterval" ]));
+	global.initial = snapshot(global, Object.keys(family.timers).concat([ "lfcInterval", "logOutput" ]));
 
 	return global;
 }
@@ -1336,6 +1411,10 @@ function applyGlobal(family, root, global, errors) {
 			root["lease-database"]["lfc-interval"] = Number(global.lfcInterval);
 		}
 	}
+
+	/* Only the outputs the form offers are written; anything else stays. */
+	if (changed("logOutput") && LOG_OUTPUTS.indexOf(global.logOutput) >= 0)
+		setLogOutput(family, root, global.logOutput);
 
 	applyOptionRows(root, global.options, null, label, errors);
 }
@@ -1709,6 +1788,9 @@ return baseclass.extend({
 	label: function(field) {
 		return LABELS[field];
 	},
+
+	MIXED_OUTPUTS: MIXED_OUTPUTS,
+	LOG_OUTPUTS: LOG_OUTPUTS,
 
 	stripJsonComments: stripJsonComments,
 	deepEqual: deepEqual,

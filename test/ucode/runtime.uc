@@ -216,6 +216,32 @@ test('a log line is split into time, daemon, severity and text', () => {
 	equal(runtime.parse_log_line('free text'), { time: '', daemon: '', severity: '', text: 'free text' });
 });
 
+test('a line that procd passed on is split as well', () => {
+	// What a daemon prints before its loggers are set up, and everything a
+	// logger writes to the standard output. Lines as logged on OpenWrt 25.12.6.
+	equal(runtime.parse_log_line(
+		'Thu Nov 19 17:07:53 2026 daemon.info kea-dhcp4[4019]: 2026-11-19 17:07:53.198 INFO  ' +
+		'[kea-dhcp4.dhcp4/4019.140353631573520] DHCP4_STARTING Kea DHCPv4 server version 3.0.4 (stable) starting'), {
+		time: 'Thu Nov 19 17:07:53 2026',
+		daemon: 'kea-dhcp4',
+		severity: 'INFO',
+		text: 'DHCP4_STARTING Kea DHCPv4 server version 3.0.4 (stable) starting'
+	});
+
+	let failed = runtime.parse_log_line(
+		'Thu Nov 19 17:07:53 2026 daemon.err kea-dhcp4[4019]: 2026-11-19 17:07:53.202 ERROR ' +
+		'[kea-dhcp4.dhcp4/4019.140353631573520] DHCP4_INIT_FAIL failed to initialize Kea server');
+
+	equal(failed.severity, 'ERROR');
+	equal(failed.text, 'DHCP4_INIT_FAIL failed to initialize Kea server');
+
+	// procd logs the standard error as "err"; the severity is the one Kea gave.
+	equal(runtime.parse_log_line(
+		'Thu Nov 19 19:54:19 2026 daemon.err kea-dhcp4[4262]: 2026-11-19 19:54:19.811 INFO  ' +
+		'[kea-dhcp4.dhcp4/4262.140602355344912] DHCP4_STARTED Kea DHCPv4 server version 3.0.4 started').severity,
+		'INFO');
+});
+
 test('the last Kea messages are returned, oldest first, and nothing else', () => {
 	let logctx = config.context({ root, log_reader: () => join('\n', LOG) });
 	let reply = runtime.log(logctx, 30);
@@ -224,7 +250,35 @@ test('the last Kea messages are returned, oldest first, and nothing else', () =>
 	equal(map(reply.lines, line => line.daemon), [ 'kea-dhcp6', 'kea-dhcp4', 'kea-lfc' ]);
 	equal(map(runtime.log(logctx, 2).lines, line => line.daemon), [ 'kea-dhcp4', 'kea-lfc' ]);
 	equal(length(runtime.log(logctx, 'many').lines), 3, 'a wrong count falls back to the default');
-	equal(runtime.log(config.context({ root, log_reader: () => '' }), 30), { result: true, lines: [] });
+	// No daemon is installed in this context, whatever the machine has.
+	equal(runtime.log(config.context({ root, sbin_dir: root + '/no-sbin', log_reader: () => '' }), 30),
+		{ result: true, lines: [], outputs: {} });
+});
+
+test('the log reply says where each installed daemon writes its log', () => {
+	let sbin = root + '/log-sbin';
+	let logctx = config.context({ root, sbin_dir: sbin, log_reader: () => '' });
+
+	config.mkdir_p(sbin, 0o755);
+	config.mkdir_p(logctx.conf_dir, 0o755);
+
+	for (let name in [ 'kea-dhcp4', 'kea-dhcp6' ]) {
+		fs.writefile(sbin + '/' + name, '#!/bin/sh\n');
+		fs.chmod(sbin + '/' + name, 0o755);
+	}
+
+	// kea-dhcp6 is installed but has no configuration file; kea-dhcp-ddns
+	// has a file but is not installed.
+	fs.writefile(config.path(logctx, 'dhcp4'),
+		'{ "Dhcp4": { "loggers": [ { "name": "kea-dhcp4", "output-options": [ { "output": "kea-dhcp4.log" } ] } ] } }');
+	fs.writefile(config.path(logctx, 'dhcp_ddns'), '{ "DhcpDdns": { } }');
+
+	equal(runtime.log(logctx, 30).outputs, {
+		dhcp4: [ { output: 'kea-dhcp4.log', kind: 'file', path: '/var/log/kea/kea-dhcp4.log', lost: true } ]
+	});
+
+	fs.unlink(config.path(logctx, 'dhcp4'));
+	fs.unlink(config.path(logctx, 'dhcp_ddns'));
 });
 
 // ---- version ----------------------------------------------------------------

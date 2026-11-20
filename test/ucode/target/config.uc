@@ -111,6 +111,66 @@ else {
 	print('# skipped: the hook check needs kea-dhcp4 and kea-hook-ha\n');
 }
 
+// What start_warnings() is for: settings that Kea accepts when it checks a
+// file and refuses when it starts. These cases show the first half with the
+// Kea of the target. If one of them fails, that Kea has begun to refuse the
+// setting in its check, and the warning for it is no longer needed.
+if (fs.access('/usr/sbin/kea-dhcp4', 'x')) {
+	const dhcp4 = members => sprintf('%.J\n', {
+		Dhcp4: { 'interfaces-config': { interfaces: [] }, ...members }
+	});
+
+	test('Kea accepts a lease file outside its lease directory; the save reports it', () => {
+		let saved = config.save(ctx, 'dhcp4',
+			dhcp4({ 'lease-database': { type: 'memfile', name: '/tmp/kea-test-leases4.csv' } }));
+
+		equal(saved.result, true, saved.validation);
+		equal(saved.warnings,
+			[ { code: 'lease-path', value: '/tmp/kea-test-leases4.csv', directory: '/var/lib/kea' } ]);
+		equal(config.read(ctx, 'dhcp4').warnings, saved.warnings);
+		ok(!fs.access('/tmp/kea-test-leases4.csv'), 'the check did not create the file');
+	});
+
+	test('Kea accepts a log file outside its log directory; the save reports it', () => {
+		let saved = config.save(ctx, 'dhcp4', dhcp4({
+			'lease-database': { type: 'memfile', persist: false },
+			loggers: [ { name: 'kea-dhcp4', 'output-options': [ { output: '/tmp/kea-test.log' } ] } ]
+		}));
+
+		equal(saved.result, true, saved.validation);
+		equal(saved.warnings,
+			[ { code: 'log-path', value: '/tmp/kea-test.log', logger: 'kea-dhcp4', directory: '/var/log/kea' } ]);
+	});
+
+	test('a file without such settings is saved without warnings', () => {
+		let saved = config.save(ctx, 'dhcp4', dhcp4({
+			'lease-database': { type: 'memfile', name: 'kea-test-leases4.csv' },
+			loggers: [ { name: 'kea-dhcp4', 'output-options': [ { output: 'syslog' } ] } ]
+		}));
+
+		equal(saved.result, true, saved.validation);
+		equal(saved.warnings, []);
+	});
+}
+else {
+	print('# skipped: the checks of lease and log paths need kea-dhcp4\n');
+}
+
+test('kea-dhcp-ddns refuses a log file outside the log directory itself', () => {
+	let before = fs.readfile(file);
+	let saved = config.save(ctx, 'dhcp_ddns', sprintf('%.J\n', {
+		DhcpDdns: {
+			'ip-address': '127.0.0.1',
+			port: 53001,
+			loggers: [ { name: 'kea-dhcp-ddns', 'output-options': [ { output: '/tmp/kea-test.log' } ] } ]
+		}
+	}));
+
+	equal(saved.result, false);
+	ok(match(saved.validation, /supported path is '\/var\/log\/kea'/), saved.validation);
+	equal(fs.readfile(file), before);
+});
+
 test('validate_all on the system reports all four daemons', () => {
 	let all = config.validate_all(config.context());
 
@@ -119,6 +179,7 @@ test('validate_all on the system reports all four daemons', () => {
 	for (let name, item in all) {
 		equal(type(item.valid), 'bool', name);
 		equal(type(item.output), 'string', name);
+		equal(type(item.warnings), 'array', name);
 	}
 });
 

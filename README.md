@@ -4,7 +4,7 @@
 
 LuCI application for managing the ISC Kea DHCP server on OpenWrt.
 
-> **Status: alpha (0.7.0).** Usable for testing on a lab router. Not ready to
+> **Status: alpha (0.8.0).** Usable for testing on a lab router. Not ready to
 > replace a production dnsmasq/odhcpd setup yet: see
 > [Known limitations](#known-limitations).
 
@@ -25,16 +25,17 @@ It is developed as a standalone package for now, with a later submission to
 Menu location: **Services > Kea DHCP**.
 
 - **Overview**: Kea version, installed components and hooks, config files,
-  the result of checking each file, and the recent Kea messages of the
-  system log.
+  the result of checking each file, the recent Kea messages of the system
+  log, and where each daemon writes its log when that is somewhere else.
 - **Services**: start, stop, restart, reload and autostart for the Kea init
   service; enable or disable `kea-dhcp4`, `kea-dhcp6`, `kea-dhcp-ddns` and
-  `kea-ctrl-agent`; state and explicit controls for `dnsmasq` and `odhcpd`.
+  `kea-ctrl-agent`; what `dnsmasq` and `odhcpd` are configured to serve,
+  their state, and explicit controls for them.
 - **DHCPv4**: one tab per interface or subnet with the subnet, its address
   pools, gateway, DNS servers, domain, timers, any other DHCP option, and
   reservations by MAC address, client ID, DUID, circuit ID or flex ID. A
-  last tab holds the global timers, the lease file cleanup interval and the
-  options for all subnets.
+  last tab holds the global timers, the lease file cleanup interval, the
+  log output and the options for all subnets.
 - **DHCPv6**: the same with prefix delegation pools and reservations by
   DUID, MAC address or flex ID.
 - **High availability**: a tab of the DHCPv4 and DHCPv6 pages when
@@ -65,6 +66,11 @@ replaced, for the DHCP daemons with their hook libraries loaded
 `/etc/kea/backups/` (the ten newest per file). **Save & Apply** also reloads
 a running Kea daemon and tells you whether it is still running afterwards.
 
+The check of Kea does not see everything. A lease file or a log file in a
+directory Kea 3 does not allow passes it, and the daemon then does not
+start. The application warns about these two settings wherever it shows the
+result of the check, and asks before it reloads a running daemon with them.
+
 ## Screenshots
 
 The DHCPv4 page. Each interface has a tab; a reservation can be switched off
@@ -87,7 +93,7 @@ cannot be imported, the reason.
 <img src="docs/images/import.png" alt="Import page listing static leases with their states" width="820">
 
 The Services page, with the OpenWrt DHCP services that would compete with
-Kea.
+Kea and what they are configured to serve.
 
 <img src="docs/images/services.png" alt="Services page with the Kea init service, conflicting services and components" width="820">
 
@@ -218,12 +224,16 @@ where the feed scripts do not find it.
   The application shows the state of both and never stops them on its own.
 - Leave the lease file where Kea puts it. Kea 3.0 accepts a lease file only
   in `/var/lib/kea` and a log file only in `/var/log/kea`. Another directory
-  passes the check of the configuration, also the one this application
-  makes, and the daemon then does not start.
-- To see the messages of Kea on the **Overview** page, set
-  `"output": "syslog"` in the `loggers` of the configuration. The files
-  shipped with Kea name a log file in a directory that OpenWrt does not
-  have, and what is written there is lost.
+  passes the check of the configuration, and the daemon then does not
+  start. The application warns about it.
+- To see the messages of Kea on the **Overview** page, set **Log Output** to
+  the system log on the Global settings tab of the DHCPv4 and DHCPv6 pages.
+  The configuration files shipped with Kea name a log file in a directory
+  that OpenWrt does not have, and what is written there is lost. Overview
+  says so when that is the case.
+- Do not stop dnsmasq to make room for Kea: on most routers it is also the
+  DNS server. Switch its DHCP off for the interfaces Kea serves. The
+  **Services** page shows what dnsmasq and odhcpd serve.
 
 ## Documentation
 

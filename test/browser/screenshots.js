@@ -12,7 +12,8 @@
  *
  * The Leases picture also needs the lease fixture
  * (test/make-lease-fixture.sh), and the high availability pictures the
- * kea-hook-ha package.
+ * kea-hook-ha package. No daemon is started, stopped or reloaded: the
+ * calls that would do so are answered by the script itself.
  *
  * Without arguments every picture is taken. Picture names as arguments
  * limit the run to those, and to their preconditions:
@@ -30,13 +31,18 @@ const path = require("node:path");
 process.env.OUT_DIR = process.env.OUT_DIR || path.join(__dirname, "..", "..", "docs", "images");
 
 const {
-	openPage, screenshot, waitForModal, main, footerButton, readRawConfig, writeRawConfig,
+	openPage, screenshot, waitForModal, main, footerButton, expectNotification,
+	openRawEditor, readRawConfig, writeRawConfig, interceptServiceCalls,
 	fieldRow, fieldInput, tableRows, addRow, openTab
 } = require("./lib.js");
+const { loadModule } = require("../js/luci-loader.js");
+
+const model = loadModule("kea.model");
 
 const PICTURES = [
 	"overview", "services", "dhcp4", "changes", "global",
 	"ha", "ha-load-balancing", "ha-checks", "ha-changes",
+	"warnings", "reload",
 	"dhcp6", "leases", "configuration", "import"
 ];
 const ONLY = process.argv.slice(2);
@@ -62,8 +68,11 @@ const FIXTURES = { dhcp4: fixture("kea-dhcp4-rich.conf"), dhcp6: fixture("kea-dh
 /*
  * A fresh test machine has no root password, and LuCI says so on every
  * page. The banner has nothing to do with this application; leave it out.
+ *
+ * "top" is a locator of what the picture starts with, for a picture of the
+ * visible part of a long page; without it the page is shown from its top.
  */
-async function capture(page, name, viewport) {
+async function capture(page, name, viewport, top) {
 	if (!wanted(name))
 		return;
 
@@ -74,6 +83,12 @@ async function capture(page, name, viewport) {
 		});
 		document.scrollingElement.scrollTop = 0;
 	});
+
+	/* The menu bar of LuCI stays at the top of the window; keep clear of it. */
+	if (top)
+		await top.evaluate((node) => {
+			document.scrollingElement.scrollTop = node.getBoundingClientRect().top - 60;
+		});
 
 	await screenshot(page, name, viewport);
 	console.log("wrote " + name + ".png");
@@ -175,6 +190,46 @@ async function highAvailability(page) {
 	}
 }
 
+/*
+ * A lease file in /tmp: Kea accepts the configuration when it checks it and
+ * does not start with it. The file is saved for the pictures, and the
+ * fixture is put back afterwards.
+ */
+async function startWarnings(page, fixture) {
+	const state = { blocked: [], running: false };
+	const config = model.parseConfig(fixture).config;
+
+	config.Dhcp4["lease-database"].name = "/tmp/kea-leases4.csv";
+
+	await interceptServiceCalls(page, state);
+	await openRawEditor(page, "dhcp4");
+	await page.locator("#view textarea").fill(model.serialize(config));
+	await footerButton(page, "Save").click();
+	await expectNotification(page, "does not start with it");
+
+	/* The result of the check with the warning, and where the logs go. */
+	await openPage(page, "overview", "Kea DHCP");
+	await page.locator("#view .kea-start-warnings").waitFor();
+	await capture(page, "warnings", true, page.locator("#view h3", { hasText: /^Validation$/ }));
+
+	/* What Save & Apply asks when the daemon is running. */
+	if (wanted("reload")) {
+		state.running = true;
+		await openPage(page, "dhcp4", "Kea DHCPv4");
+		await page.locator("#view h3", { hasText: "br-lan" }).first().waitFor();
+		await openTab(page, "Global settings");
+		await fieldInput(page, "Renew Timer").fill("600");
+		await footerButton(page, "Save & Apply").click();
+		await waitForModal(page);
+		await capture(page, "reload", true);
+		await page.locator(".modal button", { hasText: /^Cancel$/ }).click();
+		await expectNotification(page, "configuration saved, not applied");
+		state.running = false;
+	}
+
+	await writeRawConfig(page, "dhcp4", fixture);
+}
+
 main(async (page) => {
 	const originals = {};
 
@@ -218,6 +273,9 @@ main(async (page) => {
 
 		if (wanted("ha", "ha-load-balancing", "ha-checks", "ha-changes"))
 			await highAvailability(page);
+
+		if (wanted("warnings", "reload"))
+			await startWarnings(page, FIXTURES.dhcp4);
 
 		if (wanted("dhcp6")) {
 			await openPage(page, "dhcp6", "Kea DHCPv6");

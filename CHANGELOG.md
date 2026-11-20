@@ -9,6 +9,43 @@ Released versions are tagged `vX.Y.Z` and have their package on the
 [Releases page](https://github.com/woffko/luci-app-kea/releases). All
 versions are alpha.
 
+## 0.8.0-r1 (2026-11-19)
+
+### Added
+
+- A warning for a configuration that Kea accepts when it checks it and does
+  not start with: a lease file outside `/var/lib/kea`, or a log file outside
+  `/var/log/kea`. It is shown on **Overview**, on the **DHCPv4** and
+  **DHCPv6** pages, on the **Configuration** page, and after a save. A save
+  is never refused for it.
+- **Save & Apply** asks before it reloads a running daemon with such a
+  configuration. With the answer no, the file stays saved and the daemon
+  keeps running with its previous configuration.
+- **Overview** says which daemons write their log to a file instead of the
+  system log, and when that file is in a directory that does not exist, so
+  that nothing is logged at all. That is the case with the configuration
+  files shipped with Kea.
+- **Log Output** on the Global settings tab of the DHCPv4 and DHCPv6 pages
+  moves the loggers of the daemon to the system log.
+- **Services** shows what dnsmasq and odhcpd are configured to serve: DHCPv4
+  and DHCPv6 by interface, router advertisements, DNS. It asks before
+  stopping dnsmasq where it is the DNS server, and odhcpd where it sends
+  router advertisements.
+
+### Fixed
+
+- **Overview** shows the severity of the Kea messages that reach the system
+  log through procd: what a daemon prints while it starts, and everything
+  when a logger writes to the standard output. They were shown as one text
+  with Kea's own time in front.
+- The warning about a second DHCP server on an interface no longer suggests
+  stopping dnsmasq or odhcpd, and it follows `maindhcp` of odhcpd.
+
+### Upgrade notes
+
+Nothing to do. The new warnings and notes may appear for a configuration
+that was there before the upgrade; no file is changed by the upgrade.
+
 ## 0.7.0-r1 (2026-11-13)
 
 Released on 2026-11-17 as `v0.7.0`, the first release. The versions below

@@ -186,8 +186,16 @@ test('status reports installed parts and running conflicts', () => {
 	equal(sort(keys(status.binaries)), [ 'ctrl_agent', 'dhcp4', 'dhcp6', 'dhcp_ddns', 'lfc', 'shell' ]);
 	equal(status.binaries.dhcp4.path, '/usr/sbin/kea-dhcp4');
 	equal(sort(keys(status.configs)), [ 'ctrl_agent', 'dhcp4', 'dhcp6', 'dhcp_ddns' ]);
-	equal(status.conflicts.dnsmasq, { installed: true, enabled: true, running: true, init: '/etc/init.d/dnsmasq' });
-	equal(status.conflicts.odhcpd, { installed: false, enabled: false, running: false, init: '/etc/init.d/odhcpd' });
+	equal(status.conflicts.dnsmasq, {
+		installed: true, enabled: true, running: true, init: '/etc/init.d/dnsmasq',
+		serves: { dns: true, dhcp4: [ 'lan' ] }
+	});
+	// What a service is configured to serve is reported whether or not it
+	// is installed and running: it is read from /etc/config/dhcp.
+	equal(status.conflicts.odhcpd, {
+		installed: false, enabled: false, running: false, init: '/etc/init.d/odhcpd',
+		serves: { dhcp4: [], dhcp6: [ 'lan' ], ra: [] }
+	});
 	equal(type(status.hooks.ha), 'bool');
 	equal(status.hooks.dir, '/usr/lib/kea/hooks');
 });

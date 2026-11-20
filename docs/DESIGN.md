@@ -246,7 +246,13 @@ What Kea is doing, without changing anything.
   filters and takes no alternatives in its pattern, so the backend filters
   and cuts the tail itself. What is there depends on the loggers of the
   configuration: everything with `"output": "syslog"`, little with the log
-  file that the configuration files shipped with Kea name.
+  file that the configuration files shipped with Kea name. The page
+  therefore also says where each installed daemon writes its log when that
+  is a file, and whether the directory of that file exists.
+- A message reaches the system log in one of two shapes: written to syslog
+  by Kea, or printed by the daemon and passed on by procd with Kea's own
+  time in front. Both are split; the severity shown is the one Kea gave,
+  not the level procd logged the line with.
 - **Leases**: read from the lease files of the memfile backend.
 
 ### Lease files
@@ -306,8 +312,49 @@ Semantic checks are not repeated in ucode. The Kea binary already refuses
 what they would refuse, and a second implementation of the same rules would
 only drift from the first.
 
-Still open: a check that the daemon can actually start with the file. The
-Kea binary's test does not open sockets or interfaces.
+Still open: a general check that the daemon can actually start with the
+file. The Kea binary's test does not open sockets or interfaces.
+
+### What the check accepts and the daemon refuses
+
+Two settings are known to pass the test of Kea 3.0.4, also with `-T`, and
+to stop the daemon when it starts: a lease file whose directory is not
+`/var/lib/kea`, and a log file whose directory is not `/var/log/kea`. Kea
+compares the text before the last slash of the name, so a subdirectory and
+a doubled slash are refused too; a name without a slash is fine. The lease
+file is not looked at when `persist` is false. Only the DHCP daemons are
+affected: `kea-dhcp-ddns` and `kea-ctrl-agent` refuse such a log file in
+their test.
+
+The backend looks for these two settings in every file that passed the test
+and returns them as warnings: with the result of the test, with a file that
+is read, and with a save or a restore.
+
+- **A warning is not a refusal.** The rule was measured with one Kea version
+  on one build. Another may allow other directories, and an environment
+  variable (`KEA_DHCP_DATA_DIR`) moves the lease directory. A file Kea
+  accepts stays savable.
+- **Applying is asked about.** When Save & Apply would reload a running
+  daemon with such a file, the page asks first. The file is saved by then;
+  with the answer no the daemon keeps running with what it has, and the
+  page shows the warning for the file from then on.
+- **The backend names the setting, the page words it.** A warning is a code
+  with the value and the directory, so that the text can be translated.
+
+### Where the log goes
+
+The Global settings tab has one field for the output of the loggers. It
+shows what the file has: one output, several different ones, or none, in
+which case Kea prints to its standard output. It offers two outputs to
+change to, the system log and the standard output, both of which end in the
+system log on OpenWrt. A log file cannot be chosen there: Kea writes log
+files only to `/var/log/kea`, which OpenWrt does not create, and a file
+elsewhere stops the daemon. A file that is already configured stays until
+the field is changed, and can still be set on the Configuration page.
+
+Choosing an output sets it in every output option of every logger. Options
+that only matter for a file (`maxsize`, `maxver`, `flush`) stay; Kea accepts
+them with syslog. Without any logger the form adds one for the daemon.
 
 ### Second DHCP server on an interface
 
@@ -316,6 +363,22 @@ makes dnsmasq or odhcpd serve DHCPv4 or DHCPv6 on it. The editor warns on the
 tab of such an interface while Kea is enabled on it and dnsmasq or odhcpd is
 running. It is a warning, not a block: moving a network from dnsmasq to Kea
 passes through this state.
+
+The same reading of `/etc/config/dhcp` is shown on the Services page, by
+service: the interfaces on which dnsmasq answers DHCPv4, those on which
+odhcpd answers DHCPv6 and sends router advertisements, and whether dnsmasq
+is a DNS server. The rules are the ones of the init scripts of OpenWrt
+25.12: a section with `ignore` serves nothing; dnsmasq answers DHCPv4 unless
+the section says `dhcpv4 'disabled'`; where odhcpd is the main DHCP server
+(`maindhcp`) it answers DHCPv4 instead, on sections with `dhcpv4 'server'`;
+DHCPv6 and router advertisements need `server`, `relay` or `hybrid`; dnsmasq
+is a DNS server unless its port is 0.
+
+The way to hand a network to Kea is to switch DHCP off for its interface,
+not to stop a service: dnsmasq is usually the DNS server as well, and odhcpd
+sends the router advertisements. The page says so, and asks before it stops
+either of them, or takes it out of the boot sequence, while it has such a
+duty.
 
 ## Test plan
 

@@ -146,6 +146,65 @@ async function writeRawConfig(page, name, content) {
 	await expectNotification(page, "configuration saved");
 }
 
+/* ---- acting on services without acting on them ---- */
+
+/* Calls that start, stop or reload a service on the target. */
+const SERVICE_ACTIONS = [ "setInitAction", "setConflictAction" ];
+
+function keaMethod(call) {
+	return call && Array.isArray(call.params) && call.params[1] === "luci.kea" ? call.params[2] : null;
+}
+
+/*
+ * Keep the page from acting on the services of the target: the calls that
+ * would do so are answered here, as failed, and noted in state.blocked.
+ * While state.running is set, the page is also told that kea-dhcp4 is
+ * running, so that what it does with a running daemon can be seen without
+ * one.
+ */
+async function interceptServiceCalls(page, state) {
+	await page.route(/\/ubus\/?(\?.*)?$/, async (route) => {
+		let sent = null;
+
+		try {
+			sent = JSON.parse(route.request().postData() || "null");
+		}
+		catch {
+			/* not a call of the kind looked at here */
+		}
+
+		const calls = Array.isArray(sent) ? sent : sent ? [ sent ] : [];
+		const reply = (list) => JSON.stringify(Array.isArray(sent) ? list : list[0]);
+
+		if (calls.some((call) => SERVICE_ACTIONS.includes(keaMethod(call)))) {
+			calls.forEach((call) => state.blocked.push(keaMethod(call)));
+
+			return route.fulfill({
+				contentType: "application/json",
+				body: reply(calls.map((call) => ({ jsonrpc: "2.0", id: call.id, result: [ 0, { result: false } ] })))
+			});
+		}
+
+		if (state.running && calls.some((call) => keaMethod(call) === "getServices")) {
+			const response = await route.fetch();
+			const body = await response.json();
+			const answers = Array.isArray(body) ? body : [ body ];
+
+			calls.filter((call) => keaMethod(call) === "getServices").forEach((call) => {
+				const answer = answers.find((candidate) => candidate && candidate.id === call.id);
+				const services = answer && answer.result && answer.result[1] && answer.result[1].services;
+
+				if (services && services.dhcp4)
+					services.dhcp4.running = true;
+			});
+
+			return route.fulfill({ response, body: reply(answers) });
+		}
+
+		return route.continue();
+	});
+}
+
 /* ---- helpers for the structured editors ---- */
 
 /* The form row with the given label. */
@@ -190,5 +249,6 @@ async function openTab(page, label) {
 module.exports = {
 	BASE_URL, CONFIG_FILES, openPage, screenshot, waitForModal, main,
 	footerButton, expectNotification, openRawEditor, readRawConfig, writeRawConfig,
+	interceptServiceCalls,
 	fieldRow, fieldInput, tableRows, tableValues, addRow, openTab
 };

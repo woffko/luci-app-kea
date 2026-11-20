@@ -1,6 +1,6 @@
 # Project Status
 
-Status date: 2026-11-17. Package version `0.7.0-r1`, alpha.
+Status date: 2026-11-19. Package version `0.8.0-r1`, alpha.
 
 This is a code-level inventory of what exists and what is missing. The work
 needed to close the gaps is ordered in [ROADMAP.md](ROADMAP.md). Packaging
@@ -12,18 +12,18 @@ issues are listed separately in [PACKAGING.md](PACKAGING.md).
 |------|-------|
 | Package skeleton, menu, ACL | Done |
 | rpcd backend (`luci.kea`, 16 methods) | Done, in ucode |
-| Overview page | Done, with the Kea version and its recent log messages |
-| Services page | Done |
+| Overview page | Done, with the Kea version, its recent log messages and where the daemons write their log |
+| Services page | Done, with what dnsmasq and odhcpd are configured to serve |
 | Raw configuration editor | Done, with syntax check, change view, backups and restore |
 | DHCPv4 structured editor | Subnets, pools, options, reservations, global settings; everything else in the file is preserved |
 | DHCPv6 structured editor | The same, plus prefix delegation pools |
 | Static lease import | Done for DHCPv4 and DHCPv6 |
 | High availability | Done for one relationship, as a tab of the DHCPv4 and DHCPv6 editors |
 | Lease viewer | Done, read from the lease files |
-| Input checks | In the browser, for what the editors write; the Kea binary on every save, with hooks loaded for the DHCP daemons |
+| Input checks | In the browser, for what the editors write; the Kea binary on every save, with hooks loaded for the DHCP daemons; a warning for the two settings known to pass that check and stop the daemon |
 | Automated tests | Unit tests (JavaScript and ucode), on-target tests, browser tests |
 | CI | GitHub Actions: lint, unit tests, SDK package build, and the on-target and browser tests on OpenWrt in QEMU |
-| Releases | First release `v0.7.0` on 2026-11-17, made by hand and marked as a pre-release. From the next one on, a workflow prepares a draft from the tag |
+| Releases | First release `v0.7.0` on 2026-11-17, made by hand and marked as a pre-release. From the next one on, a workflow prepares a draft from the tag. `0.8.0` is not released yet |
 | Distribution | Package file on the Releases page; the repository is an OpenWrt feed for those who build |
 | Translations | Not started (only the template exists) |
 
@@ -70,10 +70,22 @@ The package file of the release `v0.7.0`, built by CI, passed the same
 tests on both machines before it was published.
 
 Since 2026-11-17 CI repeats the ucode tests against the installed library
-and the five browser tests for every pull request, on a fresh OpenWrt
-25.12.6 machine under QEMU with Kea from the official package repository.
-What was checked by hand above (a real DHCP client, Save & Apply with a
-running daemon) is not part of that run.
+and the browser tests for every pull request, on a fresh OpenWrt 25.12.6
+machine under QEMU with Kea from the official package repository. What was
+checked by hand above (a real DHCP client, Save & Apply with a running
+daemon) is not part of that run.
+
+`0.8.0-r1` was built and tested on the QEMU machine only, by hand and by
+CI: 117 backend tests on the router and six browser tests. What it warns
+about was measured there with Kea 3.0.4 first: `kea-dhcp4` and `kea-dhcp6`
+accept a lease file and a log file in a wrong directory with `-t` and `-T`
+and exit when started with them, and the packaged configuration files log
+into a directory that does not exist. Checked by hand with `kea-dhcp4`
+running on that machine: Save & Apply of such a file asks first; with the
+answer no the daemon keeps running, and with the answer yes it is gone
+after the reload and the reason is in the log on Overview. The new browser
+test does the same without a daemon, by telling the page that one runs.
+`0.8.0-r1` was not installed on the second machine.
 
 Not exercised: clients on a real network, two Kea servers exchanging
 leases, the lease file cleanup running while the page reads the files, the
@@ -94,8 +106,9 @@ the `luci.kea.*` ucode modules:
 
 | Module | Content |
 |--------|---------|
-| `config.uc` | Paths, validation with the Kea binary, read, save, backups, restore |
+| `config.uc` | Paths, validation with the Kea binary, read, save, backups, restore; the settings that pass the check and stop the daemon; where the loggers write |
 | `service.uc` | Component and service state from procd, init actions, runtime files |
+| `openwrt.uc` | What dnsmasq and odhcpd are configured to serve, from the sections of `/etc/config/dhcp` |
 | `runtime.uc` | Kea version, Kea messages of the system log, leases from the lease files |
 | `importer.uc` | Static lease classification against the Kea configuration, and import |
 | `jsonc.uc` | JSON with `//`, `#` and `/* */` comments |
@@ -103,18 +116,18 @@ the `luci.kea.*` ucode modules:
 
 | Method | ACL | Purpose |
 |--------|-----|---------|
-| `getStatus` | read | Kea version, init script state, binaries, hook libraries, config files, runtime paths, dnsmasq/odhcpd state |
+| `getStatus` | read | Kea version, init script state, binaries, hook libraries, config files, runtime paths, dnsmasq/odhcpd state and what they are configured to serve |
 | `getLeases` | read | The DHCPv4 and DHCPv6 leases in use, from the lease files of the daemons |
-| `getLog` | read | The last Kea messages of the system log, split into time, daemon, severity and text |
+| `getLog` | read | The last Kea messages of the system log, split into time, daemon, severity and text, and the log outputs of each installed daemon |
 | `getServices` | read | `config service` sections of `/etc/config/kea` with enabled and running flags |
 | `getNetworkInterfaces` | read | Interfaces from `/etc/config/network` (name, device, proto, addresses) and whether OpenWrt serves DHCPv4 or DHCPv6 on each, from `/etc/config/dhcp` |
-| `validate` | read | The Kea binary's own check of the DHCPv4, DHCPv6, DDNS and control agent configs |
+| `validate` | read | The Kea binary's own check of the DHCPv4, DHCPv6, DDNS and control agent configs, with the warnings for a file that passed |
 | `getConfigList` | read | The four Kea config files with size and presence |
-| `getConfig` | read | File content, byte for byte, plus validation result |
+| `getConfig` | read | File content, byte for byte, plus validation result and warnings |
 | `listBackups` | read | Backups of one config file, newest first |
 | `importDnsmasqDryRun` | read | What an import of the static leases in `/etc/config/dhcp` would do |
-| `saveConfig` | write | Write to a temporary file, validate with the Kea binary, back up, replace |
-| `restoreBackup` | write | Validate a backup, back up the current file, replace it |
+| `saveConfig` | write | Write to a temporary file, validate with the Kea binary, back up, replace; returns the warnings for the new file |
+| `restoreBackup` | write | Validate a backup, back up the current file, replace it; returns the warnings as well |
 | `setService` | write | Enable or disable a Kea component in UCI |
 | `setInitAction` | write | `enable`, `disable`, `start`, `stop`, `restart`, `reload` for `/etc/init.d/kea` |
 | `setConflictAction` | write | The same actions, restricted to `dnsmasq` and `odhcpd` |
@@ -164,7 +177,11 @@ that a hook failed to load.
   subnet, remaining time and state. Refreshed every ten seconds.
 - **Services** (`services.js`): init service table with actions; Kea
   component table with staged enable/disable checkboxes committed by Save or
-  Save & Apply; conflict table for dnsmasq and odhcpd with explicit actions.
+  Save & Apply; conflict table for dnsmasq and odhcpd with what each is
+  configured to serve (DHCPv4 and DHCPv6 by interface, router
+  advertisements, DNS) and explicit actions. Stopping a service, or taking
+  it out of the boot sequence, is asked about first while it is the DNS
+  server or sends router advertisements.
 - **DHCPv4** and **DHCPv6** (`dhcp4.js`, `dhcp6.js`): one tab per OpenWrt
   interface, one per subnet that is not bound to an interface, one per
   subnet of a shared network, and one for the global settings.
@@ -178,7 +195,9 @@ that a hook failed to load.
     (DHCPv4) and DUID, MAC address or flex ID (DHCPv6). A reservation that is
     not enabled is kept in the subnet's `user-context` and ignored by Kea.
   - Global settings: timers and lifetimes, the lease file cleanup interval,
-    and the options sent to every subnet.
+    the output of the loggers, and the options sent to every subnet. The log
+    output can be set to the system log or the standard output; a log file
+    that the file already names is shown and left alone.
   - High availability, on a tab that is offered when `kea-hook-ha` is
     installed or the file already loads the hook: mode, the name of this
     server, the peers with URL, role and automatic failover, timers, lease
@@ -190,6 +209,9 @@ that a hook failed to load.
     [What the editors check](#what-the-editors-check).
   - A warning on the tab of an interface on which OpenWrt also serves DHCP
     while dnsmasq or odhcpd runs.
+  - A warning above the tabs when the file has a setting Kea accepts in its
+    check and does not start with. See
+    [What the check of Kea does not see](#what-the-check-of-kea-does-not-see).
   - **Show changes** lists the lines of the file a save would change.
   - A subnet can be removed with an explicit, confirmed action.
   - The example entries of the stock Kea config are announced and removed
@@ -256,6 +278,30 @@ so a file Kea already accepts can always be saved again.
 Every save still goes through the Kea binary on the router, which has the
 last word.
 
+### What the check of Kea does not see
+
+Measured with Kea 3.0.4: `kea-dhcp4` and `kea-dhcp6` accept two settings
+when they check a file, also with the hook libraries loaded (`-T`), and
+exit when they start with them.
+
+- A lease file (`lease-database`, `name`) whose directory is not
+  `/var/lib/kea`. A name without a directory is fine. The name is not
+  looked at when `persist` is false.
+- A log file (`output` of a logger) whose directory is not `/var/log/kea`.
+
+The backend finds both in a file that passed the check and reports them as
+warnings. They are shown with the result of the check on Overview and on
+the Configuration page, above the tabs of the DHCPv4 and DHCPv6 pages, and
+in the message after a save or a restore. A save is not refused. Save &
+Apply asks before it reloads a running daemon with such a file; with the
+answer no, the daemon keeps running with its previous configuration.
+
+Overview also lists the daemons whose loggers write to a file, because the
+messages below it come from the system log, and says when the directory of
+that file does not exist: Kea then logs nothing after it has read its
+configuration. This is the state of the configuration files shipped with
+Kea, on OpenWrt.
+
 ### Import
 
 - Source: the `config host` sections of `/etc/config/dhcp`. One section
@@ -277,15 +323,16 @@ last word.
 
 | Test | Runs on | Covers |
 |------|---------|--------|
-| `node --test "test/js/*.test.js"` | Any machine with Node.js | The configuration model (47 cases, plus the stock Kea configs when `KEA_STOCK_DIR` is set) and the high availability model (20 cases) |
-| `test/run-ucode-tests.sh` | Any machine with a ucode interpreter | The backend library with a stand-in for the Kea binary: comment stripping, JSON writing, IPv4 and IPv6 helpers, save, backups, restore, retention, how the Kea binary is called and its refusal reported, import classification and commit, lease files, log lines, version (74 cases) |
-| `test/run-ucode-tests.sh --target` | OpenWrt with the Kea daemons | The same plus 25 cases with the real Kea binaries, UCI and procd: validation, a hook checking its parameters (needs `kea-hook-ha`), service state, init actions, API password, import from a UCI fixture, version and system log. Uses a temporary root, except that one test line is written to the system log |
+| `node --test "test/js/*.test.js"` | Any machine with Node.js | The configuration model (52 cases, plus the stock Kea configs when `KEA_STOCK_DIR` is set) and the high availability model (20 cases) |
+| `test/run-ucode-tests.sh` | Any machine with a ucode interpreter | The backend library with a stand-in for the Kea binary: comment stripping, JSON writing, IPv4 and IPv6 helpers, save, backups, restore, retention, how the Kea binary is called and its refusal reported, import classification and commit, lease files, log lines, version, the settings Kea does not start with, log outputs, what dnsmasq and odhcpd serve (88 cases) |
+| `test/run-ucode-tests.sh --target` | OpenWrt with the Kea daemons | The same plus 29 cases with the real Kea binaries, UCI and procd: validation, a hook checking its parameters (needs `kea-hook-ha`), that Kea accepts a lease file and a log file in a wrong directory, service state, init actions, API password, import from a UCI fixture, version and system log. Uses a temporary root, except that one test line is written to the system log |
 | `test/browser/smoke.js` | Node.js + Playwright against a target | Every page renders without JavaScript errors |
 | `test/browser/editor.js` | Node.js + Playwright against a test target | Editors (pools, options, global settings, shared networks, input checks, change view), raw editor, backups and example removal end to end, with Kea validating every save |
 | `test/browser/ha.js` | Node.js + Playwright against a test target that has `kea-hook-ha` | The high availability tab end to end for both protocols, with Kea loading the hook on every save |
 | `test/browser/leases.js` | Node.js + Playwright against a test target that has the lease fixture | The Leases page for both protocols, and the version and log on Overview |
+| `test/browser/warnings.js` | Node.js + Playwright against a test target | The warnings for a file Kea does not start with on three pages, the question before a reload, the log file note and the Log Output field, and what the Services page says about dnsmasq. It answers the calls that would act on a service itself |
 | `test/browser/import.js` | Node.js + Playwright against a test target that has the fixture static leases | The import page end to end for both protocols, including a second import |
-| `test/run-target-tests.sh` | A machine with Node.js and Playwright, against a test target; CI, against OpenWrt in QEMU | The on-target cases against the installed library and the five browser tests in one run, with their fixtures loaded and removed |
+| `test/run-target-tests.sh` | A machine with Node.js and Playwright, against a test target; CI, against OpenWrt in QEMU | The on-target cases against the installed library and the six browser tests in one run, with their fixtures loaded and removed |
 
 ## Known defects and limits
 
@@ -307,6 +354,10 @@ last word.
 - The warning about a second DHCP server looks at the OpenWrt configuration
   of the interface and at whether dnsmasq or odhcpd runs. It does not see a
   DHCP server elsewhere on the network.
+- What the Services page says dnsmasq and odhcpd serve is read from
+  `/etc/config/dhcp`, not asked from the running services. A dnsmasq that
+  answers DHCPv6 on a system without odhcpd is not told apart: DHCPv6 and
+  router advertisements are counted for odhcpd.
 
 ### High availability
 
@@ -343,11 +394,13 @@ last word.
   places in `/var/log/kea`, a directory OpenWrt does not have. With such a
   configuration the page shows only the lines a daemon prints before it has
   read its loggers, among them the reason when it cannot start; everything
-  after that is lost. With `"output": "syslog"` in the loggers of the
-  configuration, all messages arrive.
-- Lines that reach the system log through procd, which are those early
-  lines and everything a logger writes to `stdout`, are shown whole, without
-  the severity in its own column.
+  after that is lost. The page says which daemons are in that state. With
+  the system log as output, all messages arrive.
+- The Log Output field exists for the DHCP daemons only. For
+  `kea-dhcp-ddns` and `kea-ctrl-agent` the output of the loggers is set on
+  the Configuration page.
+- The application does not create `/var/log/kea`. A log file there needs
+  something that creates the directory after every boot.
 - Messages are gone from the page after the ring buffer of the system log
   has moved on.
 - At most 2000 leases per protocol are sent to the browser, and a lease
@@ -358,15 +411,16 @@ last word.
 - The Kea binary's check does not guarantee that the daemon starts: a port
   in use or a missing interface shows only then. Save & Apply reports a
   daemon that is gone after the reload, but nothing warns before.
-- Two settings pass the check of Kea 3.0.4, also with the hook libraries
-  loaded (`-T`), and stop the daemon when it starts: a lease file
-  (`lease-database`, `name`) in a directory other than `/var/lib/kea`, and
-  a log file (`output` of a logger) in a directory other than
-  `/var/log/kea`. The application reports such a file as valid. The reason
-  is in the system log afterwards, and so on Overview. A lease file is not
-  looked at when `persist` is false. A control socket outside
-  `/var/run/kea` and a hook library outside the hook directory are refused
-  by the check itself.
+- The two settings the application warns about (see
+  [What the check of Kea does not see](#what-the-check-of-kea-does-not-see))
+  are the ones that were found; there may be others. The rule was measured
+  with Kea 3.0.4 as packaged for OpenWrt 25.12. It is not adjusted to the
+  Kea version, and it does not know about `KEA_DHCP_DATA_DIR`, which moves
+  the lease directory when it is set for the daemon.
+- On a fresh installation the control agent file is reported as invalid
+  until Kea has been started once from the Services page: the file names
+  `/etc/kea/kea-api-password`, which the application creates before a
+  start.
 - `kea-dhcp-ddns` and `kea-ctrl-agent` have no check that loads their hook
   libraries.
 - The plugin runs inside `rpcd`, so a call blocks other LuCI requests for
