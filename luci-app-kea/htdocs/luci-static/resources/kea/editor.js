@@ -84,7 +84,8 @@ function createView(familyName) {
 			return Promise.all([
 				backend.getConfig(familyName),
 				backend.getInterfaces(),
-				backend.getStatus()
+				backend.getStatus(),
+				backend.getHaNodes()
 			]);
 		},
 
@@ -504,7 +505,11 @@ function createView(familyName) {
 							" " + _("The lease database is not a memfile, so this setting has no effect.") : "")),
 				field(model.label("logOutput"),
 					select(global, "logOutput", logOutputChoices(global)),
-					_("Where the loggers of this daemon write. The Overview page shows what reaches the system log. Kea keeps log files in /var/log/kea, a directory OpenWrt does not have unless something creates it after every boot; without it nothing is logged."))
+					_("Where the loggers of this daemon write. The Overview page shows what reaches the system log. Kea keeps log files in /var/log/kea, a directory OpenWrt does not have unless something creates it after every boot; without it nothing is logged.")),
+				input("socketRetries", "60"),
+				field(model.label("socketRetryWait"),
+					textInput(global, "socketRetryWait", "2000", "number", check("socketRetryWait")),
+					_("How often Kea tries again to open its sockets on an interface that is not ready, and how long it waits in between, in milliseconds. Without retries, a Kea that is started at boot before its interface is up keeps running and never listens. When this page makes Kea listen on an interface and neither value is set, it sets 60 and 2000."))
 			);
 
 			this.editorNode.replaceChildren(
@@ -518,7 +523,7 @@ function createView(familyName) {
 			var self = this;
 			var nodes = hatab.render(familyName, this.ha, this.status.hooks || {}, function() {
 				self.renderHa();
-			});
+			}, this.cluster);
 
 			this.editorNode.replaceChildren.apply(this.editorNode, nodes);
 		},
@@ -623,6 +628,8 @@ function createView(familyName) {
 		render: function(data) {
 			this.interfaces = data[1] || [];
 			this.status = data[2] || {};
+			/* The nodes of a cluster to fill the high availability tab from, if any. */
+			this.cluster = data[3] || {};
 			this.active = 0;
 			this.noticesNode = E("div", {});
 			this.tabBarNode = E("div", {});

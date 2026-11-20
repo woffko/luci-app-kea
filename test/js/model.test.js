@@ -906,8 +906,134 @@ test("interface entries the editor does not manage are preserved", () => {
 		tabFor(tabs, "br-guest").subnet = "192.168.50.0/24";
 	});
 
-	assert.deepEqual(result.config.Dhcp4["interfaces-config"],
-		{ interfaces: [ "*", "tun0", "br-guest" ], "re-detect": false });
+	/* Listening on br-guest is new, so the retries for the sockets come with it. */
+	assert.deepEqual(result.config.Dhcp4["interfaces-config"], {
+		interfaces: [ "*", "tun0", "br-guest" ],
+		"re-detect": false,
+		"service-sockets-max-retries": 60,
+		"service-sockets-retry-wait-time": 2000
+	});
+});
+
+/*
+ * Kea opens its sockets once, when it starts. Started at boot before the
+ * interface is ready, it runs without listening unless it is told to retry.
+ */
+function listening(extra) {
+	return {
+		Dhcp4: {
+			"interfaces-config": Object.assign({ interfaces: [ "br-lan" ] }, extra),
+			subnet4: [ { id: 1, subnet: "192.168.1.0/24", "interface": "br-lan" } ]
+		}
+	};
+}
+
+function enableGuest(tabs) {
+	tabFor(tabs, "br-guest").enabled = true;
+	tabFor(tabs, "br-guest").subnet = "192.168.50.0/24";
+}
+
+test("making Kea listen on an interface adds retries for the sockets", () => {
+	const fresh = roundTrip("dhcp4", { Dhcp4: {} }, (tabs) => {
+		tabFor(tabs, "br-lan").enabled = true;
+		tabFor(tabs, "br-lan").subnet = "192.168.1.0/24";
+	});
+
+	assert.deepEqual(fresh.config.Dhcp4["interfaces-config"], {
+		interfaces: [ "br-lan" ],
+		"service-sockets-max-retries": 60,
+		"service-sockets-retry-wait-time": 2000
+	});
+
+	const second = roundTrip("dhcp4", listening(), enableGuest);
+
+	assert.deepEqual(second.config.Dhcp4["interfaces-config"], {
+		interfaces: [ "br-lan", "br-guest" ],
+		"service-sockets-max-retries": 60,
+		"service-sockets-retry-wait-time": 2000
+	});
+});
+
+test("the retries are added only with a new interface, and only when the file says nothing", () => {
+	/* Another edit of a file that listens without retries does not touch them. */
+	const edited = roundTrip("dhcp4", listening(), (tabs) => {
+		tabFor(tabs, "br-lan").router = "192.168.1.254";
+	});
+
+	assert.deepEqual(edited.config.Dhcp4["interfaces-config"], { interfaces: [ "br-lan" ] });
+
+	/* Nor does switching an interface off. */
+	const off = roundTrip("dhcp4", listening(), (tabs) => {
+		tabFor(tabs, "br-lan").enabled = false;
+	});
+
+	assert.deepEqual(off.config.Dhcp4["interfaces-config"], { interfaces: [] });
+
+	/* What the file says stays, also when it is one of the two only. */
+	for (const extra of [ { "service-sockets-max-retries": 5 }, { "service-sockets-retry-wait-time": 500 },
+	                      { "service-sockets-max-retries": 0 } ]) {
+		const result = roundTrip("dhcp4", listening(extra), enableGuest);
+
+		assert.deepEqual(result.config.Dhcp4["interfaces-config"],
+			Object.assign({ interfaces: [ "br-lan", "br-guest" ] }, extra));
+	}
+});
+
+test("the retries for the sockets are fields of the global settings", () => {
+	const config = listening({ "service-sockets-max-retries": 5 });
+	const global = model.buildGlobal("dhcp4", config);
+
+	assert.equal(global.socketRetries, "5");
+	assert.equal(global.socketRetryWait, "");
+	assert.equal(model.buildGlobal("dhcp4", { Dhcp4: {} }).socketRetries, "");
+
+	const set = roundTrip("dhcp4", listening(), (tabs, settings) => {
+		settings.socketRetries = "60";
+		settings.socketRetryWait = "2000";
+	});
+
+	assert.deepEqual(diffPaths(listening(), set.config).sort(), [
+		"/Dhcp4/interfaces-config/service-sockets-max-retries",
+		"/Dhcp4/interfaces-config/service-sockets-retry-wait-time"
+	]);
+	assert.equal(set.config.Dhcp4["interfaces-config"]["service-sockets-max-retries"], 60);
+
+	const cleared = roundTrip("dhcp4", config, (tabs, settings) => {
+		settings.socketRetries = "";
+	});
+
+	assert.deepEqual(cleared.config.Dhcp4["interfaces-config"], { interfaces: [ "br-lan" ] });
+
+	const fresh = roundTrip("dhcp4", { Dhcp4: {} }, (tabs, settings) => {
+		settings.socketRetries = "10";
+	});
+
+	assert.deepEqual(fresh.config.Dhcp4["interfaces-config"], { "service-sockets-max-retries": 10 });
+
+	assert.match(errorsOf("dhcp4", listening(), (tabs, settings) => {
+		settings.socketRetries = "often";
+	})[0], /Global settings: Socket Retries: not a whole number/);
+	assert.equal(model.fieldError("dhcp4", { socketRetryWait: "2s" }, "socketRetryWait") !== null, true);
+	assert.equal(model.fieldError("dhcp4", { socketRetryWait: "2000" }, "socketRetryWait"), null);
+});
+
+test("what the user sets for the retries is not overruled by the form", () => {
+	/* Cleared on purpose in the same save that adds an interface. */
+	const cleared = roundTrip("dhcp4", listening({ "service-sockets-max-retries": 5 }), (tabs, settings) => {
+		settings.socketRetries = "";
+		enableGuest(tabs);
+	});
+
+	assert.deepEqual(cleared.config.Dhcp4["interfaces-config"], { interfaces: [ "br-lan", "br-guest" ] });
+
+	/* One of the two set by hand: the other is not filled in behind the user's back. */
+	const one = roundTrip("dhcp4", listening(), (tabs, settings) => {
+		settings.socketRetries = "3";
+		enableGuest(tabs);
+	});
+
+	assert.deepEqual(one.config.Dhcp4["interfaces-config"],
+		{ interfaces: [ "br-lan", "br-guest" ], "service-sockets-max-retries": 3 });
 });
 
 test("a tab knows whether OpenWrt serves DHCP on its interface", () => {

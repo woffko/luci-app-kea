@@ -161,6 +161,10 @@ function keaMethod(call) {
  * While state.running is set, the page is also told that kea-dhcp4 is
  * running, so that what it does with a running daemon can be seen without
  * one.
+ *
+ * state.replies may hold answers for read calls that the target cannot
+ * give, by method: { getDaemonState: {...}, getHaNodes: {...} }. Each is
+ * the whole reply of the method.
  */
 async function interceptServiceCalls(page, state) {
 	await page.route(/\/ubus\/?(\?.*)?$/, async (route) => {
@@ -185,17 +189,30 @@ async function interceptServiceCalls(page, state) {
 			});
 		}
 
-		if (state.running && calls.some((call) => keaMethod(call) === "getServices")) {
+		const replies = state.replies || {};
+		const patched = (call) => (state.running && keaMethod(call) === "getServices") ||
+			Object.prototype.hasOwnProperty.call(replies, keaMethod(call));
+
+		if (calls.some(patched)) {
 			const response = await route.fetch();
 			const body = await response.json();
 			const answers = Array.isArray(body) ? body : [ body ];
 
-			calls.filter((call) => keaMethod(call) === "getServices").forEach((call) => {
+			calls.filter(patched).forEach((call) => {
 				const answer = answers.find((candidate) => candidate && candidate.id === call.id);
-				const services = answer && answer.result && answer.result[1] && answer.result[1].services;
+				const method = keaMethod(call);
 
-				if (services && services.dhcp4)
-					services.dhcp4.running = true;
+				if (!answer)
+					return;
+
+				if (Object.prototype.hasOwnProperty.call(replies, method)) {
+					delete answer.error;
+					answer.result = [ 0, replies[method] ];
+				}
+				else if (answer.result && answer.result[1] && answer.result[1].services &&
+				         answer.result[1].services.dhcp4) {
+					answer.result[1].services.dhcp4.running = true;
+				}
 			});
 
 			return route.fulfill({ response, body: reply(answers) });

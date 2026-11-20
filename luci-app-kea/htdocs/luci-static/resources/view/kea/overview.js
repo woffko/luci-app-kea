@@ -25,6 +25,12 @@ var callValidate = rpc.declare({
 	expect: { validation: {} }
 });
 
+/* How the state of a running daemon is set off, by its level. */
+var DAEMON_STYLE = {
+	bad: "color: #7a1f1f; font-weight: 600",
+	wait: "color: #7a5a00; font-weight: 600"
+};
+
 /* The daemons in the order of the page, by their name in the backend. */
 var DAEMONS = [ "dhcp4", "dhcp6", "dhcp_ddns", "ctrl_agent" ];
 
@@ -77,7 +83,8 @@ return view.extend({
 		return Promise.all([
 			L.resolveDefault(callStatus(), {}),
 			L.resolveDefault(callValidate(), {}),
-			backend.getLog(LOG_LINES)
+			backend.getLog(LOG_LINES),
+			backend.getDaemonState()
 		]);
 	},
 
@@ -127,6 +134,34 @@ return view.extend({
 		var hooks = status.hooks || {};
 		var configs = status.configs || {};
 		var validationRows = [];
+		var daemons = data[3] || {};
+		var daemonRows = [];
+		var deaf = [];
+
+		/* What the running DHCP daemons say about themselves. */
+		[ "dhcp4", "dhcp6" ].forEach(function(name) {
+			var described;
+
+			if (!daemons[name])
+				return;
+
+			described = backend.describeDaemon(daemons[name]);
+
+			if (described.level === "bad")
+				described.details.concat(described.details.length ? [] : [ described.summary ]).forEach(function(detail) {
+					deaf.push(backend.daemonName(name) + ": " + detail);
+				});
+
+			daemonRows.push([
+				backend.daemonName(name),
+				E("div", { "class": "kea-daemon-state kea-daemon-" + described.level }, [
+					E("span", { "style": DAEMON_STYLE[described.level] || "" },
+						_("Running") + ", " + described.summary)
+				].concat(described.details.map(function(detail) {
+					return E("div", {}, E("small", {}, detail));
+				})))
+			]);
+		});
 
 		this.logNode = E("div", {});
 		this.renderLog(data[2] || {});
@@ -151,11 +186,19 @@ return view.extend({
 			E("h2", _("Kea DHCP")),
 			E("p", _("Manage ISC Kea DHCP services, configuration, reservations, and dnsmasq static lease imports.")),
 
+			deaf.length ? E("div", { "class": "alert-message danger kea-not-listening" }, [
+				E("p", {}, E("strong", {}, _("Kea is running, but does not serve everywhere it was told to. Clients on the interfaces named here get no answer."))),
+				E("div", {}, deaf.map(function(line) {
+					return E("p", { "style": "margin: .25rem 0 .25rem 1rem" }, line);
+				})),
+				E("p", {}, _("Restart Kea on the Services page to make it try again now; a reload does not. Where the reason is another DHCP server on the interface, switch off its DHCP there first: the Services page shows what dnsmasq and odhcpd serve. To make Kea wait for its interface at every boot, set Socket Retries on the Global settings tab of the DHCPv4 and DHCPv6 pages. An interface that has no address is reported like this as well, for example when Kea is told to listen on all interfaces; take it out of the list."))
+			]) : "",
+
 			renderObjectTable(_("Runtime"), [
 				[ _("Kea version"), status.version || _("unknown") ],
 				[ _("Init script installed"), boolLabel(status.init_installed) ],
 				[ _("Init autostart enabled"), boolLabel(status.init_enabled) ]
-			]),
+			].concat(daemonRows)),
 
 			renderObjectTable(_("Installed Components"), [
 				[ "kea-dhcp4", boolLabel(binaries.dhcp4 && binaries.dhcp4.installed) ],

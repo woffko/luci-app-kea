@@ -91,7 +91,22 @@ var LABELS = {
 	preferredLifetime: _("Preferred Lifetime"),
 	validLifetime: _("Valid Lifetime"),
 	lfcInterval: _("Lease File Cleanup"),
-	logOutput: _("Log Output")
+	logOutput: _("Log Output"),
+	socketRetries: _("Socket Retries"),
+	socketRetryWait: _("Socket Retry Wait")
+};
+
+/*
+ * Kea opens its sockets once, when it starts, unless it is told to try
+ * again. At boot it is started while an interface may not be ready yet; it
+ * then opens nothing, keeps running, and never listens. These two members
+ * of "interfaces-config" make it try again: form field -> Kea key and the
+ * value the form writes when it makes Kea listen on an interface. Sixty
+ * tries two seconds apart cover a slow boot.
+ */
+var SOCKET_RETRIES = {
+	socketRetries: { key: "service-sockets-max-retries", value: 60 },
+	socketRetryWait: { key: "service-sockets-retry-wait-time", value: 2000 }
 };
 
 /*
@@ -468,7 +483,7 @@ function fieldError(family, tab, field) {
 	if (field === "dnsServers")
 		return checkAddressList(family.version, value);
 
-	if (hasOwn(family.timers, field) || field === "lfcInterval")
+	if (hasOwn(family.timers, field) || field === "lfcInterval" || hasOwn(SOCKET_RETRIES, field))
 		return checkTimer(value);
 
 	return null;
@@ -1357,6 +1372,7 @@ function setLogOutput(family, root, output) {
 function buildGlobal(family, config) {
 	var root = isObject(config) && isObject(config[family.root]) ? config[family.root] : {};
 	var database = isObject(root["lease-database"]) ? root["lease-database"] : {};
+	var listen = isObject(root["interfaces-config"]) ? root["interfaces-config"] : {};
 	var global = {
 		lfcInterval: text(database["lfc-interval"]),
 		leaseType: text(database.type),
@@ -1368,7 +1384,11 @@ function buildGlobal(family, config) {
 	for (field in family.timers)
 		global[field] = text(root[family.timers[field]]);
 
-	global.initial = snapshot(global, Object.keys(family.timers).concat([ "lfcInterval", "logOutput" ]));
+	for (field in SOCKET_RETRIES)
+		global[field] = text(listen[SOCKET_RETRIES[field].key]);
+
+	global.initial = snapshot(global, Object.keys(family.timers).concat(
+		[ "lfcInterval", "logOutput" ], Object.keys(SOCKET_RETRIES)));
 
 	return global;
 }
@@ -1409,6 +1429,27 @@ function applyGlobal(family, root, global, errors) {
 				root["lease-database"] = { type: "memfile" };
 
 			root["lease-database"]["lfc-interval"] = Number(global.lfcInterval);
+		}
+	}
+
+	for (field in SOCKET_RETRIES) {
+		if (!changed(field))
+			continue;
+
+		error = checkTimer(global[field]);
+
+		if (error) {
+			errors.push(label + ": " + LABELS[field] + ": " + error);
+		}
+		else if (global[field] === "") {
+			if (isObject(root["interfaces-config"]))
+				delete root["interfaces-config"][SOCKET_RETRIES[field].key];
+		}
+		else {
+			if (!isObject(root["interfaces-config"]))
+				root["interfaces-config"] = {};
+
+			root["interfaces-config"][SOCKET_RETRIES[field].key] = Number(global[field]);
 		}
 	}
 
@@ -1552,13 +1593,18 @@ function checkDuplicateSubnets(family, tabs, errors) {
 /*
  * Rewrite interfaces-config.interfaces for the devices shown as tabs and
  * leave every other entry ("*", "eth0/192.0.2.1", unknown devices) alone.
+ *
+ * When the form makes Kea listen on a device it did not listen on, and the
+ * file says nothing about retries for the sockets, the form adds them: see
+ * SOCKET_RETRIES. It does not when the user has just set or cleared one of
+ * the two fields, which is then the user's choice.
  */
-function applyInterfaces(root, tabs) {
+function applyInterfaces(root, tabs, global) {
 	var config = root["interfaces-config"];
 	var current = array(isObject(config) ? config.interfaces : null);
 	var managed = {};
 	var wanted = {};
-	var result;
+	var result, added, untouched;
 
 	tabs.forEach(function(tab) {
 		if (tab.initial && tab.initial.device !== "")
@@ -1598,6 +1644,19 @@ function applyInterfaces(root, tabs) {
 		config = root["interfaces-config"] = {};
 
 	config.interfaces = result;
+
+	added = result.some(function(entry) {
+		return current.indexOf(entry) < 0;
+	});
+	untouched = Object.keys(SOCKET_RETRIES).every(function(field) {
+		return !hasOwn(config, SOCKET_RETRIES[field].key) &&
+			(!global || global[field] === global.initial[field]);
+	});
+
+	if (added && untouched)
+		Object.keys(SOCKET_RETRIES).forEach(function(field) {
+			config[SOCKET_RETRIES[field].key] = SOCKET_RETRIES[field].value;
+		});
 }
 
 function applyTabs(family, config, tabs, global) {
@@ -1651,7 +1710,7 @@ function applyTabs(family, config, tabs, global) {
 	if (top.length || hasOwn(root, family.subnets))
 		root[family.subnets] = top;
 
-	applyInterfaces(root, tabs);
+	applyInterfaces(root, tabs, global);
 
 	return { config: out };
 }

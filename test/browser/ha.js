@@ -6,8 +6,12 @@
  * For each address family it switches high availability on, corrects a peer
  * URL the form refuses, saves, changes the mode, lets Kea itself refuse a
  * parameter the form does not know, and switches high availability off
- * again. After every save the file is read back through the Configuration
- * page.
+ * again. Then it fills the form from the nodes of a cluster, as ha-cluster
+ * would name them, and saves that. After every save the file is read back
+ * through the Configuration page.
+ *
+ * The target has no ha-cluster: the test answers the call for its nodes
+ * itself.
  *
  * Every save is checked by the Kea binary with the hook loaded, so the test
  * also proves that Kea accepts what the tab writes.
@@ -25,7 +29,7 @@ const path = require("node:path");
 
 const {
 	openPage, screenshot, main, footerButton, expectNotification, readRawConfig, writeRawConfig,
-	fieldRow, fieldInput, tableRows, tableValues, addRow, openTab
+	interceptServiceCalls, fieldRow, fieldInput, tableRows, tableValues, addRow, openTab
 } = require("./lib.js");
 const { loadModule } = require("../js/luci-loader.js");
 
@@ -53,6 +57,18 @@ const SCENARIOS = [
 		urls: [ "http://[fd00:1::1]:8000/", "http://[fd00:1::2]:8000/" ]
 	}
 ];
+
+/*
+ * What the backend passes on from "ubus call ha-cluster nodes" for a pair.
+ * The URLs of both protocols use these IPv4 addresses; the port differs.
+ */
+const CLUSTER = {
+	available: true,
+	dhcp_backend: "kea",
+	node: { name: "ha-192-168-1-1", label: "node1", address: "192.168.1.1", role: "primary" },
+	peers: [ { name: "ha-192-168-1-2", label: "node2", address: "192.168.1.2", role: "standby" } ]
+};
+const CLUSTER_PORTS = { dhcp4: 8001, dhcp6: 8002 };
 
 let step = 0;
 
@@ -200,9 +216,44 @@ async function testHa(page, scenario) {
 	await save(page);
 	assert.deepEqual(parse(await readRawConfig(page, name)), expected(scenario, null));
 	ok(name + ": switching high availability off removes its hook entry only");
+
+	/* ---- the servers taken from a cluster ---- */
+
+	const port = CLUSTER_PORTS[name];
+	const filled = [
+		[ "ha-192-168-1-1", "http://192.168.1.1:" + port + "/" ],
+		[ "ha-192-168-1-2", "http://192.168.1.2:" + port + "/" ]
+	];
+
+	await writeRawConfig(page, name, scenario.fixture);
+	await openHaTab(page, scenario);
+	await fieldInput(page, "Enable").check();
+	await mode.waitFor();
+	await page.locator("#view button.kea-ha-fill").click();
+	await page.waitForFunction((expectedName) => {
+		const input = document.querySelector("#view table.kea-ha-peers tbody tr input");
+
+		return input && input.value === expectedName;
+	}, filled[0][0], { timeout: 30000 });
+	assert.equal(await fieldInput(page, "This server").inputValue(), "ha-192-168-1-1");
+	assert.deepEqual(await tableValues(page, "kea-ha-peers"), filled);
+	assert.deepEqual(await roles(), [ "primary", "standby" ]);
+	await screenshot(page, name + "-ha-filled");
+	await save(page);
+	assert.deepEqual(parse(await readRawConfig(page, name)), expected(scenario, {
+		"this-server-name": "ha-192-168-1-1",
+		mode: "hot-standby",
+		peers: [
+			{ name: filled[0][0], url: filled[0][1], role: "primary" },
+			{ name: filled[1][0], url: filled[1][1], role: "standby" }
+		]
+	}));
+	ok(name + ": the form is filled from the nodes of a cluster, and Kea accepts the result with the hook loaded");
 }
 
 main(async (page) => {
+	await interceptServiceCalls(page, { blocked: [], running: false, replies: { getHaNodes: { cluster: CLUSTER } } });
+
 	for (const scenario of SCENARIOS) {
 		const original = await readRawConfig(page, scenario.family);
 
