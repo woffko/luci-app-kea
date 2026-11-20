@@ -7,6 +7,22 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-20: Release `v0.8.0`, the first one the workflow prepared
+
+- The owner merged the M8 pull request and pushed the tag `v0.8.0`. It
+  points at the last commit of that pull request, which is part of `main`
+  and has the same content as its merge commit.
+- The release workflow ran for a real tag for the first time and passed:
+  the tag fits the version in the Makefile, the tagged commit is on `main`,
+  the three CI jobs, and the draft release with the package, its checksum,
+  the changelog section and what it was tested on. The two steps that could
+  not be rehearsed on a pull request, the check against `main` and the
+  creation of the draft, worked.
+- The attached `luci-app-kea-0.8.0-r1.apk` holds the same files as the
+  package built and tested by hand the day before (compared with
+  `apk adbdump`); the checksum in the release text is the one of the file.
+- It was tested in QEMU by the workflow, not on the second test machine.
+
 ## 2026-11-19: Warnings beyond the Kea check (M8, `0.8.0-r1`)
 
 The work proposed after the measurements of the same day, approved by the

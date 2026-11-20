@@ -1,6 +1,6 @@
 # Project Status
 
-Status date: 2026-11-19. Package version `0.8.0-r1`, alpha.
+Status date: 2026-11-20. Package version `0.8.0-r1`, alpha.
 
 This is a code-level inventory of what exists and what is missing. The work
 needed to close the gaps is ordered in [ROADMAP.md](ROADMAP.md). Packaging
@@ -23,7 +23,7 @@ issues are listed separately in [PACKAGING.md](PACKAGING.md).
 | Input checks | In the browser, for what the editors write; the Kea binary on every save, with hooks loaded for the DHCP daemons; a warning for the two settings known to pass that check and stop the daemon |
 | Automated tests | Unit tests (JavaScript and ucode), on-target tests, browser tests |
 | CI | GitHub Actions: lint, unit tests, SDK package build, and the on-target and browser tests on OpenWrt in QEMU |
-| Releases | First release `v0.7.0` on 2026-11-17, made by hand and marked as a pre-release. From the next one on, a workflow prepares a draft from the tag. `0.8.0` is not released yet |
+| Releases | `v0.7.0` on 2026-11-17, made by hand. `v0.8.0`, tagged on 2026-11-20: the release workflow built and tested the package and prepared the release as a draft for the owner to publish. Both are marked as pre-releases |
 | Distribution | Package file on the Releases page; the repository is an OpenWrt feed for those who build |
 | Translations | Not started (only the template exists) |
 
@@ -86,6 +86,11 @@ answer no the daemon keeps running, and with the answer yes it is gone
 after the reload and the reason is in the log on Overview. The new browser
 test does the same without a daemon, by telling the page that one runs.
 `0.8.0-r1` was not installed on the second machine.
+
+The package file of `v0.8.0` was built by the release workflow from the
+tagged commit and passed the same 117 backend tests and six browser tests in
+that run, on OpenWrt 25.12.6 under QEMU with Kea 3.0.4. It holds the same
+files as the package that was tested by hand before.
 
 Not exercised: clients on a real network, two Kea servers exchanging
 leases, the lease file cleanup running while the page reads the files, the
