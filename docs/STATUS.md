@@ -378,8 +378,12 @@ Kea, on OpenWrt.
 - The address of a peer URL must be reachable from the partner, so the
   firewall has to let the port through where the servers are not on the same
   LAN zone.
-- No fill-in from `ha-cluster`: the OpenWrt 25.12 repositories have no such
-  package to test against.
+- No fill-in from `ha-cluster`. The package is not in the OpenWrt 25.12
+  repositories; the owner's own feed has one that offers the node names,
+  addresses and suggested roles for it. See roadmap milestone M9.
+- A pair of Kea servers exchanging leases was never run with this
+  application. It was run on a bench of the `ha-cluster` project on
+  2026-11-20, with configurations made by hand.
 
 ### Leases and log
 
@@ -411,8 +415,41 @@ Kea, on OpenWrt.
 - At most 2000 leases per protocol are sent to the browser, and a lease
   file above 8 MB is not read.
 
+### Kea at boot and at run time
+
+- **A running daemon is not a listening one.** Measured on 2026-11-20 with
+  Kea 3.0.4 on the test machine: Kea is started at boot (`S25`) while the
+  LAN bridge may not be ready, and then does not open its sockets. It keeps
+  running, `status-get` on its control socket says `"sockets": { "status":
+  "failed" }`, and it stays so after the interface is up. It happened in one
+  of two boots for `kea-dhcp4` ("the interface br-lan is not running") and
+  in the one boot tried for `kea-dhcp6` (the link-local address was not
+  usable yet). With `"service-sockets-max-retries": 60` and
+  `"service-sockets-retry-wait-time": 2000` in `interfaces-config`, both
+  were listening after the next boot.
+- The application does not write these two parameters, and it does not look
+  at the sockets of a daemon: Overview and Services say "running" when procd
+  has the process, which is true in the state above.
+- Reported by the bench of the `ha-cluster` project, not reproduced here: a
+  Kea that listens stops answering when netifd creates the device anew
+  (`ifdown` and `ifup`, a network restart), although the process lives and
+  its sockets are reported as ready, until it is told to read its
+  configuration again (`config-reload`, or SIGHUP). The init script of the
+  Kea package has no trigger for interfaces.
+- A file that was saved without applying is read by the daemon at the next
+  reload from any source, a SIGHUP included. Measured: after a SIGHUP with a
+  file Kea will not start with, the daemon keeps running with its previous
+  configuration and logs `DHCP4_DYNAMIC_RECONFIGURATION_FAIL`; it was not
+  checked whether it still gives out leases then. The application's own
+  Save & Apply restarts the process through procd instead.
+
 ### Backend
 
+- The application reads JSON, with comments. A file that uses Kea's
+  `<?include "file"?>` directive, which Kea accepts, can be edited on the
+  Configuration page only. The DHCPv4 and DHCPv6 pages and the import do not
+  open it and write nothing, and the warnings and the log note are not
+  worked out for it.
 - The Kea binary's check does not guarantee that the daemon starts: a port
   in use or a missing interface shows only then. Save & Apply reports a
   daemon that is gone after the reload, but nothing warns before.

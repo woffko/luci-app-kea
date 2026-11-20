@@ -7,6 +7,27 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-20: Kea at boot, and a pair of Kea servers on another bench
+
+No change to the package. The `ha-cluster` project, another project of the
+owner, ran a pair of Kea 3.0.4 servers in hot standby next to VRRP and
+passed on what it found.
+
+- Reproduced on the test machine: Kea started at boot before the LAN
+  bridge is ready runs without listening and stays that way; the two
+  `service-sockets` parameters in `interfaces-config` cure it. In that state
+  the application shows the daemon as running.
+- Measured for this application: Kea accepts `<?include?>` for a part of the
+  high availability settings, and the forms cannot open such a file; a
+  SIGHUP makes a daemon read a file that was saved without applying, and
+  with a file it cannot load it keeps its previous configuration.
+- Taken as reported, not reproduced: the pair exchanged leases and a client
+  kept its addresses through a stopped server, a cut-off node and a reboot;
+  a Kea goes deaf when netifd creates its device anew, until it reads its
+  configuration again.
+- Written down: the limits in STATUS, a note in the README on what to add to
+  `interfaces-config`, and a proposed roadmap milestone M9.
+
 ## 2026-11-20: Release `v0.8.0`, the first one the workflow prepared
 
 - The owner merged the M8 pull request and pushed the tag `v0.8.0`. It
