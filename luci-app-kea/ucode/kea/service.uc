@@ -9,6 +9,7 @@ import * as config from 'luci.kea.config';
 import * as runtime from 'luci.kea.runtime';
 import { interface_addresses } from 'luci.kea.net';
 import { text, uci_bool, dhcp_services } from 'luci.kea.openwrt';
+import * as cluster from 'luci.kea.cluster';
 
 // Service state and control: the Kea init service and its components, the
 // competing OpenWrt DHCP services, and the runtime files Kea needs.
@@ -107,6 +108,29 @@ export function services(ctx) {
 	});
 
 	return result;
+};
+
+// What each running DHCP daemon says about itself on its control socket:
+// { dhcp4: {...}, dhcp6: {...} }, see runtime.daemon_state(). A daemon that
+// procd does not run is not asked and not listed. "Running" is what procd
+// knows; whether a daemon listens is only known to the daemon.
+export function daemon_states(ctx) {
+	let states = instances(ctx, 'kea');
+	let result = {};
+
+	for (let name in [ 'dhcp4', 'dhcp6' ])
+		if (states[config.CONFIGS[name].instance] == true)
+			result[name] = runtime.daemon_state(runtime.control(ctx, name, 'status-get'));
+
+	return result;
+};
+
+// The nodes of a cluster, when the ha-cluster package is there to ask; see
+// cluster.nodes(). Without it the reply says that nothing is available.
+export function ha_nodes(ctx) {
+	return cluster.nodes(ctx.ha_nodes ?
+		ctx.ha_nodes() :
+		connect()?.call('ha-cluster', 'nodes', {}));
 };
 
 export function set_service(ctx, name, enabled) {

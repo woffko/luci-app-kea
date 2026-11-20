@@ -111,7 +111,7 @@ else {
 	print('# skipped: the hook check needs kea-dhcp4 and kea-hook-ha\n');
 }
 
-// What start_warnings() is for: settings that Kea accepts when it checks a
+// What warnings() is for: settings that Kea accepts when it checks a
 // file and refuses when it starts. These cases show the first half with the
 // Kea of the target. If one of them fails, that Kea has begun to refuse the
 // setting in its check, and the warning for it is no longer needed.
@@ -126,7 +126,7 @@ if (fs.access('/usr/sbin/kea-dhcp4', 'x')) {
 
 		equal(saved.result, true, saved.validation);
 		equal(saved.warnings,
-			[ { code: 'lease-path', value: '/tmp/kea-test-leases4.csv', directory: '/var/lib/kea' } ]);
+			[ { code: 'lease-path', effect: 'no-start', value: '/tmp/kea-test-leases4.csv', directory: '/var/lib/kea' } ]);
 		equal(config.read(ctx, 'dhcp4').warnings, saved.warnings);
 		ok(!fs.access('/tmp/kea-test-leases4.csv'), 'the check did not create the file');
 	});
@@ -139,7 +139,7 @@ if (fs.access('/usr/sbin/kea-dhcp4', 'x')) {
 
 		equal(saved.result, true, saved.validation);
 		equal(saved.warnings,
-			[ { code: 'log-path', value: '/tmp/kea-test.log', logger: 'kea-dhcp4', directory: '/var/log/kea' } ]);
+			[ { code: 'log-path', effect: 'no-start', value: '/tmp/kea-test.log', logger: 'kea-dhcp4', directory: '/var/log/kea' } ]);
 	});
 
 	test('a file without such settings is saved without warnings', () => {

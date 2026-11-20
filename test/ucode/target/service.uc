@@ -172,6 +172,63 @@ test('only dnsmasq and odhcpd can be controlled as conflicting services', () => 
 	equal(init_log()[-1], 'dnsmasq stop');
 });
 
+/* ---- what a running daemon says, and the nodes of a cluster --------------- */
+
+test('only the DHCP daemons that procd runs are asked for their state', () => {
+	let asked = [];
+	let sctx = config.context({
+		...options,
+		service_list: name => ({ kea: { instances: procd.kea } }),
+		control: (name, command) => {
+			push(asked, name + ' ' + command);
+
+			return { result: 0, arguments: { sockets: { status: 'failed', errors: [ 'the interface br-lan is not running' ] } } };
+		}
+	});
+
+	procd = { kea: { dhcp4: { running: true }, dhcp6: { running: false }, 'dhcp-ddns': { running: true } } };
+
+	let states = service.daemon_states(sctx);
+
+	equal(asked, [ 'dhcp4 status-get' ]);
+	equal(keys(states), [ 'dhcp4' ]);
+	equal(states.dhcp4.reachable, true);
+	equal(states.dhcp4.sockets.status, 'failed');
+
+	procd = {};
+	equal(service.daemon_states(sctx), {}, 'nothing runs, nothing is asked');
+});
+
+test('a daemon without a control socket is reported as not reachable', () => {
+	// The real client: the configuration file of this temporary root names
+	// no socket, or does not exist.
+	procd = { kea: { dhcp4: { running: true } } };
+
+	let state = service.daemon_states(ctx).dhcp4;
+
+	equal(state.reachable, false);
+	ok(state.reason in [ 'no-control-socket', 'no-socket-module' ], state.reason);
+	procd = {};
+});
+
+test('the nodes of a cluster come from ha-cluster, when it is there', () => {
+	let cctx = config.context({ ...options, ha_nodes: () => ({
+		dhcp_backend: 'kea',
+		node: { name: 'ha-192-168-50-2', label: 'node1', address: '192.168.50.2', priority: 100, kea_role: 'primary' },
+		peers: [ { name: 'ha-192-168-50-3', label: 'node2', address: '192.168.50.3', vrrp_only: false, kea_role: 'standby' } ]
+	}) });
+
+	equal(service.ha_nodes(cctx).available, true);
+	equal(service.ha_nodes(cctx).peers[0].name, 'ha-192-168-50-3');
+
+	// The real call. A machine with a cluster answers; any other has no
+	// such object, and nothing is offered.
+	let real = service.ha_nodes(config.context());
+
+	equal(type(real.available), 'bool');
+	equal(type(real.peers), 'array');
+});
+
 /* ---- status -------------------------------------------------------------- */
 
 test('status reports installed parts and running conflicts', () => {

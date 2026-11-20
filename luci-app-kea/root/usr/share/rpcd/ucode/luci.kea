@@ -35,6 +35,18 @@ const methods = {
 		}
 	},
 
+	getDaemonState: {
+		call: function() {
+			return { daemons: service.daemon_states(ctx) };
+		}
+	},
+
+	getHaNodes: {
+		call: function() {
+			return { cluster: service.ha_nodes(ctx) };
+		}
+	},
+
 	getNetworkInterfaces: {
 		call: function() {
 			return { interfaces: { items: service.network_interfaces(ctx) } };

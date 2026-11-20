@@ -281,6 +281,144 @@ test('the log reply says where each installed daemon writes its log', () => {
 	fs.unlink(config.path(logctx, 'dhcp_ddns'));
 });
 
+// ---- control socket ---------------------------------------------------------
+
+// The reply of kea-dhcp4 3.0.4 to "status-get": one of two servers paired
+// on a test machine, a moment after both were up.
+const STATUS = {
+	result: 0,
+	arguments: {
+		'dhcp-state': { 'disabled-by-user': false, 'globally-disabled': false },
+		'high-availability': [ {
+			'ha-mode': 'hot-standby',
+			'ha-servers': {
+				local: { role: 'primary', scopes: [ 'a' ], 'server-name': 'a', state: 'hot-standby',
+					'system-time': '2026-11-20 18:38:25' },
+				remote: { age: 0, 'analyzed-packets': 0, 'clock-skew': 0, 'communication-interrupted': false,
+					'connecting-clients': 0, 'in-touch': true, 'last-scopes': [], 'last-state': 'hot-standby',
+					role: 'standby', 'server-name': 'b', 'system-time': '2026-11-20 18:38:25',
+					'unacked-clients': 0, 'unacked-clients-left': 0 }
+			}
+		} ],
+		'multi-threading-enabled': true,
+		pid: 3677,
+		reload: 15,
+		sockets: { status: 'ready' },
+		uptime: 15
+	}
+};
+
+test('the status of a daemon is reduced to its sockets and high availability', () => {
+	equal(runtime.daemon_state(STATUS), {
+		reachable: true,
+		uptime: 15,
+		serving: true,
+		sockets: { status: 'ready', errors: [] },
+		ha: [ {
+			mode: 'hot-standby',
+			local: { name: 'a', role: 'primary', state: 'hot-standby' },
+			remote: { name: 'b', role: 'standby', state: 'hot-standby', in_touch: true, interrupted: false, age: 0 }
+		} ]
+	});
+});
+
+test('a daemon that runs without listening says so', () => {
+	// As after a boot in which Kea was started before its interface was up.
+	let state = runtime.daemon_state({ result: 0, arguments: {
+		sockets: { status: 'failed', errors: [ 'the interface br-lan is not running' ] },
+		uptime: 21
+	} });
+
+	equal(state.sockets, { status: 'failed', errors: [ 'the interface br-lan is not running' ] });
+	equal(state.ha, [], 'no high availability configured');
+	equal(state.serving, true);
+});
+
+test('a lost partner, a stopped service and a daemon that does not answer', () => {
+	let alone = runtime.daemon_state({ result: 0, arguments: {
+		'high-availability': [ { 'ha-mode': 'hot-standby', 'ha-servers': {
+			local: { role: 'primary', 'server-name': 'a', state: 'partner-down' },
+			remote: { age: 8, 'communication-interrupted': true, 'in-touch': true,
+				'last-state': 'unavailable', role: 'standby', 'server-name': 'b' }
+		} } ],
+		sockets: { status: 'ready' }
+	} });
+
+	equal(alone.ha[0].local.state, 'partner-down');
+	equal(alone.ha[0].remote, { name: 'b', role: 'standby', state: 'unavailable',
+		in_touch: true, interrupted: true, age: 8 });
+
+	equal(runtime.daemon_state({ result: 0, arguments: {
+		'dhcp-state': { 'globally-disabled': true }, sockets: { status: 'ready' } } }).serving, false);
+
+	equal(runtime.daemon_state({ error: 'connect-failed' }), { reachable: false, reason: 'connect-failed' });
+	equal(runtime.daemon_state({ result: 1, text: 'unsupported' }), { reachable: false, reason: 'refused' });
+	equal(runtime.daemon_state(null), { reachable: false, reason: 'refused' });
+});
+
+// The client itself, against a socket that a second interpreter serves.
+let sockets = null;
+
+try {
+	sockets = require('socket');
+}
+catch (e) {
+}
+
+if (sockets) {
+	const interpreter = getenv('UCODE') ?? 'ucode';
+	const server = sourcepath(0, true) + '/control-server.uc';
+	const sctx = config.context({ root, run_dir: root + '/ctl' });
+	const path = sctx.run_dir + '/kea4-ctrl-socket';
+
+	config.mkdir_p(sctx.run_dir, 0o750);
+	config.mkdir_p(sctx.conf_dir, 0o755);
+
+	function serve(mode) {
+		system(sprintf('%s %s %s %s >/dev/null 2>&1 &', config.shellquote(interpreter),
+			config.shellquote(server), config.shellquote(path), mode));
+
+		// Wait for the socket to be there.
+		for (let i = 0; i < 50 && !fs.stat(path); i++)
+			sockets.poll(100);
+	}
+
+	test('a command is sent over the control socket named in the configuration', () => {
+		fs.writefile(config.path(sctx, 'dhcp4'),
+			'{ "Dhcp4": { "control-socket": { "socket-type": "unix", "socket-name": "kea4-ctrl-socket" } } }');
+		serve('reply');
+
+		equal(runtime.control(sctx, 'dhcp4', 'status-get'),
+			{ result: 0, arguments: { command: 'status-get', sockets: { status: 'ready' } } });
+	});
+
+	test('a daemon that takes the command and does not answer is not waited for', () => {
+		serve('silent');
+
+		let before = clock(true);
+		let reply = runtime.control(sctx, 'dhcp4', 'status-get');
+		let after = clock(true);
+		let waited = (after[0] - before[0]) * 1000 + (after[1] - before[1]) / 1000000;
+
+		equal(reply, { error: 'no-reply' });
+		ok(waited < 3000, sprintf('gave up after %d ms', waited));
+	});
+
+	test('no socket to connect to, and none configured', () => {
+		for (let i = 0; i < 60 && fs.stat(path); i++)
+			sockets.poll(100);
+
+		equal(runtime.control(sctx, 'dhcp4', 'status-get'), { error: 'connect-failed' });
+
+		fs.writefile(config.path(sctx, 'dhcp4'), '{ "Dhcp4": { } }');
+		equal(runtime.control(sctx, 'dhcp4', 'status-get'), { error: 'no-control-socket' });
+		fs.unlink(config.path(sctx, 'dhcp4'));
+	});
+}
+else {
+	print('# skipped: the control socket tests need the ucode socket module\n');
+}
+
 // ---- version ----------------------------------------------------------------
 
 test('the version is asked from the first Kea daemon that is installed', () => {

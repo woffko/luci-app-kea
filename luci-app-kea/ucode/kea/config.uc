@@ -13,9 +13,9 @@ import * as jsonc from 'luci.kea.jsonc';
 // validator.
 
 // "root" is the name of the top-level object of the file. "hooks" marks the
-// daemons whose binary has the stricter check "-T". "late_paths" marks the
-// daemons that look at the directories of their lease and log files only
-// when they start; see start_warnings().
+// daemons whose binary has the stricter check "-T". "dhcp" marks the DHCP
+// daemons, which have settings their check does not look at; see
+// warnings().
 export const CONFIGS = {
 	dhcp4: {
 		file: 'kea-dhcp4.conf',
@@ -24,7 +24,7 @@ export const CONFIGS = {
 		instance: 'dhcp4',
 		root: 'Dhcp4',
 		hooks: true,
-		late_paths: true
+		dhcp: true
 	},
 	dhcp6: {
 		file: 'kea-dhcp6.conf',
@@ -33,7 +33,7 @@ export const CONFIGS = {
 		instance: 'dhcp6',
 		root: 'Dhcp6',
 		hooks: true,
-		late_paths: true
+		dhcp: true
 	},
 	dhcp_ddns: {
 		file: 'kea-dhcp-ddns.conf',
@@ -69,6 +69,10 @@ export const CONFIG_ORDER = [ 'dhcp4', 'dhcp6', 'dhcp_ddns', 'ctrl_agent' ];
 //                    Kea binary (tests)
 // options.clock      function() -> epoch seconds (tests)
 // options.log_reader function() -> text of the system log (tests)
+// options.control    function(name, command) -> reply of the daemon on its
+//                    control socket (tests)
+// options.ha_nodes   function() -> reply of "ubus call ha-cluster nodes"
+//                    (tests)
 export function context(options) {
 	let root = options?.root ?? '';
 
@@ -88,7 +92,9 @@ export function context(options) {
 		service_list: options?.service_list,
 		validator: options?.validator,
 		clock: options?.clock,
-		log_reader: options?.log_reader
+		log_reader: options?.log_reader,
+		control: options?.control,
+		ha_nodes: options?.ha_nodes
 	};
 };
 
@@ -265,25 +271,35 @@ function log_kind(output) {
 }
 
 // Settings that the check of the Kea binary accepts, also with "-T", and
-// that stop the daemon when it starts. Measured with Kea 3.0.4:
+// that keep the daemon from serving. Measured with Kea 3.0.4.
 //
-// - a lease file whose directory is not LEASE_DIR. Kea compares the text
-//   before the last slash, so "/var/lib/kea//x" and a subdirectory are
-//   refused as well. A name without a slash is placed in LEASE_DIR. The
-//   name is not looked at when the leases are not written ("persist").
-// - a log file whose directory is not LOG_DIR, by the same comparison.
+// With the effect "no-start", the daemon exits when it starts:
+//
+// - "lease-path": a lease file whose directory is not LEASE_DIR. Kea
+//   compares the text before the last slash, so "/var/lib/kea//x" and a
+//   subdirectory are refused as well. A name without a slash is placed in
+//   LEASE_DIR. The name is not looked at when the leases are not written
+//   ("persist").
+// - "log-path": a log file whose directory is not LOG_DIR, by the same
+//   comparison. The entry also names its logger.
+//
+// With the effect "no-listen", the daemon may run without listening:
+//
+// - "socket-retries": interfaces to listen on, and no retries for opening
+//   the sockets. Kea opens its sockets once, when it starts. At boot it is
+//   started while an interface may not be ready, then opens nothing, and
+//   stays that way.
 //
 // Only the DHCP daemons are affected: kea-dhcp-ddns and kea-ctrl-agent
-// refuse such a log file in their check.
+// refuse such a log file in their check and listen on no interface.
 //
-// Returns a list of { code, value, directory } with the code "lease-path"
-// or "log-path"; a "log-path" entry also names its logger.
-export function start_warnings(ctx, name, content) {
-	let warnings = [];
-	let root = CONFIGS[name]?.late_paths ? root_of(name, content) : null;
+// Returns a list of { code, effect, value, ... }.
+export function warnings(ctx, name, content) {
+	let found = [];
+	let root = CONFIGS[name]?.dhcp ? root_of(name, content) : null;
 
 	if (!root)
-		return warnings;
+		return found;
 
 	let database = root['lease-database'];
 
@@ -292,22 +308,63 @@ export function start_warnings(ctx, name, content) {
 		let dir = directory(database.name);
 
 		if (dir != null && (dir != LEASE_DIR || substr(database.name, -1) == '/'))
-			push(warnings, { code: 'lease-path', value: database.name, directory: LEASE_DIR });
+			push(found, {
+				code: 'lease-path',
+				effect: 'no-start',
+				value: database.name,
+				directory: LEASE_DIR
+			});
 	}
 
 	for (let item in logger_outputs(root)) {
 		let dir = log_kind(item.output) == 'file' ? directory(item.output) : null;
 
 		if (dir != null && dir != LOG_DIR)
-			push(warnings, {
+			push(found, {
 				code: 'log-path',
+				effect: 'no-start',
 				value: item.output,
 				logger: item.logger,
 				directory: LOG_DIR
 			});
 	}
 
-	return warnings;
+	let listen = root['interfaces-config'];
+
+	if (type(listen) == 'object' && type(listen.interfaces) == 'array' && length(listen.interfaces) &&
+	    !(+listen['service-sockets-max-retries'] > 0))
+		push(found, {
+			code: 'socket-retries',
+			effect: 'no-listen',
+			value: join(', ', map(listen.interfaces, entry => `${entry}`))
+		});
+
+	return found;
+};
+
+// The path of the control socket a daemon is configured with, or null.
+// Kea takes one "control-socket" or a list "control-sockets"; a name
+// without a directory is in its runtime directory.
+export function control_socket(ctx, name, content) {
+	let root = root_of(name, content);
+
+	if (!root)
+		return null;
+
+	let entries = type(root['control-sockets']) == 'array' ?
+		root['control-sockets'] : [ root['control-socket'] ];
+
+	for (let entry in entries) {
+		if (type(entry) != 'object' || (entry['socket-type'] ?? 'unix') != 'unix')
+			continue;
+
+		let path = entry['socket-name'];
+
+		if (type(path) == 'string' && path != '')
+			return index(path, '/') == 0 ? path : ctx.run_dir + '/' + path;
+	}
+
+	return null;
 };
 
 // Where the loggers of a configuration write, each output once:
@@ -369,7 +426,7 @@ export function validate_all(ctx) {
 			exists,
 			valid: check.valid,
 			output: check.output,
-			warnings: check.valid ? start_warnings(ctx, name, fs.readfile(file)) : []
+			warnings: check.valid ? warnings(ctx, name, fs.readfile(file)) : []
 		};
 	}
 
@@ -414,7 +471,7 @@ export function read(ctx, name) {
 		content,
 		valid: check.valid,
 		validation: check.output,
-		warnings: check.valid ? start_warnings(ctx, name, content) : []
+		warnings: check.valid ? warnings(ctx, name, content) : []
 	};
 };
 
@@ -592,7 +649,7 @@ export function save(ctx, name, content) {
 		path: file,
 		backup: id,
 		validation: check.output,
-		warnings: start_warnings(ctx, name, content)
+		warnings: warnings(ctx, name, content)
 	};
 };
 

@@ -16,7 +16,7 @@ LUCI_DESCRIPTION:=Web interface for the ISC Kea DHCPv4 and DHCPv6 servers: \
 	dnsmasq static lease import.
 LUCI_URL:=https://github.com/woffko/luci-app-kea
 LUCI_MAINTAINER:=$(PKG_MAINTAINER)
-LUCI_DEPENDS:=+luci-base +kea-uci +kea-lfc
+LUCI_DEPENDS:=+luci-base +kea-uci +kea-lfc +ucode-mod-socket
 LUCI_PKGARCH:=all
 
 include $(TOPDIR)/feeds/luci/luci.mk
