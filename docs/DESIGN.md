@@ -344,6 +344,69 @@ is read, and with a save or a restore.
 - **The backend names the setting, the page words it.** A warning is a code
   with the value and the directory, so that the text can be translated.
 
+### A daemon that runs without listening
+
+Kea opens its sockets when it starts, once. On OpenWrt it is started at
+boot at a point where the bridge may not be running and the IPv6
+link-local address may still be tentative. It then opens nothing, says so
+in its log and in `status-get`, and stays that way; procd sees a running
+process. Two members of `interfaces-config` make it try again:
+`service-sockets-max-retries` and `service-sockets-retry-wait-time`.
+
+- The pages write 60 and 2000 when they make Kea listen on a device it did
+  not listen on and the file has neither value. Not when the user set or
+  cleared one of the two fields in the same save.
+- A file that names interfaces and has no retries is warned about wherever
+  the result of the check is shown. This is a second kind of warning: the
+  daemon starts, but may not listen. Save & Apply does not ask about it,
+  since a reload with such a file does no harm.
+- Overview and Services ask each DHCP daemon that procd runs for its
+  `status-get` and show the state of the sockets with Kea's own words.
+  "Failed" is an alarm at the top of Overview. Kea says "failed" when one
+  socket could not be opened, also while it listens on other interfaces,
+  so the pages say "could not open all of its sockets" and leave the
+  interface to Kea's message. The same state arises when
+  another DHCP server holds the port, so the advice names both cures: the
+  retries for the boot, and switching off the other server's DHCP.
+- A reload does not help a daemon in that state, because procd restarts a
+  process only when its file changed; the page says to restart.
+
+The control socket is the one named in the file of the daemon
+(`control-socket`, or the first unix socket of `control-sockets`; a name
+without a directory is in `/var/run/kea`). Connecting and waiting for the
+reply are limited to a second and a half each.
+
+### The state of high availability
+
+`status-get` also carries, per relationship, the mode, the role and state
+of this server, and the role and last known state of the partner. The
+pages show them in a sentence. While a pair starts, Kea switches the DHCP
+service of a server off until the servers have synchronized; that is shown
+as "not answering at the moment", not as a failure. Without high
+availability, a switched-off DHCP service is a failure: only a command does
+that.
+
+### Peers from a cluster
+
+`ha-cluster`, a package outside the OpenWrt repositories, runs VRRP and
+knows the nodes of a cluster. Its call `ubus call ha-cluster nodes` returns
+this node and its peers, each with a name that is the same on every node,
+the address the partner reaches, and a role suggested for hot standby. The
+backend makes the call and passes the reply on; a peer that only takes part
+in VRRP is left out; without a partner, or without the package, nothing is
+offered.
+
+The button on the tab puts the node names into "This server" and the list
+of peers, builds the URLs from the addresses with a fixed port per protocol
+(8001 for DHCPv4, 8002 for DHCPv6), and turns the suggested roles into
+those of the chosen mode (the standby of hot standby is the secondary of
+load balancing and a backup of passive backup). A peer of the form with the
+name of a node keeps its other keys. It saves nothing.
+
+The split between the two packages: `ha-cluster` knows the nodes and, by
+the owner's word, opens the firewall for the ports; this application
+writes the Kea files. Neither depends on the other.
+
 ### Where the log goes
 
 The Global settings tab has one field for the output of the loggers. It

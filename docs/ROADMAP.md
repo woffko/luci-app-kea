@@ -260,29 +260,38 @@ the last item.
 
 ## M9: Kea on a router that reboots, and pairs of routers
 
-Proposed, not yet approved by the owner. From a bench of the `ha-cluster`
-project (the owner's own feed) with a pair of Kea 3.0.4 servers next to
-VRRP, on 2026-11-20, and from measurements on the test machine the same day.
+From a bench of the `ha-cluster` project (the owner's own feed) with a pair
+of Kea 3.0.4 servers next to VRRP, on 2026-11-20, and from measurements on
+the test machine the same day. The first three items were approved by the
+owner that day and are done in `0.9.0-r1`.
 
-- [ ] Sockets at boot. Without `service-sockets-max-retries` and
+- [x] Sockets at boot. Without `service-sockets-max-retries` and
       `service-sockets-retry-wait-time` in `interfaces-config`, a Kea that
       is started before its interface is ready runs without listening.
       Write the two parameters when the editors make Kea listen on an
       interface and the file has neither, and warn about a file that names
       interfaces without them.
-- [ ] Say what a running daemon is doing: the state of its sockets, and of
+- [x] Say what a running daemon is doing: the state of its sockets, and of
       high availability, from its control socket, on Overview and Services.
       "Running" alone is true for a daemon that answers nobody.
-- [ ] Fill in the high availability tab from `ha-cluster`. Its read-only
+- [x] Fill in the high availability tab from `ha-cluster`. Its read-only
       call `ubus call ha-cluster nodes` gives each node a name that is the
       same on every node, the address the partner reaches, and a suggested
       role. The application stays the only writer of the Kea files, and
       works without `ha-cluster`.
-- [ ] To decide with the `ha-cluster` project: who writes the firewall rule
-      for the ports of the high availability listeners, and how the Kea
-      files of two nodes are kept equal. They may differ in
-      `this-server-name` only. Kea accepts that value from an included
-      file, but the application cannot open such a file in its forms.
+- [ ] A fixed server identifier for DHCPv6. Proposed, not yet approved.
+      Kea keeps the identifier in `/var/lib/kea`, which is in memory on
+      OpenWrt, so the server has a new one after every boot, and when it
+      cannot make one at boot `kea-dhcp6` does not start. Write a
+      `server-id` from the hardware address of the interface when the
+      DHCPv6 page makes Kea listen and the file has none, and warn about a
+      file without one.
+- [ ] Open, with the `ha-cluster` project: how the Kea files of two nodes
+      are kept equal. They may differ in `this-server-name` only. Kea
+      accepts that value from an included file, but the application cannot
+      open such a file in its forms. The firewall rule for the ports of the
+      high availability listeners is for `ha-cluster` to write, by the
+      owner's word of 2026-11-20.
 - [ ] Idea: apply a configuration with a reload signal instead of a restart
       of the process. A daemon then keeps its previous configuration when
       the new file cannot be loaded. Kea exits when the signal arrives in
@@ -339,6 +348,34 @@ They follow the recommendation at the time and can be revisited.
 - Backups go to `/etc/kea/backups/`, ten per config file.
 - Version numbers: packaging-only changes bump `PKG_RELEASE`; changes in
   behavior bump `PKG_VERSION`. Spelled out in [RELEASING.md](RELEASING.md).
+
+Taken while implementing M9:
+
+- **The form adds the retries only with a new interface.** A file that
+  listens without them gets a warning and two fields, not a silent change:
+  the rule that only what the user edits is written stays. Making Kea listen
+  on an interface is the edit that the retries belong to.
+- **Sixty retries, two seconds apart.** Two minutes cover a slow boot; the
+  values are the ones the bench of `ha-cluster` used, and the ones measured
+  here.
+- **The state of a daemon comes from its control socket, by `status-get`.**
+  One call tells the sockets and high availability. It needs the ucode
+  socket module, a new dependency, and a control socket in the file, which
+  the files shipped with Kea have. Without either the pages work as before
+  and say that the state is unknown. Every wait on the socket has a time
+  limit, because the backend runs inside rpcd.
+- **Only the daemons procd runs are asked**, and only the two DHCP daemons:
+  the others listen on no interface and have no high availability.
+- **`ha-cluster` is asked by the backend, not by the page.** The page needs
+  no access to another package's ubus object, and without that package the
+  reply is simply "nothing available".
+- **The fill-in fills the form and saves nothing.** The user sees the
+  peers, can change a port, and saves; Kea checks the result with the hook
+  loaded like any other save. Ports 8001 and 8002 are fixed so that every
+  node arrives at the same URLs.
+- **A daemon that does not listen is an alarm; a pair that is still
+  synchronizing is not.** High availability switches the DHCP service off
+  while the servers start, and on again by itself.
 
 Taken while implementing M8:
 

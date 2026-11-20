@@ -2,9 +2,9 @@
 
 Taken on OpenWrt 25.12.6 with Kea 3.0.4, using the test fixtures of this
 repository as configuration. The pictures of the Overview page as a whole,
-of high availability, the leases, the raw editor and the import are from
-version `0.7.0`, where these pages look the same; the others are from
-`0.8.0`. `test/browser/screenshots.js` regenerates them; see
+of the leases, the raw editor and the import are from version `0.7.0`,
+where these pages look the same; those of the Services page, the DHCP
+pages and the warning are from `0.8.0`, the others from `0.9.0`. `test/browser/screenshots.js` regenerates them; see
 [DEVELOPMENT.md](DEVELOPMENT.md#screenshots).
 
 ## Overview
@@ -40,8 +40,8 @@ dnsmasq serves DHCP on the same interface of the test machine.
 ## Global settings
 
 The last tab: timers and lifetimes for every subnet that does not set its
-own, the lease file cleanup interval, where the loggers write, and the
-options sent to every subnet.
+own, the lease file cleanup interval, where the loggers write, how often
+Kea tries again to open its sockets, and the options sent to every subnet.
 
 ![Global settings tab](images/global.png)
 
@@ -72,6 +72,12 @@ its parameters.
 
 ![Lines that switching high availability on adds to the file](images/ha-changes.png)
 
+With the `ha-cluster` package installed, the name of this server and the
+peers can be taken from the nodes of the cluster. The picture shows the
+form after **Fill in from ha-cluster**; nothing is saved yet.
+
+![High availability tab filled in from the nodes of a cluster](images/ha-fill.png)
+
 ## Changes before saving
 
 **Show changes** lists the lines of the file that a save would change. Here
@@ -79,6 +85,16 @@ the gateway was changed and one reservation switched off, which moves it
 into the subnet's `user-context`.
 
 ![View of the pending changes](images/changes.png)
+
+## What the running daemons say
+
+The top of Overview with two daemons running. The DHCPv4 server listens and
+is the primary of a pair that has settled. The DHCPv6 server was started at
+boot before its interface was ready: it runs, and answers nobody. The
+answers shown are the ones Kea gave on a test machine; for the picture the
+page was told them instead of asking a daemon.
+
+![Overview with a daemon that listens and one that does not](images/runtime.png)
 
 ## What Kea would not start with
 

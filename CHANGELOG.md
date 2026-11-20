@@ -9,6 +9,42 @@ Released versions are tagged `vX.Y.Z` and have their package on the
 [Releases page](https://github.com/woffko/luci-app-kea/releases). All
 versions are alpha.
 
+## 0.9.0-r1 (2026-11-20)
+
+### Added
+
+- **Retries for the sockets.** Kea opens its sockets once, when it starts.
+  Started at boot before its interface is ready, it keeps running and never
+  listens. The DHCPv4 and DHCPv6 pages now write the two parameters that
+  make it try again (`service-sockets-max-retries` 60,
+  `service-sockets-retry-wait-time` 2000) when they make Kea listen on an
+  interface and the file has neither. Both are fields of the Global
+  settings tab. A file that names interfaces and has no retries gets a
+  warning.
+- **What a running daemon is doing.** Overview and Services ask the running
+  DHCP daemons whether their sockets are open, and show the state of high
+  availability: mode, role and state of this server and of its partner. A
+  daemon that could not open a socket is named at the top of Overview, with
+  the interface and the reason Kea gives.
+- **Fill in from ha-cluster** on the High availability tab, when the
+  `ha-cluster` package is installed and knows this node and a partner: the
+  name of this server and the peers, with their URLs and roles, are taken
+  from the cluster. Nothing is saved until you save. The application does
+  not depend on `ha-cluster`.
+
+### Changed
+
+- The package depends on `ucode-mod-socket`, which `apk` installs with it.
+- The example URLs of the High availability tab use port 8001. DHCPv4 and
+  DHCPv6 need a port each; the fill-in uses 8001 and 8002.
+
+### Upgrade notes
+
+After the upgrade, a configuration that listens on an interface without
+retries shows a warning on Overview and on its page. Set **Socket Retries**
+and **Socket Retry Wait** on the Global settings tab, for example 60 and
+2000, and save. No file is changed by the upgrade itself.
+
 ## 0.8.0-r1 (2026-11-19)
 
 Tagged `v0.8.0` on 2026-11-20. The release workflow built the package from

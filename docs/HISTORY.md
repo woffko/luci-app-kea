@@ -7,6 +7,35 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-20: Sockets at boot, the state of a daemon, peers from a cluster (M9, `0.9.0-r1`)
+
+Approved by the owner after the findings of the same day.
+
+- The DHCP pages write retries for the sockets when they make Kea listen on
+  an interface; the Global settings tab has the two fields; a file that
+  listens without retries is warned about.
+- `getDaemonState`: the backend asks the running DHCP daemons for
+  `status-get` over their control sockets, with the ucode socket module, a
+  new dependency. Overview and Services show whether a daemon listens and
+  the state of high availability.
+- `getHaNodes` and the button **Fill in from ha-cluster**: the peers of the
+  high availability tab from the nodes of a cluster.
+- Measured again with DHCP of dnsmasq and odhcpd switched off on the LAN,
+  because the first series was mixed up with dnsmasq holding port 67:
+  without retries `kea-dhcp6` did not listen after any of four boots,
+  `kea-dhcp4` after two of seven; with them both listened after four of
+  four. A reload does not cure the state, a restart does.
+- Seen for real through the pages: a daemon that does not listen, a pair of
+  two Kea processes on one machine in hot standby, the pair while it
+  synchronized, and the primary after its partner was stopped.
+- Found on the way: the server identifier of DHCPv6 changes at every boot,
+  and in one boot `kea-dhcp6` did not start because it could not make one.
+  Written down in STATUS and proposed in the roadmap; not changed.
+- The firewall rule for the ports of the pair is for `ha-cluster` to write,
+  by the owner's word; passed on to that project.
+- Tests: 100 ucode cases on any machine, 132 on a target, 80 JavaScript
+  cases, six browser tests. The fixtures now carry the retries.
+
 ## 2026-11-20: Kea at boot, and a pair of Kea servers on another bench
 
 No change to the package. The `ha-cluster` project, another project of the

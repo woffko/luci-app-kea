@@ -42,9 +42,43 @@ const model = loadModule("kea.model");
 const PICTURES = [
 	"overview", "services", "dhcp4", "changes", "global",
 	"ha", "ha-load-balancing", "ha-checks", "ha-changes",
-	"warnings", "reload",
+	"ha-fill", "warnings", "reload", "runtime",
 	"dhcp6", "leases", "configuration", "import"
 ];
+
+/*
+ * What the page is told instead of asking the target, see
+ * interceptServiceCalls() in lib.js: no service is acted on, and for some
+ * pictures the page hears of a running daemon or of a cluster.
+ */
+const state = { blocked: [], running: false, replies: {} };
+
+/* A pair of nodes as ha-cluster names them. */
+const CLUSTER = {
+	available: true,
+	dhcp_backend: "kea",
+	node: { name: "ha-192-168-1-1", label: "router1", address: "192.168.1.1", role: "primary" },
+	peers: [ { name: "ha-192-168-1-2", label: "router2", address: "192.168.1.2", role: "standby" } ]
+};
+
+/* A DHCPv4 server in a settled pair, and a DHCPv6 server that came up before its interface. */
+const DAEMONS = {
+	dhcp4: {
+		reachable: true, uptime: 86400, serving: true,
+		sockets: { status: "ready", errors: [] },
+		ha: [ {
+			mode: "hot-standby",
+			local: { name: "ha-192-168-1-1", role: "primary", state: "hot-standby" },
+			remote: { name: "ha-192-168-1-2", role: "standby", state: "hot-standby",
+				in_touch: true, interrupted: false, age: 0 }
+		} ]
+	},
+	dhcp6: {
+		reachable: true, uptime: 86400, serving: true,
+		sockets: { status: "failed", errors: [ "Failed to open multicast socket on interface br-lan, reason: Failed to open link-local socket on interface br-lan: Failed to bind socket 14 to fe80::5054:ff:fe12:3456/port=547: Address not available" ] },
+		ha: []
+	}
+};
 const ONLY = process.argv.slice(2);
 
 for (const name of ONLY) {
@@ -196,12 +230,10 @@ async function highAvailability(page) {
  * fixture is put back afterwards.
  */
 async function startWarnings(page, fixture) {
-	const state = { blocked: [], running: false };
 	const config = model.parseConfig(fixture).config;
 
 	config.Dhcp4["lease-database"].name = "/tmp/kea-leases4.csv";
 
-	await interceptServiceCalls(page, state);
 	await openRawEditor(page, "dhcp4");
 	await page.locator("#view textarea").fill(model.serialize(config));
 	await footerButton(page, "Save").click();
@@ -230,8 +262,49 @@ async function startWarnings(page, fixture) {
 	await writeRawConfig(page, "dhcp4", fixture);
 }
 
+/*
+ * What two running daemons say about themselves, at the top of Overview.
+ * The answers are the ones Kea 3.0.4 gave on a test machine, for a pair
+ * that has settled and for a server started before its interface was up.
+ */
+async function runtime(page) {
+	state.running = true;
+	state.replies = { getDaemonState: { daemons: DAEMONS } };
+	await openPage(page, "overview", "Kea DHCP");
+	await page.locator("#view .kea-not-listening").waitFor();
+	await capture(page, "runtime", true);
+	state.running = false;
+	state.replies = {};
+}
+
+/* The peers taken from the nodes of a cluster; nothing is saved. */
+async function fillFromCluster(page) {
+	state.replies = { getHaNodes: { cluster: CLUSTER } };
+	await openPage(page, "dhcp4", "Kea DHCPv4");
+	await page.locator("#view h3", { hasText: "br-lan" }).first().waitFor();
+
+	if (await page.locator("#view .cbi-tabmenu a", { hasText: "High availability" }).count() === 0) {
+		console.log("skipped ha-fill.png: kea-hook-ha is not installed on the target");
+		state.replies = {};
+		return;
+	}
+
+	await openHaTab(page);
+	await page.locator("#view button.kea-ha-fill").click();
+	await page.waitForFunction((name) => {
+		const input = document.querySelector("#view table.kea-ha-peers tbody tr input");
+
+		return input && input.value === name;
+	}, CLUSTER.node.name, { timeout: 30000 });
+	await leaveFields(page);
+	await capture(page, "ha-fill");
+	state.replies = {};
+}
+
 main(async (page) => {
 	const originals = {};
+
+	await interceptServiceCalls(page, state);
 
 	fs.mkdirSync(process.env.OUT_DIR, { recursive: true });
 
@@ -274,8 +347,14 @@ main(async (page) => {
 		if (wanted("ha", "ha-load-balancing", "ha-checks", "ha-changes"))
 			await highAvailability(page);
 
+		if (wanted("ha-fill"))
+			await fillFromCluster(page);
+
 		if (wanted("warnings", "reload"))
 			await startWarnings(page, FIXTURES.dhcp4);
+
+		if (wanted("runtime"))
+			await runtime(page);
 
 		if (wanted("dhcp6")) {
 			await openPage(page, "dhcp6", "Kea DHCPv6");
