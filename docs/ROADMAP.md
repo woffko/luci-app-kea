@@ -216,13 +216,15 @@ are no longer in use.
 - [x] Changelog and version policy: [CHANGELOG.md](../CHANGELOG.md) and
       [RELEASING.md](RELEASING.md).
 - [x] Tag `v0.x` releases. `v0.7.0` on 2026-11-17 is the first, made by
-      hand with the package of its CI run attached.
+      hand with the package of its CI run attached. `v0.8.0` followed on
+      2026-11-20.
 - [x] Document installation of the package that CI builds.
 - [x] Run the on-target and browser tests in CI against an OpenWrt root
       filesystem or virtual machine. Done with the official image under
       QEMU.
 - [x] Attach built packages to GitHub releases automatically, from the tag.
-      A workflow prepares a draft; the owner publishes it.
+      A workflow prepares a draft; the owner publishes it. First used for
+      `v0.8.0`.
 - [x] Document installation as a custom feed. The package moved into a
       subdirectory for it.
 - [ ] A package repository for `apk`, with signed packages, so that a

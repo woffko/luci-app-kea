@@ -2,8 +2,9 @@
 
 How the package is numbered, what a version number promises, and how a
 release is made. The first release was `v0.7.0` on 2026-11-17, made by
-hand. A release is made on the word of the repository owner: a workflow
-prepares it from a tag as a draft, and the owner publishes it.
+hand; `v0.8.0` on 2026-11-20 was the first one the workflow prepared. A
+release is made on the word of the repository owner: a workflow prepares it
+from a tag as a draft, and the owner publishes it.
 
 ## Version numbers
 

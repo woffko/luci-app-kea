@@ -11,6 +11,9 @@ versions are alpha.
 
 ## 0.8.0-r1 (2026-11-19)
 
+Tagged `v0.8.0` on 2026-11-20. The release workflow built the package from
+the tag, tested it and prepared the release.
+
 ### Added
 
 - A warning for a configuration that Kea accepts when it checks it and does
