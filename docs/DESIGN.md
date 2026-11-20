@@ -233,8 +233,11 @@ of this server; the control agent is not involved. `kea-dhcp4 -T` works
 while a daemon with the same configuration is running.
 
 Optional integration with `ha-cluster` (detect it, read peers and node names,
-offer a fill-in) stays open: the OpenWrt 25.12 repositories have no such
-package. Kea must not depend on it.
+offer a fill-in) stays open. The OpenWrt 25.12 repositories have no such
+package; the owner's own feed has one, with a read-only call for exactly
+this data. The intended split: `ha-cluster` offers the data, this
+application writes the Kea files, and neither depends on the other. See
+roadmap milestone M9.
 
 ## Runtime view
 

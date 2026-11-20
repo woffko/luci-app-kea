@@ -180,8 +180,8 @@ Done in `0.6.0-r1`.
 - [x] Modes, this-server name, peers, timers, lease update settings, advanced
       JSON parameters.
 - [ ] Optional assisted fill-in from `ha-cluster` peers, without a dependency.
-      Not done: the OpenWrt 25.12 repositories have no `ha-cluster` package,
-      so there is nothing to read peers from or to test against.
+      Not done in `0.6.0`: the OpenWrt 25.12 repositories have no
+      `ha-cluster` package. Moved to M9, where there is one to read from.
 
 Also fixed on the way:
 
@@ -257,6 +257,36 @@ the last item.
 - [ ] Idea: the names of Kea leases in the local DNS. dnsmasq accepts no
       DNS updates and the OpenWrt 25.12 repository has no run-script hook
       for Kea, so it would be a copy made from the lease files.
+
+## M9: Kea on a router that reboots, and pairs of routers
+
+Proposed, not yet approved by the owner. From a bench of the `ha-cluster`
+project (the owner's own feed) with a pair of Kea 3.0.4 servers next to
+VRRP, on 2026-11-20, and from measurements on the test machine the same day.
+
+- [ ] Sockets at boot. Without `service-sockets-max-retries` and
+      `service-sockets-retry-wait-time` in `interfaces-config`, a Kea that
+      is started before its interface is ready runs without listening.
+      Write the two parameters when the editors make Kea listen on an
+      interface and the file has neither, and warn about a file that names
+      interfaces without them.
+- [ ] Say what a running daemon is doing: the state of its sockets, and of
+      high availability, from its control socket, on Overview and Services.
+      "Running" alone is true for a daemon that answers nobody.
+- [ ] Fill in the high availability tab from `ha-cluster`. Its read-only
+      call `ubus call ha-cluster nodes` gives each node a name that is the
+      same on every node, the address the partner reaches, and a suggested
+      role. The application stays the only writer of the Kea files, and
+      works without `ha-cluster`.
+- [ ] To decide with the `ha-cluster` project: who writes the firewall rule
+      for the ports of the high availability listeners, and how the Kea
+      files of two nodes are kept equal. They may differ in
+      `this-server-name` only. Kea accepts that value from an included
+      file, but the application cannot open such a file in its forms.
+- [ ] Idea: apply a configuration with a reload signal instead of a restart
+      of the process. A daemon then keeps its previous configuration when
+      the new file cannot be loaded. Kea exits when the signal arrives in
+      its first moments after a start, by the same bench.
 
 ## Decisions
 

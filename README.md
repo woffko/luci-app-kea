@@ -231,6 +231,12 @@ where the feed scripts do not find it.
   The configuration files shipped with Kea name a log file in a directory
   that OpenWrt does not have, and what is written there is lost. Overview
   says so when that is the case.
+- Give Kea time to find its interface at boot. Add
+  `"service-sockets-max-retries": 60` and
+  `"service-sockets-retry-wait-time": 2000` to `interfaces-config` of the
+  DHCPv4 and DHCPv6 files, on the **Configuration** page. Without them a Kea
+  that is started before the interface is ready keeps running and never
+  listens, and the application shows it as running all the same.
 - Do not stop dnsmasq to make room for Kea: on most routers it is also the
   DNS server. Switch its DHCP off for the interfaces Kea serves. The
   **Services** page shows what dnsmasq and odhcpd serve.
