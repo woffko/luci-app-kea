@@ -9,7 +9,21 @@ Released versions are tagged `vX.Y.Z` and have their package on the
 [Releases page](https://github.com/woffko/luci-app-kea/releases). All
 versions are alpha.
 
-## 0.9.1-r1 (2026-11-21)
+## 0.10.0-r1 (2026-11-21)
+
+Includes the fix made as `0.9.1-r1`, which was not released on its own.
+
+### Added
+
+- For routers that run `ha-cluster` with Kea as the DHCP server of the
+  cluster. That package keeps the firewall open for the ports of the peer
+  URLs and takes them from the Kea files. Whenever the application starts,
+  restarts or reloads Kea, it now has `ha-cluster` look at its firewall
+  rules again (`/etc/init.d/ha-cluster firewall`), so that a changed port
+  is let through without a second step, and says so in its report. No
+  daemon of the cluster is started, stopped or signalled by this. It needs
+  a version of `ha-cluster` that has the command; with an older one, or
+  without `ha-cluster`, nothing changes.
 
 ### Fixed
 

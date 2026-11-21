@@ -94,7 +94,9 @@ export function context(options) {
 		clock: options?.clock,
 		log_reader: options?.log_reader,
 		control: options?.control,
-		ha_nodes: options?.ha_nodes
+		ha_nodes: options?.ha_nodes,
+		// How long a command of ha-cluster may take, in milliseconds
+		cluster_timeout: options?.cluster_timeout ?? 15000
 	};
 };
 

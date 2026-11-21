@@ -176,6 +176,35 @@ main(async (page) => {
 		assert.deepEqual(state.blocked, [ "setInitAction" ], "the reload was asked for once");
 		ok("with the answer yes it goes on to the reload");
 
+		/* ---- a reload that worked says what was done besides Kea ---- */
+
+		const applyAnyway = async (renew) => {
+			state.blocked = [];
+			await openGlobal(page);
+			await fieldInput(page, "Renew Timer").fill(renew);
+			await footerButton(page, "Save & Apply").click();
+			await waitForModal(page);
+			await page.locator(".modal button", { hasText: /^Reload anyway$/ }).click();
+		};
+
+		state.actions = { setInitAction: { result: true, cluster_firewall: true } };
+		await applyAnyway("603");
+		await expectNotification(page, "configuration saved and applied. ha-cluster was told to bring its firewall rules up to date");
+		assert.deepEqual(state.blocked, [ "setInitAction" ]);
+		ok("when the backend called ha-cluster for its firewall rules, the report says so");
+
+		state.actions = { setInitAction: { result: true, cluster_firewall: false } };
+		await applyAnyway("604");
+		/* Two notifications; expectNotification() clears them all, so it comes last. */
+		await page.locator(".alert-message", { hasText: "ha-cluster could not bring its firewall rules up to date" })
+			.first().waitFor({ timeout: 30000 });
+		assert.doesNotMatch(await page.locator(".alert-message", { hasText: "configuration saved and applied." })
+			.first().textContent(), /ha-cluster/);
+		await expectNotification(page, "configuration saved and applied.");
+		ok("a failure of ha-cluster is a warning, and Kea is still reported as reloaded");
+
+		state.actions = {};
+
 		state.running = false;
 		state.blocked = [];
 

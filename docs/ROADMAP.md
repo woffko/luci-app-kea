@@ -286,9 +286,11 @@ owner that day and are done in `0.9.0-r1`.
       in which `kea-dhcp6` did not start because it could not make an
       identifier did not happen again in 22 boots. To be taken up if that
       shows again.
-- [ ] Proposed by the `ha-cluster` project, not yet decided: reload
-      `ha-cluster` after a Kea file with changed peer URLs was applied, so
-      that its firewall rule follows the ports.
+- [x] Have `ha-cluster` bring its firewall rules up to date after Kea was
+      made to read its files, so that the ports of the peer URLs stay
+      open. Asked for by the `ha-cluster` project, approved by the owner
+      on 2026-11-21. Uses the command `firewall` that project made for it,
+      which starts and stops nothing. `0.10.0`.
 - [ ] Open, with the `ha-cluster` project: how the Kea files of two nodes
       are kept equal. They may differ in `this-server-name` only. Kea
       accepts that value from an included file, but the application cannot
