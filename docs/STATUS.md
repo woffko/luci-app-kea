@@ -508,7 +508,7 @@ Kea, on OpenWrt.
   fixed identifier in the file (`server-id` with `type` `LL`, `htype` 1,
   the hardware address as `identifier`, `persist` false) the first renewal
   was answered. So a client renews later than it would, and loses nothing.
-- In one boot, out of about fifty with `kea-dhcp6` enabled, Kea found no
+- In one boot, out of about forty with `kea-dhcp6` enabled, Kea found no
   interface to make the identifier from and `kea-dhcp6` did not start
   ("unable to find suitable interface for generating a DUID-LLT"). It did
   not happen again in 22 boots made to look for it. A fixed identifier
