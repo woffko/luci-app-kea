@@ -136,8 +136,10 @@ package, and no cluster running:
 
 procd knew of no `ha-cluster` service afterwards and no keepalived ran.
 
-The package file of `v0.9.0` was built by the release workflow from the
-tagged commit and passed the 132 backend tests and six browser tests in that
+`0.10.0-r1` was not installed on the second machine.
+
+The package file of `v0.10.0` was built by the release workflow from the
+tagged commit and passed the 142 backend tests and six browser tests in that
 run, on OpenWrt 25.12.6 under QEMU with Kea 3.0.4. It holds the same files
 as the package that was tested by hand before.
 

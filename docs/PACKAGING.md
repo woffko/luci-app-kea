@@ -167,6 +167,15 @@ to display anything. Revisit if reviewers of an upstream submission object.
 return the addresses, MAC addresses and host names of DHCP clients, which
 LuCI read access already shows for dnsmasq and odhcpd on its status pages.
 
+`0.10.0` added no method. The write-level `setInitAction` now runs a
+command of another package after it started, restarted or reloaded Kea:
+`/etc/init.d/ha-cluster firewall`, when that package is installed, its
+script names the command, and its cluster is enabled with Kea as the DHCP
+server. The command is fixed; nothing of the request reaches its command
+line. A user who may start and stop Kea can thereby make `ha-cluster`
+rewrite its own firewall rules from the Kea files, which the same user may
+already write through `saveConfig`.
+
 `0.9.0` added two read-level methods. `getDaemonState` returns what the
 running DHCP daemons answer to `status-get` on their control sockets,
 reduced to the state of their sockets and of high availability.

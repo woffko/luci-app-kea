@@ -7,6 +7,25 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-21: Release `v0.10.0`
+
+- The owner merged the pull request and pushed the tag `v0.10.0`, on the
+  merge commit on `main`. The first attempt to push it from the working
+  session was refused by its permission settings, so the tag is the
+  owner's, as with the releases before.
+- The release workflow passed: the tag and the changelog fit the version,
+  the tagged commit is on `main`, the three CI jobs, and the draft release
+  with the package, its checksum and the changelog section. The section
+  carries both the new call of `ha-cluster` and the fix made as `0.9.1-r1`.
+- The attached `luci-app-kea-0.10.0-r1.apk` holds the same files as the
+  package built and tested by hand before the pull request (compared with
+  `apk adbdump`); the checksum in the release text is the one of the file.
+- It was tested in QEMU by the workflow, 142 backend tests on the router
+  and six browser tests, not on the second test machine.
+- After the pull request, the `ha-cluster` project put a lock around
+  everything that writes its firewall rules: a call from here may now wait
+  for another writer, for a fraction of a second.
+
 ## 2026-11-21: The firewall rules of `ha-cluster` follow Kea (`0.10.0-r1`)
 
 - Asked for by the `ha-cluster` project, which now keeps the firewall rule
