@@ -7,6 +7,19 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-21: Release `v0.9.0`
+
+- The owner merged the M9 pull request and pushed the tag `v0.9.0`. It
+  points at the last commit of that pull request, which is part of `main`
+  and has the same content as its merge commit.
+- The release workflow passed: the tag and the changelog fit the version,
+  the tagged commit is on `main`, the three CI jobs, and the draft release
+  with the package, its checksum and the changelog section.
+- The attached `luci-app-kea-0.9.0-r1.apk` holds the same files as the
+  package built and tested by hand the day before (compared with
+  `apk adbdump`); the checksum in the release text is the one of the file.
+- It was tested in QEMU by the workflow, not on the second test machine.
+
 ## 2026-11-20: Sockets at boot, the state of a daemon, peers from a cluster (M9, `0.9.0-r1`)
 
 Approved by the owner after the findings of the same day.
