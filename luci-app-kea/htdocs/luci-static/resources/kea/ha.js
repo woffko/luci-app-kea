@@ -308,6 +308,54 @@ function build(familyName, config) {
 }
 
 /* A new peer row gets the role the mode still lacks. */
+/*
+ * What the ha-cluster package says about the nodes of a cluster, in the
+ * shape the tab is filled from. ha-cluster is not a dependency. Its
+ * read-only call "ubus call ha-cluster nodes" answers with
+ *
+ *   { "dhcp_backend": "kea",
+ *     "node":  { "name", "label", "address", "priority", "kea_role" },
+ *     "peers": [ { "name", "label", "address", "vrrp_only", "kea_role" } ] }
+ *
+ * "name" is the same string for a node on every node of the cluster, so it
+ * serves as the server name of Kea's high availability. "address" is the
+ * node's own address that its partners reach, never a virtual address.
+ * "kea_role" is a suggestion for hot standby. A peer that only takes part
+ * in VRRP is not a DHCP server and is left out.
+ *
+ * Returns { available, dhcp_backend, node, peers }. "available" says that
+ * there is a pair to fill in: this node and at least one partner, each
+ * with a name and an address. Anything else than such a reply, as when
+ * ha-cluster is not installed, gives a result with nothing available.
+ */
+function clusterEntry(item) {
+	if (!isObject(item) || text(item.name) === "" || text(item.address) === "")
+		return null;
+
+	return { name: item.name, label: text(item.label), address: item.address, role: text(item.kea_role) };
+}
+
+function clusterNodes(reply) {
+	var result = { available: false, dhcp_backend: "", node: null, peers: [] };
+
+	if (!isObject(reply))
+		return result;
+
+	result.dhcp_backend = text(reply.dhcp_backend);
+	result.node = clusterEntry(reply.node);
+
+	(Array.isArray(reply.peers) ? reply.peers : []).forEach(function(peer) {
+		var entry = isObject(peer) && peer.vrrp_only !== true ? clusterEntry(peer) : null;
+
+		if (entry)
+			result.peers.push(entry);
+	});
+
+	result.available = result.node !== null && result.peers.length > 0;
+
+	return result;
+}
+
 /* "http://192.168.1.2:8001/", with brackets around an IPv6 address. */
 function peerUrl(address, port) {
 	return "http://" + (address.indexOf(":") >= 0 ? "[" + address + "]" : address) + ":" + port + "/";
@@ -315,8 +363,8 @@ function peerUrl(address, port) {
 
 /*
  * Fill the name of this server and the list of peers from the nodes of a
- * cluster, as the backend passes them on from ha-cluster: { node, peers },
- * each entry with name, address and a role suggested for hot standby.
+ * cluster, as clusterNodes() returns them: { node, peers }, each entry
+ * with name, address and a role suggested for hot standby.
  *
  * A peer of the form that has the name of a node is kept, with whatever
  * else it carries, and gets the URL and the role; the others go. The mode
@@ -663,6 +711,7 @@ return baseclass.extend({
 	},
 
 	newPeer: newPeer,
+	clusterNodes: clusterNodes,
 	fillFromNodes: fillFromNodes,
 	fillPort: function(familyName) {
 		return FILL_PORTS[familyName];

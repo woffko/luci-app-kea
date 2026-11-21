@@ -41,12 +41,6 @@ const methods = {
 		}
 	},
 
-	getHaNodes: {
-		call: function() {
-			return { cluster: service.ha_nodes(ctx) };
-		}
-	},
-
 	getNetworkInterfaces: {
 		call: function() {
 			return { interfaces: { items: service.network_interfaces(ctx) } };

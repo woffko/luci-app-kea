@@ -402,13 +402,60 @@ test("a blank new peer row is ignored", () => {
 
 /* ---- filling in from a cluster ----------------------------------------- */
 
-/* What the backend passes on from "ubus call ha-cluster nodes". */
-const CLUSTER = {
-	available: true,
+/* The reply of "ubus call ha-cluster nodes" as the ha-cluster project defined it on 2026-11-20. */
+const REPLY = {
 	dhcp_backend: "kea",
-	node: { name: "ha-192-168-50-2", label: "node1", address: "192.168.50.2", role: "primary" },
-	peers: [ { name: "ha-192-168-50-3", label: "node2", address: "192.168.50.3", role: "standby" } ]
+	node: { name: "ha-192-168-50-2", label: "node1", address: "192.168.50.2", priority: 100, kea_role: "primary" },
+	peers: [
+		{ name: "ha-192-168-50-3", label: "node2", address: "192.168.50.3", vrrp_only: false, kea_role: "standby" }
+	]
 };
+
+const CLUSTER = ha.clusterNodes(REPLY);
+
+test("a pair is offered with names, addresses and the suggested roles", () => {
+	assert.deepEqual(CLUSTER, {
+		available: true,
+		dhcp_backend: "kea",
+		node: { name: "ha-192-168-50-2", label: "node1", address: "192.168.50.2", role: "primary" },
+		peers: [ { name: "ha-192-168-50-3", label: "node2", address: "192.168.50.3", role: "standby" } ]
+	});
+});
+
+test("a peer that only takes part in VRRP is not a DHCP server", () => {
+	const reply = { ...REPLY, peers: [
+		...REPLY.peers,
+		{ name: "ha-192-168-50-4", label: "node3", address: "192.168.50.4", vrrp_only: true },
+		{ name: "ha-192-168-50-5", label: "node4", address: "192.168.50.5", vrrp_only: false, kea_role: "backup" }
+	] };
+
+	assert.deepEqual(ha.clusterNodes(reply).peers.map((peer) => [ peer.name, peer.role ]),
+		[ [ "ha-192-168-50-3", "standby" ], [ "ha-192-168-50-5", "backup" ] ]);
+});
+
+test("nothing is offered without a partner, a name or an address", () => {
+	/* A node without peers: ha-cluster sends empty strings and no role. */
+	const alone = ha.clusterNodes({ dhcp_backend: "kea", node: { name: "", label: "node1", address: "", priority: 100 }, peers: [] });
+
+	assert.deepEqual(alone, { available: false, dhcp_backend: "kea", node: null, peers: [] });
+	assert.equal(ha.clusterNodes({ ...REPLY, peers: [] }).available, false);
+	assert.equal(ha.clusterNodes({ ...REPLY, peers: [ { name: "x", label: "x", address: "" } ] }).available, false);
+	assert.equal(ha.clusterNodes({ ...REPLY, node: { name: "ha-1", address: "" } }).available, false);
+});
+
+test("ha-cluster is not there, or answers something else", () => {
+	const nothing = { available: false, dhcp_backend: "", node: null, peers: [] };
+
+	/* What the page gets when there is no such ubus object, or no access to it. */
+	assert.deepEqual(ha.clusterNodes({}), nothing);
+	assert.deepEqual(ha.clusterNodes(null), nothing);
+	assert.deepEqual(ha.clusterNodes(undefined), nothing);
+	assert.deepEqual(ha.clusterNodes("error"), nothing);
+	assert.deepEqual(ha.clusterNodes([ REPLY ]), nothing);
+	assert.deepEqual(ha.clusterNodes({ node: 5, peers: "x" }), nothing);
+	assert.equal(ha.clusterNodes({ dhcp_backend: "dnsmasq", node: REPLY.node, peers: REPLY.peers }).dhcp_backend, "dnsmasq",
+		"the pair is offered whatever the backend; the page says which it is");
+});
 
 function peersOf(state) {
 	return state.peers.map((row) => [ row.name, row.url, row.role ]);

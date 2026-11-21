@@ -271,7 +271,7 @@ msgstr ""
 msgid "Failed to load Kea config."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:385
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:395
 msgid "Failed to restore the backup."
 msgstr ""
 
@@ -279,7 +279,7 @@ msgstr ""
 msgid "Failed to save one or more Kea service settings."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:363
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:373
 msgid "Failed to save the Kea configuration."
 msgstr ""
 
@@ -319,12 +319,12 @@ msgid "Heartbeat delay"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:202
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:491
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:539
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:81
 msgid "High availability"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:242
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:249
 msgid ""
 "High availability (%s): this server, %s, is %s and in the state %s. Its "
 "partner %s is %s and was last seen in the state %s."
@@ -440,13 +440,13 @@ msgstr ""
 msgid "Invalid"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:230
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:237
 msgid ""
 "It does not answer clients at the moment: high availability keeps the DHCP "
 "service switched off while the servers synchronize."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:234
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:241
 msgid ""
 "It does not answer clients: its DHCP service was switched off by a command."
 msgstr ""
@@ -484,7 +484,7 @@ msgstr ""
 msgid "Kea Services"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:321
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:331
 msgid ""
 "Kea accepts this configuration when it checks it, but does not start with it:"
 msgstr ""
@@ -519,7 +519,7 @@ msgid ""
 "interfaces named here get no answer."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:145
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:152
 msgid ""
 "Kea is to listen on %s and does not try again when an interface is not "
 "ready. Started at boot before the interface is up, it opens no socket and "
@@ -829,11 +829,11 @@ msgstr ""
 msgid "Reload"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:451
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:461
 msgid "Reload Kea"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:455
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:465
 msgid "Reload anyway"
 msgstr ""
 
@@ -1088,7 +1088,7 @@ msgid ""
 "Configuration page to fix it."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:149
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:156
 msgid ""
 "The URL %s of the peer %s has no port. Kea then listens on a port chosen at "
 "random and the partner cannot connect. Give every peer URL a port, as in "
@@ -1113,11 +1113,11 @@ msgid ""
 "package is not installed. Kea does not start in this state."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:244
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:251
 msgid "The connection to the partner is interrupted."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:452
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:462
 msgid ""
 "The file is saved. %s is running, and it is expected to stop when it reads "
 "this configuration:"
@@ -1151,7 +1151,7 @@ msgid ""
 "file to read."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:153
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:160
 msgid ""
 "The lease file %s is not in %s. Kea takes its lease file from that directory "
 "only: name the file without a directory, or do not name it."
@@ -1161,7 +1161,7 @@ msgstr ""
 msgid "The lease file is too large to show here."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:157
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:164
 msgid ""
 "The log file %s is not in %s. Kea writes log files to that directory only: "
 "use the output syslog instead."
@@ -1318,17 +1318,17 @@ msgid ""
 "nothing is logged."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:327
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:337
 msgid "With this configuration Kea may run without listening after a boot:"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:333
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:343
 msgid ""
 "With this configuration the servers of the high availability pair cannot "
 "reach each other, and each serves as if it were alone:"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:454
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:464
 msgid ""
 "Without a reload it keeps running with its previous configuration until it "
 "is restarted."
@@ -1348,7 +1348,7 @@ msgstr ""
 msgid "a DUID has at least three octets"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:444
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:492
 msgid "a peer needs a name"
 msgstr ""
 
@@ -1368,7 +1368,7 @@ msgstr ""
 msgid "an option needs a name or a numeric code"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:448
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:496
 msgid "another peer has the same name"
 msgstr ""
 
@@ -1384,31 +1384,31 @@ msgstr ""
 msgid "bytes"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:475
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:485
 msgid "configuration saved and applied."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:467
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:477
 msgid "configuration saved, but the reload failed."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:457
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:467
 msgid ""
 "configuration saved, not applied. The daemon runs with its previous "
 "configuration."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:420
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:430
 msgid "configuration saved. Reload or restart Kea to apply it."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:444
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:454
 msgid ""
 "configuration saved. The service is not running; start it from the Services "
 "page."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:211
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:218
 msgid "could not open all of its sockets"
 msgstr ""
 
@@ -1422,7 +1422,7 @@ msgid ""
 "network cannot resolve names."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:479
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:527
 msgid "exactly one peer must be the primary server"
 msgstr ""
 
@@ -1430,7 +1430,7 @@ msgstr ""
 msgid "h"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:119
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:126
 msgid ""
 "ha-cluster could not bring its firewall rules up to date. The ports of the "
 "peer URLs may be closed between the nodes: run /etc/init.d/ha-cluster "
@@ -1449,13 +1449,13 @@ msgid ""
 "Nothing is saved until you save."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:117
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:124
 msgid ""
 "ha-cluster was told to bring its firewall rules up to date with the ports of "
 "the peer URLs."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:483
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:531
 msgid "hot standby needs exactly one standby server"
 msgstr ""
 
@@ -1463,11 +1463,11 @@ msgstr ""
 msgid "https needs the TLS parameters trust-anchor, cert-file and key-file"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:203
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:210
 msgid "listening"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:484
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:532
 msgid "load balancing needs exactly one secondary server"
 msgstr ""
 
@@ -1475,11 +1475,11 @@ msgstr ""
 msgid "m"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:399
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:447
 msgid "must be a JSON object such as { \"sync-page-limit\": 5000 }"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:426
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:474
 msgid "no peer has this name"
 msgstr ""
 
@@ -1499,7 +1499,7 @@ msgstr ""
 msgid "not a client ID: use hex octets such as 01:11:22:33:44:55:66"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:418
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:466
 msgid "not a mode Kea knows"
 msgstr ""
 
@@ -1507,11 +1507,11 @@ msgstr ""
 msgid "not a network device name"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:456
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:504
 msgid "not a role Kea knows"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:430
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:478
 msgid "not a whole number"
 msgstr ""
 
@@ -1549,7 +1549,7 @@ msgstr ""
 msgid "not an address range such as 192.168.1.100 - 192.168.1.199"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:395
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:443
 msgid "not valid JSON"
 msgstr ""
 
@@ -1571,27 +1571,27 @@ msgstr ""
 msgid "shared network"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:215
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:222
 msgid "state of the sockets unknown"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:191
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:198
 msgid "state unknown"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:194
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:201
 msgid "state unknown: it does not answer on its control socket"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:192
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:199
 msgid "state unknown: its configuration names no control socket"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:193
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:200
 msgid "state unknown: the package ucode-mod-socket is not installed"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:207
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:214
 msgid "still trying to open its sockets"
 msgstr ""
 
@@ -1627,7 +1627,7 @@ msgstr ""
 msgid "the file does not exist, so these static leases cannot be imported."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:375
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:385
 msgid ""
 "the file is written. Kea accepts it when it checks it, but does not start "
 "with it:"
@@ -1637,7 +1637,7 @@ msgstr ""
 msgid "the lengths must be between 1 and 128"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:422
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:470
 msgid "the name of this server is required"
 msgstr ""
 
@@ -1653,7 +1653,7 @@ msgstr ""
 msgid "the range is outside the subnet"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:479
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:489
 msgid "the service is not running after the reload. Check the system log."
 msgstr ""
 
@@ -1661,11 +1661,11 @@ msgstr ""
 msgid "these ranges overlap"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:403
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:451
 msgid "this parameter has a field of its own above"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:459
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/ha.js:507
 msgid "this role is not allowed in this mode"
 msgstr ""
 

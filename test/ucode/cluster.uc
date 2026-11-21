@@ -1,59 +1,7 @@
 'use strict';
 
 import { test, equal, done } from './lib.uc';
-import { nodes, follows_kea, declares_command } from 'luci.kea.cluster';
-
-// The reply of "ubus call ha-cluster nodes" as the ha-cluster project
-// defined it on 2026-11-20.
-
-const REPLY = {
-	dhcp_backend: 'kea',
-	node: { name: 'ha-192-168-50-2', label: 'node1', address: '192.168.50.2', priority: 100, kea_role: 'primary' },
-	peers: [
-		{ name: 'ha-192-168-50-3', label: 'node2', address: '192.168.50.3', vrrp_only: false, kea_role: 'standby' }
-	]
-};
-
-test('a pair is offered with names, addresses and the suggested roles', () => {
-	equal(nodes(REPLY), {
-		available: true,
-		dhcp_backend: 'kea',
-		node: { name: 'ha-192-168-50-2', label: 'node1', address: '192.168.50.2', role: 'primary' },
-		peers: [ { name: 'ha-192-168-50-3', label: 'node2', address: '192.168.50.3', role: 'standby' } ]
-	});
-});
-
-test('a peer that only takes part in VRRP is not a DHCP server', () => {
-	let reply = { ...REPLY, peers: [
-		...REPLY.peers,
-		{ name: 'ha-192-168-50-4', label: 'node3', address: '192.168.50.4', vrrp_only: true },
-		{ name: 'ha-192-168-50-5', label: 'node4', address: '192.168.50.5', vrrp_only: false, kea_role: 'backup' }
-	] };
-
-	equal(map(nodes(reply).peers, peer => [ peer.name, peer.role ]),
-		[ [ 'ha-192-168-50-3', 'standby' ], [ 'ha-192-168-50-5', 'backup' ] ]);
-});
-
-test('nothing is offered without a partner, a name or an address', () => {
-	// A node without peers: ha-cluster sends empty strings and no role.
-	let alone = nodes({ dhcp_backend: 'kea', node: { name: '', label: 'node1', address: '', priority: 100 }, peers: [] });
-
-	equal(alone, { available: false, dhcp_backend: 'kea', node: null, peers: [] });
-	equal(nodes({ ...REPLY, peers: [] }).available, false);
-	equal(nodes({ ...REPLY, peers: [ { name: 'x', label: 'x', address: '' } ] }).available, false);
-	equal(nodes({ ...REPLY, node: { name: 'ha-1', address: '' } }).available, false);
-});
-
-test('ha-cluster is not there, or answers something else', () => {
-	const nothing = { available: false, dhcp_backend: '', node: null, peers: [] };
-
-	equal(nodes(null), nothing, 'no such ubus object');
-	equal(nodes({}), nothing);
-	equal(nodes('error'), nothing);
-	equal(nodes({ dhcp_backend: 'dnsmasq', node: REPLY.node, peers: REPLY.peers }).dhcp_backend, 'dnsmasq',
-		'the pair is offered whatever the backend; the page says which it is');
-	equal(nodes({ node: 5, peers: 'x' }), nothing);
-});
+import { follows_kea, declares_command } from 'luci.kea.cluster';
 
 /* ---- ha-cluster follows the Kea files -------------------------------------- */
 

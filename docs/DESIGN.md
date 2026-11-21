@@ -395,10 +395,20 @@ that.
 `ha-cluster`, a package outside the OpenWrt repositories, runs VRRP and
 knows the nodes of a cluster. Its call `ubus call ha-cluster nodes` returns
 this node and its peers, each with a name that is the same on every node,
-the address the partner reaches, and a role suggested for hot standby. The
-backend makes the call and passes the reply on; a peer that only takes part
-in VRRP is left out; without a partner, or without the package, nothing is
-offered.
+the address the partner reaches, and a role suggested for hot standby. A
+peer that only takes part in VRRP is left out; without a partner, or
+without the package, nothing is offered.
+
+The pages make that call themselves, and the ACL of the application names
+it. The backend made it at first, and must not: it runs inside rpcd, and
+the object `ha-cluster` is served by rpcd as well, through the plugin of
+`luci-app-ha-cluster`. rpcd handles one call at a time. A call it makes to
+one of its own objects is answered only after it has given up, 30 seconds
+later, and nothing else is answered meanwhile: every page of LuCI waits.
+On a router without that plugin the call failed at once, which is why it
+went unnoticed until a pair with `ha-cluster` was run. The rule that
+follows: the backend calls no ubus object that rpcd may serve; a test reads
+the sources for that.
 
 The button on the tab puts the node names into "This server" and the list
 of peers, builds the URLs from the addresses with a fixed port per protocol

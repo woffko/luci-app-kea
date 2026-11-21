@@ -60,10 +60,17 @@ var callDaemonState = rpc.declare({
 	expect: { daemons: {} }
 });
 
+/*
+ * A call to ha-cluster, not to the backend of this application. The
+ * backend runs inside rpcd, and rpcd also serves the object of ha-cluster.
+ * A call from rpcd to an object of its own waits for an answer that rpcd
+ * cannot give while it waits: 30 seconds, during which nothing in LuCI is
+ * answered. The browser can ask without that.
+ */
 var callHaNodes = rpc.declare({
-	object: "luci.kea",
-	method: "getHaNodes",
-	expect: { cluster: {} }
+	object: "ha-cluster",
+	method: "nodes",
+	expect: { "": {} }
 });
 
 var callInitAction = rpc.declare({
@@ -278,7 +285,10 @@ return baseclass.extend({
 		return L.resolveDefault(callDaemonState(), {});
 	},
 
-	/* The nodes of a cluster, when ha-cluster is there to ask. */
+	/*
+	 * What ha-cluster answers about the nodes of its cluster, as it is;
+	 * an empty object when ha-cluster is not there to ask.
+	 */
 	getHaNodes: function() {
 		return L.resolveDefault(callHaNodes(), {});
 	},

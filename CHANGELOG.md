@@ -9,6 +9,17 @@ Released versions are tagged `vX.Y.Z` and have their package on the
 [Releases page](https://github.com/woffko/luci-app-kea/releases). All
 versions are alpha.
 
+## 0.10.1-r1 (2026-11-21)
+
+### Fixed
+
+- On a router with `luci-app-ha-cluster` installed, opening the DHCPv4 or
+  DHCPv6 page stopped all of LuCI for 30 seconds, and the button that fills
+  the High availability tab from the cluster never appeared. The pages
+  asked for the nodes of the cluster through the backend, which runs in the
+  same process that answers for `ha-cluster` and so waited for itself. They
+  now ask `ha-cluster` directly. Since `0.9.0`.
+
 ## 0.10.0-r1 (2026-11-21)
 
 Includes the fix made as `0.9.1-r1`, which was not released on its own.

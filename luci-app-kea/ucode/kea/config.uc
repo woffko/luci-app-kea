@@ -71,8 +71,6 @@ export const CONFIG_ORDER = [ 'dhcp4', 'dhcp6', 'dhcp_ddns', 'ctrl_agent' ];
 // options.log_reader function() -> text of the system log (tests)
 // options.control    function(name, command) -> reply of the daemon on its
 //                    control socket (tests)
-// options.ha_nodes   function() -> reply of "ubus call ha-cluster nodes"
-//                    (tests)
 export function context(options) {
 	let root = options?.root ?? '';
 
@@ -94,7 +92,6 @@ export function context(options) {
 		clock: options?.clock,
 		log_reader: options?.log_reader,
 		control: options?.control,
-		ha_nodes: options?.ha_nodes,
 		// How long a command of ha-cluster may take, in milliseconds
 		cluster_timeout: options?.cluster_timeout ?? 15000
 	};
