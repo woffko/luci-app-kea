@@ -94,6 +94,17 @@ function with_ha(mode) {
 }
 
 if (fs.access(HOOKS + '/libdhcp_ha.so') && fs.access('/usr/sbin/kea-dhcp4', 'x')) {
+	// The hook takes a peer URL without a port; the servers of such a pair
+	// never meet. If this case fails, the hook has begun to refuse it and
+	// the warning is no longer needed.
+	test('the hook accepts a peer URL without a port; the save reports it', () => {
+		let content = replace(with_ha('hot-standby'), 'http://192.0.2.2:8000/', 'http://192.0.2.2/');
+		let saved = config.save(ctx, 'dhcp4', content);
+
+		equal(saved.result, true, saved.validation);
+		equal(saved.warnings, [ { code: 'ha-url-port', effect: 'no-pair', value: 'http://192.0.2.2/', peer: 'b' } ]);
+	});
+
 	test('a hook checks its parameters when a DHCP config is saved', () => {
 		let good = config.save(ctx, 'dhcp4', with_ha('hot-standby'));
 

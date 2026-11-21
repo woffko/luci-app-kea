@@ -177,6 +177,14 @@ function checkUrl(value, tls) {
 	if (match[3] !== undefined ? !isIPv6(match[3]) : !isIPv4(match[2]))
 		return _("Kea needs an IP address in the URL, not a host name");
 
+	/*
+	 * The hook takes a URL without a port, and a port 0. A server then
+	 * listens on a port chosen at random and connects to port 0 of its
+	 * partner: the servers never meet, and each serves as if alone.
+	 */
+	if (!match[4] || Number(match[4].slice(1)) < 1 || Number(match[4].slice(1)) > 65535)
+		return _("the URL needs a port, as in http://192.168.1.2:8001/: without one the servers cannot reach each other");
+
 	if (match[1] === "https" && !tls)
 		return _("https needs the TLS parameters trust-anchor, cert-file and key-file");
 

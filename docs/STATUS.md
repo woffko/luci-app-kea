@@ -1,6 +1,6 @@
 # Project Status
 
-Status date: 2026-11-21. Package version `0.9.0-r1`, alpha.
+Status date: 2026-11-21. Package version `0.9.1-r1`, alpha.
 
 This is a code-level inventory of what exists and what is missing. The work
 needed to close the gaps is ordered in [ROADMAP.md](ROADMAP.md). Packaging
@@ -116,6 +116,9 @@ with Kea 3.0.4 and with DHCP of dnsmasq and odhcpd switched off on the LAN:
   configuration made this way.
 
 `0.9.0-r1` was not installed on the second machine.
+
+`0.9.1-r1`, one fix, was tested on the QEMU machine by hand and by CI: 134
+backend tests on the router and six browser tests.
 
 The package file of `v0.9.0` was built by the release workflow from the
 tagged commit and passed the 132 backend tests and six browser tests in that
@@ -321,7 +324,8 @@ so a file Kea already accepts can always be saved again.
 - Changing the subnet prefix checks all its pools and reservations again.
 - High availability, when anything on its tab changed: a known mode; the
   name of this server among the peers; unique peer names; peer URLs with an
-  IP address, and `https` only with the TLS parameters; one primary server,
+  IP address and a port, and `https` only with the TLS parameters; one
+  primary server,
   and the roles the mode takes (one standby for hot standby, one secondary
   for load balancing, only backups for passive backup); whole numbers for
   the timers; a JSON object for the additional parameters.
@@ -343,6 +347,13 @@ exit when they start with them.
 A third setting does not stop the daemon and can leave it deaf: interfaces
 to listen on without retries for the sockets. See
 [Kea at boot and at run time](#kea-at-boot-and-at-run-time).
+
+A fourth breaks a high availability pair: a peer URL without a port, or
+with port 0. Measured with two Kea 3.0.4 servers: the hook accepts it, each
+server listens on a port chosen at random, the heartbeats are refused, and
+both servers end up in the state partner-down, so that the standby answers
+clients as well, without any exchange of leases. The tab does not take such
+a URL since `0.9.1`; a file that has one is warned about.
 
 The backend finds these in a file that passed the check and reports them as
 warnings. They are shown with the result of the check on Overview and on
@@ -379,8 +390,8 @@ Kea, on OpenWrt.
 | Test | Runs on | Covers |
 |------|---------|--------|
 | `node --test "test/js/*.test.js"` | Any machine with Node.js | The configuration model (56 cases, plus the stock Kea configs when `KEA_STOCK_DIR` is set) and the high availability model (24 cases) |
-| `test/run-ucode-tests.sh` | Any machine with a ucode interpreter | The backend library with a stand-in for the Kea binary: comment stripping, JSON writing, IPv4 and IPv6 helpers, save, backups, restore, retention, how the Kea binary is called and its refusal reported, import classification and commit, lease files, log lines, version, the settings Kea does not start with, log outputs, what dnsmasq and odhcpd serve, the client of the control socket against a stand-in server, the state of a daemon, the nodes of a cluster (100 cases) |
-| `test/run-ucode-tests.sh --target` | OpenWrt with the Kea daemons | The same plus 32 cases with the real Kea binaries, UCI and procd: validation, a hook checking its parameters (needs `kea-hook-ha`), that Kea accepts a lease file and a log file in a wrong directory, service state, init actions, API password, import from a UCI fixture, version and system log. Uses a temporary root, except that one test line is written to the system log |
+| `test/run-ucode-tests.sh` | Any machine with a ucode interpreter | The backend library with a stand-in for the Kea binary: comment stripping, JSON writing, IPv4 and IPv6 helpers, save, backups, restore, retention, how the Kea binary is called and its refusal reported, import classification and commit, lease files, log lines, version, the settings Kea does not start with, log outputs, what dnsmasq and odhcpd serve, the client of the control socket against a stand-in server, the state of a daemon, the nodes of a cluster (101 cases) |
+| `test/run-ucode-tests.sh --target` | OpenWrt with the Kea daemons | The same plus 33 cases with the real Kea binaries, UCI and procd: validation, a hook checking its parameters (needs `kea-hook-ha`), that Kea accepts a lease file and a log file in a wrong directory, service state, init actions, API password, import from a UCI fixture, version and system log. Uses a temporary root, except that one test line is written to the system log |
 | `test/browser/smoke.js` | Node.js + Playwright against a target | Every page renders without JavaScript errors |
 | `test/browser/editor.js` | Node.js + Playwright against a test target | Editors (pools, options, global settings, shared networks, input checks, change view), raw editor, backups and example removal end to end, with Kea validating every save |
 | `test/browser/ha.js` | Node.js + Playwright against a test target that has `kea-hook-ha` | The high availability tab end to end for both protocols, with Kea loading the hook on every save, including the peers filled in from a cluster. It answers the call for the nodes itself |

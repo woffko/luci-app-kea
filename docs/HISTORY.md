@@ -7,6 +7,20 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-21: A peer URL needs a port (`0.9.1-r1`)
+
+- The `ha-cluster` project read in the Kea sources that a peer URL without
+  a port means port 0, and asked for a check on a running Kea. Two servers
+  paired on the test machine with `http://127.0.0.1/` and
+  `http://127.0.0.2/`: the hook accepted the files, the servers listened on
+  ports 37387 and 35023, the heartbeats were refused, and both went to
+  partner-down. With `:8001` and `:8002` they reached hot-standby.
+- The tab had taken such a URL, as the hook does. It now asks for a port
+  between 1 and 65535. The backend reports a file with such a URL as a
+  third kind of warning: the pair cannot meet.
+- One more on-target test saves such a file with the Kea of the target, to
+  notice if the hook begins to refuse it.
+
 ## 2026-11-21: The server identifier of DHCPv6, measured
 
 No change to the package. The owner agreed to a fixed identifier "if that
