@@ -434,7 +434,10 @@ Kea, on OpenWrt.
   OpenWrt 25.12 repositories, and the feed that has it was not installed on
   the test machine.
 - The application writes no firewall rule. The ports of the peer URLs have
-  to be open between the nodes; `ha-cluster` is to take care of that.
+  to be open between the nodes. `ha-cluster` opens them, in its version
+  under development: it reads the ports from the URLs in the Kea files when
+  it starts or is reloaded, and needs a port in every URL. After changing a
+  URL on the tab, reload `ha-cluster`; the application does not do that.
 - A pair of routers exchanging leases was never run with this application.
   It was run on a bench of the `ha-cluster` project on 2026-11-20, with
   configurations made by hand; here, two Kea processes were paired on one
@@ -497,14 +500,21 @@ Kea, on OpenWrt.
   interface in dnsmasq, not the retries.
 - **The server identifier of DHCPv6 does not survive a reboot.** Kea keeps
   it in `/var/lib/kea`, which is in memory on OpenWrt, and makes a new one
-  at every start from the time and a hardware address. Measured: two boots,
-  two identifiers. In one boot it found no interface to make one from and
-  `kea-dhcp6` did not start at all ("unable to find suitable interface for
-  generating a DUID-LLT"). With a fixed identifier in the file (`server-id`
-  with `type` `LL`, `htype` 1, the hardware address as `identifier`,
-  `persist` false) it was the same after two boots and needs no interface.
-  The application does not write one; it can be set on the Configuration
-  page. See roadmap milestone M9.
+  at every start from the time and a hardware address: twelve boots, twelve
+  identifiers. What that costs a client was measured on 2026-11-21 with a
+  real client (`odhcp6c`) and a server that lost its lease file and its
+  identifier, as in a reboot: the client's renewals went unanswered until
+  its rebind time, the rebind was answered, and it kept its address. With a
+  fixed identifier in the file (`server-id` with `type` `LL`, `htype` 1,
+  the hardware address as `identifier`, `persist` false) the first renewal
+  was answered. So a client renews later than it would, and loses nothing.
+- In one boot, out of about fifty with `kea-dhcp6` enabled, Kea found no
+  interface to make the identifier from and `kea-dhcp6` did not start
+  ("unable to find suitable interface for generating a DUID-LLT"). It did
+  not happen again in 22 boots made to look for it. A fixed identifier
+  needs no interface, which would rule this out; whether it is worth
+  writing one for that was decided against for now, see roadmap milestone
+  M9. The identifier can be set on the Configuration page.
 - **"Failed" means one socket, not all.** Kea reports its sockets as
   failed when it could not open one of them. Told to listen on every
   interface (`"*"`), or on a list with an interface that has no address,

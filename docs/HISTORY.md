@@ -7,6 +7,27 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-21: The server identifier of DHCPv6, measured
+
+No change to the package. The owner agreed to a fixed identifier "if that
+is a problem at all", so it was measured first.
+
+- 22 boots with `kea-dhcp6` enabled, 12 of them with `kea-dhcp4` as well:
+  it started every time, and had a new identifier every time. The boot of
+  the day before, in which it did not start because it could not make an
+  identifier, did not happen again.
+- A real client on a pair of virtual interfaces, lifetimes of seconds, and
+  a server that lost its lease file and identifier: the renewals at 15
+  seconds were not answered, the rebind at 30 seconds was, and the client
+  kept its address. With a fixed identifier the renewal at 15 seconds was
+  answered.
+- Conclusion: a later renewal, no loss. The item is set aside in the
+  roadmap, and the README no longer presents it as something to do before
+  use.
+- From the `ha-cluster` project: it now writes the firewall rule for the
+  ports of the pair itself, reading them from the Kea files, and asks that
+  it be reloaded after the URLs change.
+
 ## 2026-11-21: Release `v0.9.0`
 
 - The owner merged the M9 pull request and pushed the tag `v0.9.0`. It

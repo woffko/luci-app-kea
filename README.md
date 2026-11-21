@@ -246,11 +246,12 @@ where the feed scripts do not find it.
   Kea listen on an interface; a file made elsewhere may lack them, and the
   application then warns. Without them a Kea that is started before the
   interface is ready keeps running and never listens.
-- For DHCPv6, give the server a fixed identifier (`server-id` in the file,
-  on the **Configuration** page). Without one, Kea makes a new identifier
-  at every boot, because it keeps it in `/var/lib/kea`, which is in memory;
-  and when it cannot make one at boot, `kea-dhcp6` does not start. The
-  application does not do this yet.
+- For DHCPv6, the server has a new identifier after every boot, because Kea
+  keeps it in `/var/lib/kea`, which is in memory. Clients keep their
+  addresses: they renew a little later than they would. A fixed identifier
+  (`server-id` in the file, on the **Configuration** page) avoids it; the
+  application does not write one. [STATUS.md](docs/STATUS.md#kea-at-boot-and-at-run-time)
+  has the measurements.
 - Do not stop dnsmasq to make room for Kea: on most routers it is also the
   DNS server. Switch its DHCP off for the interfaces Kea serves. The
   **Services** page shows what dnsmasq and odhcpd serve.
