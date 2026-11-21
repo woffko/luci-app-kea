@@ -55,10 +55,15 @@ jobs:
           jq -e . luci-app-kea/root/usr/share/luci/menu.d/luci-app-kea.json > /dev/null
           jq -e . luci-app-kea/root/usr/share/rpcd/acl.d/luci-app-kea.json > /dev/null
 
-      - name: Every RPC method used by the pages is granted by the ACL
+      # Each call is declared with "object" on one line and "method" on the
+      # next. The pages call the backend of the application and, for the
+      # nodes of a cluster, one method of another package.
+      - name: Every RPC call of the pages is granted by the ACL, and nothing else is
         run: |
-          grep -rhoE 'method: *"[A-Za-z]+"' luci-app-kea/htdocs | sed -E 's/.*"([A-Za-z]+)"/\1/' | sort -u > used.txt
-          jq -r '.["luci-app-kea"] | (.read.ubus["luci.kea"] + .write.ubus["luci.kea"])[]' \
+          grep -rhE '^[[:space:]]*(object|method): *"[A-Za-z.-]+"' luci-app-kea/htdocs \
+            | sed -E 's/^[[:space:]]*(object|method): *"([^"]+)".*/\1 \2/' \
+            | awk '$1 == "object" { object = $2 } $1 == "method" { print object, $2 }' | sort -u > used.txt
+          jq -r '.["luci-app-kea"] | (.read.ubus, .write.ubus) | to_entries[] | .key as $object | .value[] | "\($object) \(.)"' \
             luci-app-kea/root/usr/share/rpcd/acl.d/luci-app-kea.json | sort -u > granted.txt
           diff used.txt granted.txt
 
