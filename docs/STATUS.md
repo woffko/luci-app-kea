@@ -153,10 +153,13 @@ the machine:
 On a machine without `ha-cluster` the pages show neither an error nor the
 button.
 
-The package file of `v0.10.0` was built by the release workflow from the
-tagged commit and passed the 142 backend tests and six browser tests in that
+`0.10.1-r1` was not installed on the second machine.
+
+The package file of `v0.10.1` was built by the release workflow from the
+tagged commit and passed the 137 backend tests and six browser tests in that
 run, on OpenWrt 25.12.6 under QEMU with Kea 3.0.4. It holds the same files
-as the package that was tested by hand before.
+as the package that was tested by hand before. `v0.10.0` should not be used
+on a router with `luci-app-ha-cluster`.
 
 Not exercised: clients on a real network, two Kea servers exchanging
 leases, the lease file cleanup running while the page reads the files, the
@@ -475,9 +478,8 @@ Kea, on OpenWrt.
 - The fill-in from `ha-cluster` did not work from `0.9.0` to `0.10.0` on a
   router that has `luci-app-ha-cluster`, and stopped LuCI for 30 seconds on
   every visit of a DHCP page there. It had been tested only with the test
-  answering in place of `ha-cluster`. Fixed in `0.10.1`, and tried with
-  the rpcd plugin of the development tree of `ha-cluster`; not yet with its
-  package, nor on a pair.
+  answering in place of `ha-cluster`. Fixed in `0.10.1`, and since run on
+  a pair with `ha-cluster`; see below.
 - The application writes no firewall rule. The ports of the peer URLs have
   to be open between the nodes. `ha-cluster` opens them, in its version
   under development: it reads the ports from the URLs in the Kea files when
@@ -490,15 +492,27 @@ Kea, on OpenWrt.
   `/etc/init.d/ha-cluster firewall` has to be run by hand.
 - That needs `ha-cluster` 2.0.0-r11 or later, the first version with the
   command `firewall`. On 2026-11-21 it was in the sources of that project
-  and not yet built as a package. It was tried with the files of its
-  development tree, not with a package, and not on a cluster that ran.
-  What it relies on: the options `enabled` and `dhcp_backend` of the
-  section `config` in `/etc/config/ha-cluster`, and the command being
-  named in the init script.
-- A pair of routers exchanging leases was never run with this application.
-  It was run on a bench of the `ha-cluster` project on 2026-11-20, with
-  configurations made by hand; here, two Kea processes were paired on one
-  machine.
+  and not yet built as a package. What it relies on: the options `enabled`
+  and `dhcp_backend` of the section `config` in `/etc/config/ha-cluster`,
+  and the command being named in the init script.
+- A pair of routers made by this application was run once, on a bench of
+  the `ha-cluster` project on 2026-11-21: two OpenWrt 25.12.6 x86-64 nodes
+  under KVM and a client, Kea 3.0.4, `ha-cluster` from its sources, and the
+  released `0.10.1-r1`. On each node the DHCPv4 and DHCPv6 pages appeared
+  in about a quarter of a second, with rpcd answering other calls; the
+  button filled in this server and both peers from the reply of
+  `ha-cluster`, with ports 8001 and 8002; Save & Apply on both nodes saved,
+  reloaded Kea and called the firewall command of `ha-cluster`. Both Kea
+  servers of each protocol then were in hot-standby with their partner,
+  the firewall rule held both ports, and the client renewed its DHCPv4
+  lease and kept its DHCPv6 one, answered by the primary only. Reported by
+  that project; not repeated here. Here, two Kea processes were paired on
+  one machine.
+- A LuCI user other than root needs three ACL groups for these pages:
+  `unauthenticated` and `luci-base`, which every page of LuCI needs, and
+  `luci-app-kea`. With `luci-app-kea` alone LuCI says "Login session is
+  expired", which is its own message for missing rights. With the three,
+  the fill-in and Save & Apply worked as for root, on the same bench.
 
 ### Leases and log
 
