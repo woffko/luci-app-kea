@@ -7,6 +7,20 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-21: A pair made by the application, on the bench of `ha-cluster`
+
+No change to the package. The `ha-cluster` project ran the released
+`0.10.1-r1` on its pair, as asked after the fix.
+
+- The DHCP pages appeared at once, the button filled in the tab from the
+  reply of `ha-cluster`, and Save & Apply on both nodes gave a pair of each
+  protocol in hot-standby, with the firewall rule following and a client
+  served by the primary. The first time this application made the
+  configuration of a working pair.
+- A LuCI user with only the group `luci-app-kea` gets "Login session is
+  expired": LuCI itself needs `unauthenticated` and `luci-base` as well.
+  The README and PACKAGING now name the three groups.
+
 ## 2026-11-21: Release `v0.10.1`
 
 - The owner merged the pull request and asked for the release. The tag

@@ -158,6 +158,13 @@ The views talk to the `luci.kea` ubus object, and since `0.10.1` to one
 read-only method of another package, `ha-cluster` `nodes`; the ACL grants
 nothing else.
 
+The group is not enough on its own for a LuCI user other than root: every
+page of LuCI also needs the groups `unauthenticated` and `luci-base`. Run
+on the bench of the `ha-cluster` project with `0.10.1-r1`: with
+`luci-app-kea` alone LuCI answers "Login session is expired"; with
+`luci-base` added the tab still does not open; with all three the pages
+work as for root, the fill-in and Save & Apply included.
+
 `getConfig` is a read-level method and returns complete Kea configuration
 files, which can hold secrets (TSIG keys in `kea-dhcp-ddns.conf`, control
 agent credentials). It stays in the read group: LuCI read access already

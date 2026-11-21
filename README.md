@@ -257,6 +257,9 @@ where the feed scripts do not find it.
 - Do not stop dnsmasq to make room for Kea: on most routers it is also the
   DNS server. Switch its DHCP off for the interfaces Kea serves. The
   **Services** page shows what dnsmasq and odhcpd serve.
+- A LuCI login other than root needs the ACL groups `unauthenticated`,
+  `luci-base` and `luci-app-kea` in `/etc/config/rpcd`. With
+  `luci-app-kea` alone, LuCI says that the login session expired.
 
 ## Documentation
 
