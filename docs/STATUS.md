@@ -1,6 +1,6 @@
 # Project Status
 
-Status date: 2026-11-21. Package version `0.9.1-r1`, alpha.
+Status date: 2026-11-21. Package version `0.10.0-r1`, alpha.
 
 This is a code-level inventory of what exists and what is missing. The work
 needed to close the gaps is ordered in [ROADMAP.md](ROADMAP.md). Packaging
@@ -18,7 +18,7 @@ issues are listed separately in [PACKAGING.md](PACKAGING.md).
 | DHCPv4 structured editor | Subnets, pools, options, reservations, global settings; everything else in the file is preserved |
 | DHCPv6 structured editor | The same, plus prefix delegation pools |
 | Static lease import | Done for DHCPv4 and DHCPv6 |
-| High availability | Done for one relationship, as a tab of the DHCPv4 and DHCPv6 editors; the peers can be filled in from `ha-cluster`; the state of the running pair is shown |
+| High availability | Done for one relationship, as a tab of the DHCPv4 and DHCPv6 editors; the peers can be filled in from `ha-cluster`, which is told to bring its firewall rules up to date when Kea takes a new configuration; the state of the running pair is shown |
 | Lease viewer | Done, read from the lease files |
 | Input checks | In the browser, for what the editors write; the Kea binary on every save, with hooks loaded for the DHCP daemons; a warning for the two settings known to pass that check and stop the daemon |
 | Automated tests | Unit tests (JavaScript and ucode), on-target tests, browser tests |
@@ -118,7 +118,23 @@ with Kea 3.0.4 and with DHCP of dnsmasq and odhcpd switched off on the LAN:
 `0.9.0-r1` was not installed on the second machine.
 
 `0.9.1-r1`, one fix, was tested on the QEMU machine by hand and by CI: 134
-backend tests on the router and six browser tests.
+backend tests on the router and six browser tests. It was not released.
+
+`0.10.0-r1` was tested on the QEMU machine and by CI: 142 backend tests on
+the router and six browser tests. The call of `ha-cluster` was also tried
+by hand on that machine, with the init script and the library of the
+development tree of `ha-cluster` of 2026-11-21 copied to it, not its
+package, and no cluster running:
+
+| Done from the application | Rule `HA-Cluster-Kea-HA` in the firewall | Time of the call |
+|---------------------------|------------------------------------------|------------------|
+| Kea started, peer URLs with port 8001 | written and loaded, port 8001 | |
+| URLs changed to port 8011, Kea reloaded | port 8011 | 0.6 s |
+| Kea reloaded, nothing changed | as it was | under 0.1 s |
+| Kea stopped | `ha-cluster` not called | |
+| Cluster disabled, or with dnsmasq as its DHCP server | `ha-cluster` not called | |
+
+procd knew of no `ha-cluster` service afterwards and no keepalived ran.
 
 The package file of `v0.9.0` was built by the release workflow from the
 tagged commit and passed the 132 backend tests and six browser tests in that
@@ -147,7 +163,7 @@ the `luci.kea.*` ucode modules:
 | `config.uc` | Paths, validation with the Kea binary, read, save, backups, restore; the settings that pass the check and stop the daemon; where the loggers write |
 | `service.uc` | Component and service state from procd, init actions, runtime files |
 | `openwrt.uc` | What dnsmasq and odhcpd are configured to serve, from the sections of `/etc/config/dhcp` |
-| `cluster.uc` | The nodes of a cluster as `ha-cluster` names them, in the shape the high availability tab needs |
+| `cluster.uc` | The nodes of a cluster as `ha-cluster` names them, in the shape the high availability tab needs; and whether `ha-cluster` follows the Kea files and has the command for it |
 | `runtime.uc` | Kea version, Kea messages of the system log, leases from the lease files, and a client for the control socket of a daemon |
 | `importer.uc` | Static lease classification against the Kea configuration, and import |
 | `jsonc.uc` | JSON with `//`, `#` and `/* */` comments |
@@ -170,7 +186,7 @@ the `luci.kea.*` ucode modules:
 | `saveConfig` | write | Write to a temporary file, validate with the Kea binary, back up, replace; returns the warnings for the new file |
 | `restoreBackup` | write | Validate a backup, back up the current file, replace it; returns the warnings as well |
 | `setService` | write | Enable or disable a Kea component in UCI |
-| `setInitAction` | write | `enable`, `disable`, `start`, `stop`, `restart`, `reload` for `/etc/init.d/kea` |
+| `setInitAction` | write | `enable`, `disable`, `start`, `stop`, `restart`, `reload` for `/etc/init.d/kea`. After `start`, `restart` and `reload` it runs `/etc/init.d/ha-cluster firewall` for an enabled `ha-cluster` that has Kea as its DHCP server, and the reply then has `cluster_firewall`, true when that command succeeded |
 | `setConflictAction` | write | The same actions, restricted to `dnsmasq` and `odhcpd` |
 | `importDnsmasqCommit` | write | Write the selected entries (or all ready ones) to `kea-dhcp4.conf` and `kea-dhcp6.conf` |
 
@@ -390,8 +406,8 @@ Kea, on OpenWrt.
 | Test | Runs on | Covers |
 |------|---------|--------|
 | `node --test "test/js/*.test.js"` | Any machine with Node.js | The configuration model (56 cases, plus the stock Kea configs when `KEA_STOCK_DIR` is set) and the high availability model (24 cases) |
-| `test/run-ucode-tests.sh` | Any machine with a ucode interpreter | The backend library with a stand-in for the Kea binary: comment stripping, JSON writing, IPv4 and IPv6 helpers, save, backups, restore, retention, how the Kea binary is called and its refusal reported, import classification and commit, lease files, log lines, version, the settings Kea does not start with, log outputs, what dnsmasq and odhcpd serve, the client of the control socket against a stand-in server, the state of a daemon, the nodes of a cluster (101 cases) |
-| `test/run-ucode-tests.sh --target` | OpenWrt with the Kea daemons | The same plus 33 cases with the real Kea binaries, UCI and procd: validation, a hook checking its parameters (needs `kea-hook-ha`), that Kea accepts a lease file and a log file in a wrong directory, service state, init actions, API password, import from a UCI fixture, version and system log. Uses a temporary root, except that one test line is written to the system log |
+| `test/run-ucode-tests.sh` | Any machine with a ucode interpreter | The backend library with a stand-in for the Kea binary: comment stripping, JSON writing, IPv4 and IPv6 helpers, save, backups, restore, retention, how the Kea binary is called and its refusal reported, import classification and commit, lease files, log lines, version, the settings Kea does not start with, log outputs, what dnsmasq and odhcpd serve, the client of the control socket against a stand-in server, the state of a daemon, the nodes of a cluster, when `ha-cluster` follows the Kea files (105 cases) |
+| `test/run-ucode-tests.sh --target` | OpenWrt with the Kea daemons | The same plus 37 cases with the real Kea binaries, UCI and procd: validation, a hook checking its parameters (needs `kea-hook-ha`), that Kea accepts a lease file and a log file in a wrong directory, service state, init actions, the call of `ha-cluster` with a stand-in for its init script, API password, import from a UCI fixture, version and system log. Uses a temporary root, except that one test line is written to the system log |
 | `test/browser/smoke.js` | Node.js + Playwright against a target | Every page renders without JavaScript errors |
 | `test/browser/editor.js` | Node.js + Playwright against a test target | Editors (pools, options, global settings, shared networks, input checks, change view), raw editor, backups and example removal end to end, with Kea validating every save |
 | `test/browser/ha.js` | Node.js + Playwright against a test target that has `kea-hook-ha` | The high availability tab end to end for both protocols, with Kea loading the hook on every save, including the peers filled in from a cluster. It answers the call for the nodes itself |
@@ -447,8 +463,19 @@ Kea, on OpenWrt.
 - The application writes no firewall rule. The ports of the peer URLs have
   to be open between the nodes. `ha-cluster` opens them, in its version
   under development: it reads the ports from the URLs in the Kea files when
-  it starts or is reloaded, and needs a port in every URL. After changing a
-  URL on the tab, reload `ha-cluster`; the application does not do that.
+  it starts or is reloaded, and needs a port in every URL.
+- The application has `ha-cluster` look at its firewall rules again when
+  it starts, restarts or reloads Kea itself: Save & Apply in the editors
+  and the buttons of the Services page. Not after a Save without Apply,
+  when Kea still listens on the port it had; and it does not know of a Kea
+  restarted from the command line, after which
+  `/etc/init.d/ha-cluster firewall` has to be run by hand.
+- That needs a version of `ha-cluster` with the command `firewall`, which
+  on 2026-11-21 existed in its development tree only. It was tried with
+  the files of that tree, not with a package, and not on a cluster that
+  ran. What it relies on: the options `enabled` and `dhcp_backend` of the
+  section `config` in `/etc/config/ha-cluster`, and the command being
+  named in the init script.
 - A pair of routers exchanging leases was never run with this application.
   It was run on a bench of the `ha-cluster` project on 2026-11-20, with
   configurations made by hand; here, two Kea processes were paired on one

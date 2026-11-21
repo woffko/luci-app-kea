@@ -7,6 +7,30 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-21: The firewall rules of `ha-cluster` follow Kea (`0.10.0-r1`)
+
+- Asked for by the `ha-cluster` project, which now keeps the firewall rule
+  for the ports of Kea's high availability and takes them from the Kea
+  files; approved by the owner. The request was to reload `ha-cluster`
+  after a Kea file was applied.
+- Its sources were read first. A reload there starts an enabled cluster
+  that is not running and stops a running one that is disabled. A first
+  version here reloaded only a cluster that was enabled and running, in
+  the background. Asked about it, the `ha-cluster` project made a command
+  for the purpose, `/etc/init.d/ha-cluster firewall`, which touches the
+  rules and no daemon. The backend calls that, and waits for it.
+- rc.common answers an unknown command with its help text and the exit
+  status 0, measured on OpenWrt 25.12.6. So the backend reads the init
+  script and calls only a script that names the command.
+- Tried on the test machine with the init script and library of the
+  development tree of `ha-cluster` copied there: the rule appeared with
+  port 8001 when Kea was started from the application and followed the
+  port to 8011 and 8021 on reloads; a call that changed the port took 0.6
+  seconds, one that changed nothing under 0.1; no cluster was started.
+- The version is `0.10.0` by the rules, since an existing action now does
+  more. `0.9.1-r1` was merged and never tagged; its fix is released with
+  this version, and the changelog has one section for both.
+
 ## 2026-11-21: A peer URL needs a port (`0.9.1-r1`)
 
 - The `ha-cluster` project read in the Kea sources that a peer URL without

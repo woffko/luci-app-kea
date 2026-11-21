@@ -199,6 +199,32 @@ export function ensure_state(ctx) {
 	return secret != null && config.write_private(ctx.api_password, secret + '\n');
 };
 
+// Have ha-cluster bring its firewall rules up to date, when it follows the
+// Kea files: see cluster.follows_kea. Its command for that touches the
+// rules and no daemon, whether the cluster runs or was stopped, and reloads
+// the firewall only when a rule changed.
+//
+// Returns null when there was nothing to call, otherwise whether the
+// command succeeded.
+//
+// It is waited for. Calls that came at the same time would write the
+// firewall config together, and rpcd runs one call after the other. The
+// limit is for a command that hangs: rpcd answers nothing else meanwhile.
+function cluster_firewall(ctx) {
+	let script = init_script(ctx, 'ha-cluster');
+
+	if (!init_installed(ctx, 'ha-cluster') || !cluster.declares_command(fs.readfile(script, 65536), 'firewall'))
+		return null;
+
+	if (!cluster.follows_kea(cursor(ctx.uci_dir, ctx.uci_savedir).get_all('ha-cluster', 'config')))
+		return null;
+
+	return system(config.shellquote(script) + ' firewall </dev/null >/dev/null 2>&1', ctx.cluster_timeout) == 0;
+}
+
+// With "cluster_firewall" in the answer, ha-cluster was called as well,
+// because Kea was made to read its files: true when its command succeeded.
+// Its failure is not a failure of the action.
 export function init_action(ctx, action) {
 	if (!init_installed(ctx, 'kea'))
 		return { result: false, error: 'Kea init script is not installed' };
@@ -206,13 +232,21 @@ export function init_action(ctx, action) {
 	if (!(action in INIT_ACTIONS))
 		return { result: false, error: 'invalid init action' };
 
-	if (action in [ 'start', 'restart', 'reload' ] && !ensure_state(ctx))
+	let reads_files = action in [ 'start', 'restart', 'reload' ];
+
+	if (reads_files && !ensure_state(ctx))
 		return { result: false, error: 'failed to prepare Kea runtime state' };
 
 	if (run_init(ctx, 'kea', action) != 0)
 		return { result: false, error: 'init action failed' };
 
-	return { result: true };
+	let reply = { result: true };
+	let followed = reads_files ? cluster_firewall(ctx) : null;
+
+	if (followed != null)
+		reply.cluster_firewall = followed;
+
+	return reply;
 };
 
 // Control of the services that compete with Kea for DHCP clients. Nothing

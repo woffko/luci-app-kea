@@ -4,7 +4,7 @@
 
 LuCI application for managing the ISC Kea DHCP server on OpenWrt.
 
-> **Status: alpha (0.9.1).** Usable for testing on a lab router. Not ready to
+> **Status: alpha (0.10.0).** Usable for testing on a lab router. Not ready to
 > replace a production dnsmasq/odhcpd setup yet: see
 > [Known limitations](#known-limitations).
 
@@ -44,7 +44,9 @@ Menu location: **Services > Kea DHCP**.
   `kea-hook-ha` is installed. Hot standby, load balancing or passive backup,
   the peers with their roles, the timers, and every other parameter of the
   hook as JSON. With the `ha-cluster` package installed, the peers can be
-  filled in from the nodes of the cluster.
+  filled in from the nodes of the cluster, and `ha-cluster` is told to
+  bring its firewall rules up to date when Kea takes a new configuration,
+  so that the ports of the peer URLs stay open between the nodes.
 - **Leases**: the DHCPv4 and DHCPv6 leases in use, with remaining time,
   read from the lease files of Kea.
 - **Configuration**: raw editor for the four Kea config files, with a JSON

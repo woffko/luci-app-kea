@@ -102,6 +102,25 @@ function notify(message, kind) {
 	ui.addNotification(null, E("p", message), kind || "info");
 }
 
+/*
+ * What an init action did besides Kea. With ha-cluster and Kea as its DHCP
+ * server, the backend had ha-cluster bring its firewall rules up to date,
+ * which the user did not ask for by name. Returns the sentence to add to
+ * the report of the action, and warns when ha-cluster failed: Kea took its
+ * configuration all the same.
+ */
+function clusterNote(result) {
+	if (!result || result.cluster_firewall == null)
+		return "";
+
+	if (result.cluster_firewall)
+		return " " + _("ha-cluster was told to bring its firewall rules up to date with the ports of the peer URLs.");
+
+	notify(_("ha-cluster could not bring its firewall rules up to date. The ports of the peer URLs may be closed between the nodes: run /etc/init.d/ha-cluster firewall and look at the system log."), "warning");
+
+	return "";
+}
+
 function wait(ms) {
 	return new Promise(function(resolve) {
 		window.setTimeout(resolve, ms);
@@ -265,6 +284,8 @@ return baseclass.extend({
 	},
 
 	describeDaemon: describeDaemon,
+
+	clusterNote: clusterNote,
 
 	getInterfaces: function() {
 		return L.resolveDefault(callNetworkInterfaces(), {}).then(function(result) {
@@ -451,7 +472,7 @@ return baseclass.extend({
 					return L.resolveDefault(callServices(), {});
 				}).then(function(after) {
 					if (isRunning(after, name)) {
-						notify(daemon + ": " + _("configuration saved and applied."));
+						notify(daemon + ": " + _("configuration saved and applied.") + clusterNote(result));
 						return true;
 					}
 

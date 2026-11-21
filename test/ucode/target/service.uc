@@ -172,6 +172,97 @@ test('only dnsmasq and odhcpd can be controlled as conflicting services', () => 
 	equal(init_log()[-1], 'dnsmasq stop');
 });
 
+/* ---- ha-cluster follows the Kea files -------------------------------------- */
+
+const CLUSTER_UCI = root + '/uci/ha-cluster';
+const CLUSTER_INIT = root + '/etc/init.d/ha-cluster';
+
+function cluster_config(enabled, backend) {
+	fs.writefile(CLUSTER_UCI, sprintf(
+		"config global 'config'\n\toption enabled '%s'\n\toption dhcp_backend '%s'\n", enabled, backend));
+}
+
+// A stand-in for the init script of ha-cluster. "declaration" is the line
+// that names its extra commands. It fails while the file "cluster-fail" is
+// there and takes five seconds while "cluster-slow" is.
+function fake_cluster(declaration) {
+	fs.writefile(CLUSTER_INIT, sprintf(
+		'#!/bin/sh\n%s\necho "ha-cluster $1" >> "%s/init.log"\n' +
+		'[ ! -e "%s/cluster-slow" ] || sleep 5\n[ ! -e "%s/cluster-fail" ]\n', declaration, root, root, root));
+	fs.chmod(CLUSTER_INIT, 0o755);
+}
+
+function cluster_calls() {
+	return filter(init_log(), line => index(line, 'ha-cluster ') == 0);
+}
+
+test('ha-cluster looks at its firewall rules when Kea was made to read its files', () => {
+	fake_cluster('EXTRA_COMMANDS="firewall"');
+	cluster_config('1', 'kea');
+	procd = {};
+
+	for (let action in [ 'reload', 'restart', 'start' ])
+		equal(service.init_action(ctx, action), { result: true, cluster_firewall: true }, action);
+
+	equal(cluster_calls(), [ 'ha-cluster firewall', 'ha-cluster firewall', 'ha-cluster firewall' ],
+		'only that command, also for a cluster that does not run');
+});
+
+test('not when Kea was stopped, or its autostart changed, or the action failed', () => {
+	for (let action in [ 'stop', 'enable', 'disable' ])
+		equal(service.init_action(ctx, action), { result: true }, action);
+
+	fs.writefile(root + '/fail', '');
+	equal(service.init_action(ctx, 'reload'), { result: false, error: 'init action failed' });
+	fs.unlink(root + '/fail');
+
+	equal(length(cluster_calls()), 3);
+});
+
+test('a failure of ha-cluster is told, and is no failure of Kea', () => {
+	fs.writefile(root + '/cluster-fail', '');
+	equal(service.init_action(ctx, 'reload'), { result: true, cluster_firewall: false });
+	fs.unlink(root + '/cluster-fail');
+
+	// A command that hangs is not waited for longer than the limit.
+	let hasty = config.context({ ...options, service_list: name => ({}), cluster_timeout: 300 });
+	let before = clock(true);
+
+	fs.writefile(root + '/cluster-slow', '');
+	equal(service.init_action(hasty, 'reload'), { result: true, cluster_firewall: false });
+	fs.unlink(root + '/cluster-slow');
+
+	let after = clock(true);
+	let took = (after[0] - before[0]) * 1000 + (after[1] - before[1]) / 1000000;
+
+	ok(took < 3000, sprintf('gave up after %d ms', took));
+	equal(length(cluster_calls()), 5);
+});
+
+test('nothing for a cluster that is disabled or has dnsmasq, or without the command', () => {
+	cluster_config('0', 'kea');
+	equal(service.init_action(ctx, 'reload'), { result: true }, 'disabled');
+
+	cluster_config('1', 'dnsmasq');
+	equal(service.init_action(ctx, 'reload'), { result: true }, 'dnsmasq is its DHCP server');
+
+	fs.unlink(CLUSTER_UCI);
+	equal(service.init_action(ctx, 'reload'), { result: true }, 'no config');
+
+	// A version of ha-cluster before the command: rc.common would answer
+	// with its help text, and the script would look successful.
+	cluster_config('1', 'kea');
+	fake_cluster('USE_PROCD=1');
+	equal(service.init_action(ctx, 'reload'), { result: true }, 'the script has no such command');
+
+	fs.unlink(CLUSTER_INIT);
+	equal(service.init_action(ctx, 'reload'), { result: true }, 'no init script');
+
+	equal(length(cluster_calls()), 5, 'nothing was called');
+
+	fs.unlink(CLUSTER_UCI);
+});
+
 /* ---- what a running daemon says, and the nodes of a cluster --------------- */
 
 test('only the DHCP daemons that procd runs are asked for their state', () => {

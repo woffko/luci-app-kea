@@ -28,7 +28,7 @@ var callInitAction = rpc.declare({
 	object: "luci.kea",
 	method: "setInitAction",
 	params: [ "action" ],
-	expect: { result: false }
+	expect: { "": {} }
 });
 
 var callConflictAction = rpc.declare({
@@ -343,12 +343,12 @@ return view.extend({
 		var self = this;
 
 		return callInitAction(action).then(function(result) {
-			if (!result) {
+			if (!result || !result.result) {
 				ui.addNotification(null, E("p", _("Kea init action failed.")), "danger");
 				return;
 			}
 
-			ui.addNotification(null, E("p", _("Kea init action completed.")), "info");
+			ui.addNotification(null, E("p", _("Kea init action completed.") + backend.clusterNote(result)), "info");
 			return self.refresh();
 		});
 	},

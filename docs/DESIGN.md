@@ -411,6 +411,48 @@ The split between the two packages: `ha-cluster` knows the nodes and, by
 the owner's word, opens the firewall for the ports; this application
 writes the Kea files. Neither depends on the other.
 
+### The firewall rules of the cluster after Kea
+
+`ha-cluster` takes the ports for its firewall rule from the peer URLs in
+the Kea files of the enabled daemons. A port changed on the tab would stay
+closed until it read them again, so the backend runs
+`/etc/init.d/ha-cluster firewall` after `/etc/init.d/kea` was called with
+`start`, `restart` or `reload` and succeeded. That is the one place through
+which every page makes Kea read its files, and at that moment the file and
+the ports Kea listens on agree.
+
+The first plan was `reload`. The reload of `ha-cluster` starts a cluster
+that is enabled and not running, and stops a running one that is disabled
+in its config: a node whose cluster was stopped for a reason would take its
+virtual addresses back because someone saved a DHCP option. The
+`ha-cluster` project made the command `firewall` instead. It brings the
+rules up to date, reloads the firewall only when one changed, and starts,
+stops and signals no daemon, whether the cluster runs or not.
+
+The backend calls it when all of this holds:
+
+- the init script of `ha-cluster` is installed and names the command.
+  rc.common answers a command a script does not have with its help text
+  and the exit status 0, so an older `ha-cluster` would look as if it had
+  done it;
+- `enabled` is set in the section `config` of `/etc/config/ha-cluster`;
+- `dhcp_backend` is `kea` there, without which `ha-cluster` has no rule
+  for these ports.
+
+The command would do nothing in the last two cases by itself. They are
+checked here so that the pages do not report something that did not happen.
+
+The backend waits for the command, 15 seconds at most. Two calls at the
+same time would write the firewall config together, and rpcd runs one call
+after the other. The answer of `setInitAction` has `cluster_firewall`:
+true when the command succeeded. The pages add a sentence to their report,
+because another package was called than the one the user named; when it
+failed they warn, and Kea is still reported as started or reloaded.
+
+Whether a URL changed is not looked at. A call that finds nothing to change
+takes a few hundredths of a second, and the enabled daemons, which also
+decide the ports, change without any file being written.
+
 ### Where the log goes
 
 The Global settings tab has one field for the output of the loggers. It

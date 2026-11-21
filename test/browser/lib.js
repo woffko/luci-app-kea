@@ -165,6 +165,10 @@ function keaMethod(call) {
  * state.replies may hold answers for read calls that the target cannot
  * give, by method: { getDaemonState: {...}, getHaNodes: {...} }. Each is
  * the whole reply of the method.
+ *
+ * state.actions may hold what a call that acts on a service is answered
+ * with instead of a failure, by method: { setInitAction: {...} }. The
+ * call still does not reach the target.
  */
 async function interceptServiceCalls(page, state) {
 	await page.route(/\/ubus\/?(\?.*)?$/, async (route) => {
@@ -183,9 +187,13 @@ async function interceptServiceCalls(page, state) {
 		if (calls.some((call) => SERVICE_ACTIONS.includes(keaMethod(call)))) {
 			calls.forEach((call) => state.blocked.push(keaMethod(call)));
 
+			const actions = state.actions || {};
+			const answer = (call) => Object.prototype.hasOwnProperty.call(actions, keaMethod(call)) ?
+				actions[keaMethod(call)] : { result: false };
+
 			return route.fulfill({
 				contentType: "application/json",
-				body: reply(calls.map((call) => ({ jsonrpc: "2.0", id: call.id, result: [ 0, { result: false } ] })))
+				body: reply(calls.map((call) => ({ jsonrpc: "2.0", id: call.id, result: [ 0, answer(call) ] })))
 			});
 		}
 
