@@ -143,6 +143,14 @@ async function testHa(page, scenario) {
 	await expectNotification(page, "High availability: Peers: Kea needs an IP address in the URL");
 	ok(name + ": a peer URL with a host name is marked and not saved");
 
+	/* A URL without a port is taken by the hook and leaves the servers unable to meet. */
+	await inputs.nth(1).fill("http://192.168.1.2/");
+	assert.match(await inputs.nth(1).getAttribute("title"), /needs a port/);
+	await footerButton(page, "Save").click();
+	await expectNotification(page, "High availability: Peers: the URL needs a port");
+	await inputs.nth(1).fill("http://router2.lan:8000/");
+	ok(name + ": a peer URL without a port is marked and not saved");
+
 	/* Nothing was sent, and the form still holds what was typed. */
 	assert.deepEqual(await tableValues(page, "kea-ha-peers"),
 		[ [ "router1", scenario.urls[0] ], [ "router2", "http://router2.lan:8000/" ] ]);

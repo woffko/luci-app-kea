@@ -355,9 +355,18 @@ test("a peer URL needs an IP address; https needs TLS", () => {
 		return ha.peerError(state, state.peers[1], "url");
 	};
 
-	for (const good of [ "http://192.168.1.2:8000/", "http://192.168.1.2:8000", "http://192.168.1.2/",
-		"http://[fd00:1::2]:8000/", "http://[::1]:8000/", "http://192.168.1.2:8000/kea" ])
+	for (const good of [ "http://192.168.1.2:8000/", "http://192.168.1.2:8000",
+		"http://[fd00:1::2]:8000/", "http://[::1]:8000/", "http://192.168.1.2:8000/kea", "http://192.168.1.2:65535/" ])
 		assert.equal(urlError(good), null, good);
+
+	/*
+	 * The hook takes these. Measured with two servers: each listens on a
+	 * port chosen at random, neither reaches the other, and both end up in
+	 * the state partner-down.
+	 */
+	for (const portless of [ "http://192.168.1.2/", "http://192.168.1.2", "http://[fd00:1::2]/",
+		"http://192.168.1.2:0/", "http://192.168.1.2:70000/" ])
+		assert.match(urlError(portless), /the URL needs a port/, portless);
 
 	assert.match(urlError("http://router2.lan:8000/"), /IP address in the URL, not a host name/);
 	assert.match(urlError("http://[fd00::zz]:8000/"), /IP address/);

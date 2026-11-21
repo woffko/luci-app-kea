@@ -349,6 +349,30 @@ test('interfaces to listen on without retries for the sockets are reported', () 
 		'{ "DhcpDdns": { "interfaces-config": { "interfaces": [ "br-lan" ] } } }'), []);
 });
 
+test('a peer URL without a port is reported: the pair cannot meet', () => {
+	const pair = urls => dhcp4(sprintf(
+		'"hooks-libraries": [ { "library": "/usr/lib/kea/hooks/libdhcp_lease_cmds.so" },' +
+		' { "library": "/usr/lib/kea/hooks/libdhcp_ha.so", "parameters": { "high-availability": [ {' +
+		' "this-server-name": "a", "mode": "hot-standby", "peers": [' +
+		' { "name": "a", "url": "%s", "role": "primary" }, { "name": "b", "url": "%s", "role": "standby" } ] } ] } } ]',
+		urls[0], urls[1]));
+	const expected = (url, peer) => ({ code: 'ha-url-port', effect: 'no-pair', value: url, peer });
+
+	equal(config.warnings(ctx, 'dhcp4', pair([ 'http://192.168.1.1/', 'http://192.168.1.2/' ])),
+		[ expected('http://192.168.1.1/', 'a'), expected('http://192.168.1.2/', 'b') ]);
+	equal(config.warnings(ctx, 'dhcp4', pair([ 'http://192.168.1.1:8001/', 'http://192.168.1.2' ])),
+		[ expected('http://192.168.1.2', 'b') ]);
+	equal(config.warnings(ctx, 'dhcp4', pair([ 'http://[fd00::1]/', 'http://192.168.1.2:0/' ])),
+		[ expected('http://[fd00::1]/', 'a'), expected('http://192.168.1.2:0/', 'b') ]);
+
+	equal(config.warnings(ctx, 'dhcp4', pair([ 'http://192.168.1.1:8001/', 'http://192.168.1.2:8001/' ])), []);
+	equal(config.warnings(ctx, 'dhcp4', pair([ 'http://[fd00::1]:8002/', 'https://192.168.1.2:8443/kea' ])), []);
+	equal(config.warnings(ctx, 'dhcp4', dhcp4(
+		'"hooks-libraries": [ { "library": "/usr/lib/kea/hooks/libdhcp_other.so",' +
+		' "parameters": { "high-availability": [ { "peers": [ { "name": "x", "url": "http://10.0.0.1/" } ] } ] } } ]')), [],
+		'only the high availability hook is looked at');
+});
+
 test('the control socket of a daemon is found in its configuration', () => {
 	const socket = members => dhcp4(members);
 

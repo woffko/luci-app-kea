@@ -215,7 +215,11 @@ Accepted, some of it surprisingly:
 
 - a setup without the lease commands hook;
 - two peers with the same URL, a URL without a port, with port 0 or with a
-  path;
+  path. Without a port the pair does not work, although nothing says so:
+  a server listens on a port chosen at random and connects to port 0 of its
+  partner, and both end up in the state partner-down. Measured with two
+  servers. The form asks for a port for that reason, the one check that
+  goes beyond what the hook refuses;
 - a heartbeat delay longer than the maximum response delay;
 - unknown keys in the relationship;
 - passive backup with a primary and no backup;

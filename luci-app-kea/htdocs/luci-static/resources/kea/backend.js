@@ -116,14 +116,19 @@ function isRunning(services, name) {
 
 /*
  * A setting that Kea accepts when it checks a file and that keeps it from
- * serving, as the backend reports it, in words. Its "effect" tells the two
+ * serving, as the backend reports it, in words. Its "effect" tells the
  * kinds apart: with "no-start" the daemon exits when it starts, with
- * "no-listen" it may run without listening.
+ * "no-listen" it may run without listening, with "no-pair" the servers of
+ * a high availability pair cannot reach each other.
  */
 function warningText(warning) {
 	if (warning.code === "socket-retries")
 		return _("Kea is to listen on %s and does not try again when an interface is not ready. Started at boot before the interface is up, it opens no socket and stays that way. Set Socket Retries and Socket Retry Wait on the Global settings tab, for example 60 and 2000.")
 			.format(warning.value);
+
+	if (warning.code === "ha-url-port")
+		return _("The URL %s of the peer %s has no port. Kea then listens on a port chosen at random and the partner cannot connect. Give every peer URL a port, as in http://192.168.1.2:8001/.")
+			.format(warning.value, warning.peer);
 
 	if (warning.code === "lease-path")
 		return _("The lease file %s is not in %s. Kea takes its lease file from that directory only: name the file without a directory, or do not name it.")
@@ -287,6 +292,7 @@ return baseclass.extend({
 	renderWarnings: function(warnings) {
 		var start = withEffect(warnings, "no-start");
 		var listen = withEffect(warnings, "no-listen");
+		var pair = withEffect(warnings, "no-pair");
 		var boxes = [];
 
 		if (start.length)
@@ -299,6 +305,12 @@ return baseclass.extend({
 			boxes.push(E("div", { "class": "alert-message warning kea-listen-warnings" }, [
 				E("p", {}, _("With this configuration Kea may run without listening after a boot:")),
 				warningList(listen)
+			]));
+
+		if (pair.length)
+			boxes.push(E("div", { "class": "alert-message warning kea-pair-warnings" }, [
+				E("p", {}, _("With this configuration the servers of the high availability pair cannot reach each other, and each serves as if it were alone:")),
+				warningList(pair)
 			]));
 
 		return boxes.length ? E("div", {}, boxes) : null;

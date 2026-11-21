@@ -9,6 +9,16 @@ Released versions are tagged `vX.Y.Z` and have their package on the
 [Releases page](https://github.com/woffko/luci-app-kea/releases). All
 versions are alpha.
 
+## 0.9.1-r1 (2026-11-21)
+
+### Fixed
+
+- The High availability tab accepted a peer URL without a port, such as
+  `http://192.168.1.2/`. Kea accepts it too, and then the servers never
+  meet: each listens on a port chosen at random, cannot reach the other,
+  and serves as if it were alone. The tab now asks for a port, and a file
+  that already has such a URL gets a warning on Overview and on its page.
+
 ## 0.9.0-r1 (2026-11-20)
 
 Tagged `v0.9.0` on 2026-11-21. The release workflow built the package from

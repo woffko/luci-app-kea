@@ -263,6 +263,26 @@ function logger_outputs(root) {
 	return outputs;
 }
 
+// The peers of every high availability relationship of a configuration:
+// [ { name, url } ], from the parameters of the hook library.
+function ha_peers(root) {
+	let peers = [];
+
+	for (let hook in (type(root['hooks-libraries']) == 'array' ? root['hooks-libraries'] : [])) {
+		if (type(hook) != 'object' || !match(`${hook.library ?? ''}`, /(^|\/)libdhcp_ha\.so$/))
+			continue;
+
+		let relations = hook.parameters?.['high-availability'];
+
+		for (let relation in (type(relations) == 'array' ? relations : []))
+			for (let peer in (type(relation?.peers) == 'array' ? relation.peers : []))
+				if (type(peer) == 'object' && type(peer.url) == 'string')
+					push(peers, { name: `${peer.name ?? ''}`, url: peer.url });
+	}
+
+	return peers;
+}
+
 function log_kind(output) {
 	if (output == 'syslog' || index(output, 'syslog:') == 0)
 		return 'syslog';
@@ -289,6 +309,14 @@ function log_kind(output) {
 //   the sockets. Kea opens its sockets once, when it starts. At boot it is
 //   started while an interface may not be ready, then opens nothing, and
 //   stays that way.
+//
+// With the effect "no-pair", the servers of a high availability pair
+// cannot reach each other:
+//
+// - "ha-url-port": the URL of a peer without a port, or with port 0. The
+//   hook takes it; a server then listens on a port chosen at random and
+//   connects to port 0 of its partner. Both end up in the state
+//   partner-down, each serving as if alone. The entry names the peer.
 //
 // Only the DHCP daemons are affected: kea-dhcp-ddns and kea-ctrl-agent
 // refuse such a log file in their check and listen on no interface.
@@ -327,6 +355,13 @@ export function warnings(ctx, name, content) {
 				logger: item.logger,
 				directory: LOG_DIR
 			});
+	}
+
+	for (let peer in ha_peers(root)) {
+		let m = match(peer.url, /^[a-z]+:\/\/(\[[^\]]*\]|[^\/:]*)(:([0-9]*))?(\/.*)?$/);
+
+		if (m && !(+m[3] > 0))
+			push(found, { code: 'ha-url-port', effect: 'no-pair', value: peer.url, peer: peer.name });
 	}
 
 	let listen = root['interfaces-config'];
