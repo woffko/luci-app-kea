@@ -22,7 +22,9 @@ landed.
   and six browser tests, not on the second test machine.
 - After the pull request, the `ha-cluster` project put a lock around
   everything that writes its firewall rules: a call from here may now wait
-  for another writer, for a fraction of a second.
+  for another writer, for a fraction of a second. The command and the lock
+  are in its sources as `ha-cluster` 2.0.0-r11; no package was built from
+  them yet.
 
 ## 2026-11-21: The firewall rules of `ha-cluster` follow Kea (`0.10.0-r1`)
 
