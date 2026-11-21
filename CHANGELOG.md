@@ -11,6 +11,9 @@ versions are alpha.
 
 ## 0.9.0-r1 (2026-11-20)
 
+Tagged `v0.9.0` on 2026-11-21. The release workflow built the package from
+the tag, tested it and prepared the release.
+
 ### Added
 
 - **Retries for the sockets.** Kea opens its sockets once, when it starts.
