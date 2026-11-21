@@ -136,8 +136,10 @@ package, and no cluster running:
 
 procd knew of no `ha-cluster` service afterwards and no keepalived ran.
 
-The package file of `v0.9.0` was built by the release workflow from the
-tagged commit and passed the 132 backend tests and six browser tests in that
+`0.10.0-r1` was not installed on the second machine.
+
+The package file of `v0.10.0` was built by the release workflow from the
+tagged commit and passed the 142 backend tests and six browser tests in that
 run, on OpenWrt 25.12.6 under QEMU with Kea 3.0.4. It holds the same files
 as the package that was tested by hand before.
 
@@ -470,10 +472,11 @@ Kea, on OpenWrt.
   when Kea still listens on the port it had; and it does not know of a Kea
   restarted from the command line, after which
   `/etc/init.d/ha-cluster firewall` has to be run by hand.
-- That needs a version of `ha-cluster` with the command `firewall`, which
-  on 2026-11-21 existed in its development tree only. It was tried with
-  the files of that tree, not with a package, and not on a cluster that
-  ran. What it relies on: the options `enabled` and `dhcp_backend` of the
+- That needs `ha-cluster` 2.0.0-r11 or later, the first version with the
+  command `firewall`. On 2026-11-21 it was in the sources of that project
+  and not yet built as a package. It was tried with the files of its
+  development tree, not with a package, and not on a cluster that ran.
+  What it relies on: the options `enabled` and `dhcp_backend` of the
   section `config` in `/etc/config/ha-cluster`, and the command being
   named in the init script.
 - A pair of routers exchanging leases was never run with this application.
