@@ -7,7 +7,6 @@
 					"getStatus",
 					"getServices",
 					"getDaemonState",
-					"getHaNodes",
 					"getNetworkInterfaces",
 					"validate",
 					"getConfigList",
@@ -16,6 +15,9 @@
 					"getLeases",
 					"getLog",
 					"importDnsmasqDryRun"
+				],
+				"ha-cluster": [
+					"nodes"
 				]
 			}
 		},

@@ -3,7 +3,7 @@
 Audit date: 2026-11-11. Audited revision: `b6eedcf` (package version
 `0.1.0-r1`). The findings marked "fixed" below were resolved in `0.1.0-r2`
 (roadmap milestone M0) and re-checked with a real build and install. The
-current version is `0.10.0-r1`.
+current version is `0.10.1-r1`.
 
 ## References
 
@@ -58,7 +58,7 @@ time.
 ```text
 Package: luci-app-kea
 Submenu: 3. Applications
-Version: 0.10.0-r1
+Version: 0.10.1-r1
 Depends: +libc +luci-base +kea-uci +kea-lfc +ucode-mod-socket
 Section: luci
 Category: LuCI
@@ -154,7 +154,8 @@ and `import-dnsmasq`. View names are part of the URL and must stay stable.
 
 ### ACL (item 13)
 
-The views talk only to the `luci.kea` ubus object, and the ACL now grants
+The views talk to the `luci.kea` ubus object, and since `0.10.1` to one
+read-only method of another package, `ha-cluster` `nodes`; the ACL grants
 nothing else.
 
 `getConfig` is a read-level method and returns complete Kea configuration
@@ -166,6 +167,14 @@ to display anything. Revisit if reviewers of an upstream submission object.
 `getLeases` and `getLog`, added in `0.7.0`, are read-level as well. They
 return the addresses, MAC addresses and host names of DHCP clients, which
 LuCI read access already shows for dnsmasq and odhcpd on its status pages.
+
+`0.10.1` removed `getHaNodes` and added `ha-cluster` `nodes` to the read
+group of the ACL. The pages now ask `ha-cluster` for the nodes of its
+cluster themselves: the backend runs inside rpcd, which also serves that
+object, and a call from rpcd to itself is not answered before it times
+out. The method returns node names and addresses, which `getHaNodes`
+handed out at the same level before, so a user of this application sees
+nothing new. On a router without `ha-cluster` the entry grants nothing.
 
 `0.10.0` added no method. The write-level `setInitAction` now runs a
 command of another package after it started, restarted or reloaded Kea:
@@ -179,10 +188,9 @@ already write through `saveConfig`.
 `0.9.0` added two read-level methods. `getDaemonState` returns what the
 running DHCP daemons answer to `status-get` on their control sockets,
 reduced to the state of their sockets and of high availability.
-`getHaNodes` passes on the reply of `ubus call ha-cluster nodes`, a
+`getHaNodes` passed on the reply of `ubus call ha-cluster nodes`, a
 read-only call of another package, when that package is installed: node
-names and addresses. The backend makes both calls itself, so the ACL of the
-application names only its own object.
+names and addresses. It was removed in `0.10.1`, see above.
 
 The dependency `ucode-mod-socket`, new in `0.9.0`, is the ucode module that
 opens the control sockets. Without it the backend still loads and reports

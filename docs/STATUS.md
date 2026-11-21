@@ -1,6 +1,6 @@
 # Project Status
 
-Status date: 2026-11-21. Package version `0.10.0-r1`, alpha.
+Status date: 2026-11-21. Package version `0.10.1-r1`, alpha.
 
 This is a code-level inventory of what exists and what is missing. The work
 needed to close the gaps is ordered in [ROADMAP.md](ROADMAP.md). Packaging
@@ -11,7 +11,7 @@ issues are listed separately in [PACKAGING.md](PACKAGING.md).
 | Area | State |
 |------|-------|
 | Package skeleton, menu, ACL | Done |
-| rpcd backend (`luci.kea`, 18 methods) | Done, in ucode |
+| rpcd backend (`luci.kea`, 17 methods) | Done, in ucode |
 | Overview page | Done, with the Kea version, what the running DHCP daemons say about themselves, the recent log messages and where the daemons write their log |
 | Services page | Done, with what dnsmasq and odhcpd are configured to serve and whether a running Kea daemon listens |
 | Raw configuration editor | Done, with syntax check, change view, backups and restore |
@@ -138,6 +138,21 @@ procd knew of no `ha-cluster` service afterwards and no keepalived ran.
 
 `0.10.0-r1` was not installed on the second machine.
 
+`0.10.1-r1`, one fix, was tested on the QEMU machine and by CI: 137 backend
+tests on the router and six browser tests. By hand, with the rpcd plugin,
+init script and library of the development tree of `ha-cluster` copied to
+the machine:
+
+| | `0.10.0-r1` | `0.10.1-r1` |
+|---|-------------|-------------|
+| The DHCPv4 page appears after | more than 30 s | 0.2 s |
+| Other calls to rpcd meanwhile | time out | answered |
+| The button that fills the tab from the cluster | never shown | shown |
+| Filled in by it | | this server and both peers, with port 8001 |
+
+On a machine without `ha-cluster` the pages show neither an error nor the
+button.
+
 The package file of `v0.10.0` was built by the release workflow from the
 tagged commit and passed the 142 backend tests and six browser tests in that
 run, on OpenWrt 25.12.6 under QEMU with Kea 3.0.4. It holds the same files
@@ -178,7 +193,6 @@ the `luci.kea.*` ucode modules:
 | `getLog` | read | The last Kea messages of the system log, split into time, daemon, severity and text, and the log outputs of each installed daemon |
 | `getServices` | read | `config service` sections of `/etc/config/kea` with enabled and running flags |
 | `getDaemonState` | read | What each running DHCP daemon answers to `status-get` on its control socket: the state of its sockets and of high availability |
-| `getHaNodes` | read | The nodes of a cluster, from `ubus call ha-cluster nodes`, when that package is installed |
 | `getNetworkInterfaces` | read | Interfaces from `/etc/config/network` (name, device, proto, addresses) and whether OpenWrt serves DHCPv4 or DHCPv6 on each, from `/etc/config/dhcp` |
 | `validate` | read | The Kea binary's own check of the DHCPv4, DHCPv6, DDNS and control agent configs, with the warnings for a file that passed |
 | `getConfigList` | read | The four Kea config files with size and presence |
@@ -407,9 +421,9 @@ Kea, on OpenWrt.
 
 | Test | Runs on | Covers |
 |------|---------|--------|
-| `node --test "test/js/*.test.js"` | Any machine with Node.js | The configuration model (56 cases, plus the stock Kea configs when `KEA_STOCK_DIR` is set) and the high availability model (24 cases) |
-| `test/run-ucode-tests.sh` | Any machine with a ucode interpreter | The backend library with a stand-in for the Kea binary: comment stripping, JSON writing, IPv4 and IPv6 helpers, save, backups, restore, retention, how the Kea binary is called and its refusal reported, import classification and commit, lease files, log lines, version, the settings Kea does not start with, log outputs, what dnsmasq and odhcpd serve, the client of the control socket against a stand-in server, the state of a daemon, the nodes of a cluster, when `ha-cluster` follows the Kea files (105 cases) |
-| `test/run-ucode-tests.sh --target` | OpenWrt with the Kea daemons | The same plus 37 cases with the real Kea binaries, UCI and procd: validation, a hook checking its parameters (needs `kea-hook-ha`), that Kea accepts a lease file and a log file in a wrong directory, service state, init actions, the call of `ha-cluster` with a stand-in for its init script, API password, import from a UCI fixture, version and system log. Uses a temporary root, except that one test line is written to the system log |
+| `node --test "test/js/*.test.js"` | Any machine with Node.js | The configuration model (56 cases, plus the stock Kea configs when `KEA_STOCK_DIR` is set) and the high availability model (28 cases), with what `ha-cluster` says about its nodes; one case reads the backend sources and fails when they call a ubus object that rpcd serves |
+| `test/run-ucode-tests.sh` | Any machine with a ucode interpreter | The backend library with a stand-in for the Kea binary: comment stripping, JSON writing, IPv4 and IPv6 helpers, save, backups, restore, retention, how the Kea binary is called and its refusal reported, import classification and commit, lease files, log lines, version, the settings Kea does not start with, log outputs, what dnsmasq and odhcpd serve, the client of the control socket against a stand-in server, the state of a daemon, when `ha-cluster` follows the Kea files (101 cases) |
+| `test/run-ucode-tests.sh --target` | OpenWrt with the Kea daemons | The same plus 36 cases with the real Kea binaries, UCI and procd: validation, a hook checking its parameters (needs `kea-hook-ha`), that Kea accepts a lease file and a log file in a wrong directory, service state, init actions, the call of `ha-cluster` with a stand-in for its init script, API password, import from a UCI fixture, version and system log. Uses a temporary root, except that one test line is written to the system log |
 | `test/browser/smoke.js` | Node.js + Playwright against a target | Every page renders without JavaScript errors |
 | `test/browser/editor.js` | Node.js + Playwright against a test target | Editors (pools, options, global settings, shared networks, input checks, change view), raw editor, backups and example removal end to end, with Kea validating every save |
 | `test/browser/ha.js` | Node.js + Playwright against a test target that has `kea-hook-ha` | The high availability tab end to end for both protocols, with Kea loading the hook on every save, including the peers filled in from a cluster. It answers the call for the nodes itself |
@@ -458,10 +472,12 @@ Kea, on OpenWrt.
 - The address of a peer URL must be reachable from the partner, so the
   firewall has to let the port through where the servers are not on the same
   LAN zone.
-- The fill-in from `ha-cluster` was tested against the reply that project
-  defined, not against an installed `ha-cluster`: the package is not in the
-  OpenWrt 25.12 repositories, and the feed that has it was not installed on
-  the test machine.
+- The fill-in from `ha-cluster` did not work from `0.9.0` to `0.10.0` on a
+  router that has `luci-app-ha-cluster`, and stopped LuCI for 30 seconds on
+  every visit of a DHCP page there. It had been tested only with the test
+  answering in place of `ha-cluster`. Fixed in `0.10.1`, and tried with
+  the rpcd plugin of the development tree of `ha-cluster`; not yet with its
+  package, nor on a pair.
 - The application writes no firewall rule. The ports of the peer URLs have
   to be open between the nodes. `ha-cluster` opens them, in its version
   under development: it reads the ports from the URLs in the Kea files when

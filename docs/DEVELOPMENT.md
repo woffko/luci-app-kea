@@ -116,6 +116,14 @@ The plugin runs inside `rpcd` and is loaded when `rpcd` starts. Restart
 `rpcd` after changing the plugin or the library on a target. An exception in
 the plugin shows up in `logread -e rpcd`.
 
+Because it runs inside `rpcd`, the library must not call a ubus object that
+`rpcd` serves: its own, those of LuCI, and those of the rpcd plugins of
+other packages. Such a call waits 30 seconds for an answer `rpcd` cannot
+give while it waits, and all of LuCI waits with it. `service`, which procd
+serves, is the one object the library calls; `test/js/rpcd.test.js` fails
+when another appears. What a page needs from an object of `rpcd`, it asks
+for itself, with a line in the ACL.
+
 ## Building
 
 The Makefile includes `$(TOPDIR)/feeds/luci/luci.mk`, so the `luci` feed must
@@ -352,8 +360,8 @@ the question before a reload it tells the page that `kea-dhcp4` is running.
 `interceptServiceCalls()` in `lib.js` does this, and the screenshot script
 uses it too. The same function can answer read calls that a test target
 cannot: the state of a daemon that does not listen or is part of a pair
-(`getDaemonState`), and the nodes of a cluster (`getHaNodes`), which `ha.js`
-uses for the fill-in. And it can answer a call that acts on a service with
+(`getDaemonState`), and a call to another package: the nodes of a cluster
+(`ha-cluster` `nodes`), which `ha.js` uses for the fill-in. And it can answer a call that acts on a service with
 something else than a failure, still without passing it on: `warnings.js`
 uses that for a reload that worked and called `ha-cluster` as well.
 

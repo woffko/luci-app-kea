@@ -55,10 +55,9 @@ const state = { blocked: [], running: false, replies: {} };
 
 /* A pair of nodes as ha-cluster names them. */
 const CLUSTER = {
-	available: true,
 	dhcp_backend: "kea",
-	node: { name: "ha-192-168-1-1", label: "router1", address: "192.168.1.1", role: "primary" },
-	peers: [ { name: "ha-192-168-1-2", label: "router2", address: "192.168.1.2", role: "standby" } ]
+	node: { name: "ha-192-168-1-1", label: "router1", address: "192.168.1.1", priority: 100, kea_role: "primary" },
+	peers: [ { name: "ha-192-168-1-2", label: "router2", address: "192.168.1.2", vrrp_only: false, kea_role: "standby" } ]
 };
 
 /* A DHCPv4 server in a settled pair, and a DHCPv6 server that came up before its interface. */
@@ -279,7 +278,7 @@ async function runtime(page) {
 
 /* The peers taken from the nodes of a cluster; nothing is saved. */
 async function fillFromCluster(page) {
-	state.replies = { getHaNodes: { cluster: CLUSTER } };
+	state.replies = { "ha-cluster.nodes": CLUSTER };
 	await openPage(page, "dhcp4", "Kea DHCPv4");
 	await page.locator("#view h3", { hasText: "br-lan" }).first().waitFor();
 

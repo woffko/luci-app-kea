@@ -59,14 +59,14 @@ const SCENARIOS = [
 ];
 
 /*
- * What the backend passes on from "ubus call ha-cluster nodes" for a pair.
+ * What "ubus call ha-cluster nodes" answers for a pair. The pages ask for
+ * it themselves; the test answers, since the target has no ha-cluster.
  * The URLs of both protocols use these IPv4 addresses; the port differs.
  */
 const CLUSTER = {
-	available: true,
 	dhcp_backend: "kea",
-	node: { name: "ha-192-168-1-1", label: "node1", address: "192.168.1.1", role: "primary" },
-	peers: [ { name: "ha-192-168-1-2", label: "node2", address: "192.168.1.2", role: "standby" } ]
+	node: { name: "ha-192-168-1-1", label: "node1", address: "192.168.1.1", priority: 100, kea_role: "primary" },
+	peers: [ { name: "ha-192-168-1-2", label: "node2", address: "192.168.1.2", vrrp_only: false, kea_role: "standby" } ]
 };
 const CLUSTER_PORTS = { dhcp4: 8001, dhcp6: 8002 };
 
@@ -260,7 +260,7 @@ async function testHa(page, scenario) {
 }
 
 main(async (page) => {
-	await interceptServiceCalls(page, { blocked: [], running: false, replies: { getHaNodes: { cluster: CLUSTER } } });
+	await interceptServiceCalls(page, { blocked: [], running: false, replies: { "ha-cluster.nodes": CLUSTER } });
 
 	for (const scenario of SCENARIOS) {
 		const original = await readRawConfig(page, scenario.family);

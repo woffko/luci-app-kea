@@ -7,6 +7,29 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-21: The question to `ha-cluster` stopped LuCI (`0.10.1-r1`)
+
+- The `ha-cluster` project ran `0.10.0-r1` on a pair of routers with its
+  packages installed. The call of its firewall command worked: a port
+  changed on both nodes was let through, and the pair came back to
+  hot-standby. But `getHaNodes` took 30 seconds, returned nothing, and
+  rpcd answered no other call in that time.
+- Reproduced here with the rpcd plugin of its development tree on the test
+  machine: 30.03 seconds, `session list` timing out meanwhile. Asked
+  directly, `ha-cluster nodes` answers in 0.01 seconds.
+- The cause: the backend runs inside rpcd and called an object that rpcd
+  serves itself. It was in the package since `0.9.0`. No test had that
+  plugin on its target; the browser test answered in its place.
+- The fix: the pages ask `ha-cluster` themselves, the ACL names the call,
+  and `getHaNodes` is gone, with the reduction of the reply moved from the
+  backend to the model of the tab. A new test reads the backend sources
+  and fails on a call to any ubus object but the one of procd.
+- With the fix and the same plugin: the page is there after 0.2 seconds and
+  the button fills in this server and both peers. This is the first time
+  the fill-in met something other than the test's own answer.
+- An edit made for this removed one more on-target test than intended; the
+  count of cases, 136 where 137 were expected, showed it before the commit.
+
 ## 2026-11-21: Release `v0.10.0`
 
 - The owner merged the pull request and pushed the tag `v0.10.0`, on the

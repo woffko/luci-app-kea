@@ -125,13 +125,11 @@ export function daemon_states(ctx) {
 	return result;
 };
 
-// The nodes of a cluster, when the ha-cluster package is there to ask; see
-// cluster.nodes(). Without it the reply says that nothing is available.
-export function ha_nodes(ctx) {
-	return cluster.nodes(ctx.ha_nodes ?
-		ctx.ha_nodes() :
-		connect()?.call('ha-cluster', 'nodes', {}));
-};
+// Nothing here asks another package over ubus, apart from procd above.
+// This code runs inside rpcd, and a call from rpcd to an object that rpcd
+// serves itself, such as the one of luci-app-ha-cluster, is answered only
+// when it has timed out, with every other call to rpcd waiting behind it.
+// What the pages need from such an object, they ask for themselves.
 
 export function set_service(ctx, name, enabled) {
 	if (!config.CONFIGS[name])

@@ -156,6 +156,17 @@ function keaMethod(call) {
 }
 
 /*
+ * The name a call goes by in state.replies: the method for a call to the
+ * backend of this application, "object.method" for one to another object.
+ */
+function replyKey(call) {
+	if (!call || !Array.isArray(call.params) || typeof call.params[1] !== "string")
+		return null;
+
+	return call.params[1] === "luci.kea" ? call.params[2] : call.params[1] + "." + call.params[2];
+}
+
+/*
  * Keep the page from acting on the services of the target: the calls that
  * would do so are answered here, as failed, and noted in state.blocked.
  * While state.running is set, the page is also told that kea-dhcp4 is
@@ -163,8 +174,10 @@ function keaMethod(call) {
  * one.
  *
  * state.replies may hold answers for read calls that the target cannot
- * give, by method: { getDaemonState: {...}, getHaNodes: {...} }. Each is
- * the whole reply of the method.
+ * give, by method: { getDaemonState: {...} }. Each is the whole reply of
+ * the method. A call to another ubus object goes by "object.method":
+ * { "ha-cluster.nodes": {...} } stands in for a package that is not
+ * installed.
  *
  * state.actions may hold what a call that acts on a service is answered
  * with instead of a failure, by method: { setInitAction: {...} }. The
@@ -199,7 +212,7 @@ async function interceptServiceCalls(page, state) {
 
 		const replies = state.replies || {};
 		const patched = (call) => (state.running && keaMethod(call) === "getServices") ||
-			Object.prototype.hasOwnProperty.call(replies, keaMethod(call));
+			Object.prototype.hasOwnProperty.call(replies, replyKey(call));
 
 		if (calls.some(patched)) {
 			const response = await route.fetch();
@@ -208,7 +221,7 @@ async function interceptServiceCalls(page, state) {
 
 			calls.filter(patched).forEach((call) => {
 				const answer = answers.find((candidate) => candidate && candidate.id === call.id);
-				const method = keaMethod(call);
+				const method = replyKey(call);
 
 				if (!answer)
 					return;

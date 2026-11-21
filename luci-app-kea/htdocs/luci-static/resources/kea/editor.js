@@ -629,7 +629,7 @@ function createView(familyName) {
 			this.interfaces = data[1] || [];
 			this.status = data[2] || {};
 			/* The nodes of a cluster to fill the high availability tab from, if any. */
-			this.cluster = data[3] || {};
+			this.cluster = haModel.clusterNodes(data[3]);
 			this.active = 0;
 			this.noticesNode = E("div", {});
 			this.tabBarNode = E("div", {});
