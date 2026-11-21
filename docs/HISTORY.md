@@ -10,9 +10,7 @@ landed.
 ## 2026-11-21: Release `v0.10.0`
 
 - The owner merged the pull request and pushed the tag `v0.10.0`, on the
-  merge commit on `main`. The first attempt to push it from the working
-  session was refused by its permission settings, so the tag is the
-  owner's, as with the releases before.
+  merge commit on `main`.
 - The release workflow passed: the tag and the changelog fit the version,
   the tagged commit is on `main`, the three CI jobs, and the draft release
   with the package, its checksum and the changelog section. The section
