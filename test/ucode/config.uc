@@ -276,35 +276,35 @@ const logger = output => dhcp4(sprintf(
 test('a lease file outside the lease directory is reported', () => {
 	for (let name in [ '/tmp/kea-leases4.csv', '/var/lib/kea/sub/x.csv', 'sub/x.csv', './x.csv',
 	                   '/var/lib/kea//x.csv', '/var/lib/../lib/kea/x.csv', '/var/lib/kea/' ])
-		equal(config.start_warnings(ctx, 'dhcp4', lease(name)),
-			[ { code: 'lease-path', value: name, directory: '/var/lib/kea' } ], name);
+		equal(config.warnings(ctx, 'dhcp4', lease(name)),
+			[ { code: 'lease-path', effect: 'no-start', value: name, directory: '/var/lib/kea' } ], name);
 
-	equal(config.start_warnings(ctx, 'dhcp6',
+	equal(config.warnings(ctx, 'dhcp6',
 		'{ "Dhcp6": { "lease-database": { "name": "/tmp/x6.csv" } } }'),
-		[ { code: 'lease-path', value: '/tmp/x6.csv', directory: '/var/lib/kea' } ],
+		[ { code: 'lease-path', effect: 'no-start', value: '/tmp/x6.csv', directory: '/var/lib/kea' } ],
 		'memfile is the type when none is named');
 });
 
 test('a lease file Kea starts with is not reported', () => {
 	for (let name in [ 'other4.csv', '/var/lib/kea/other4.csv' ])
-		equal(config.start_warnings(ctx, 'dhcp4', lease(name)), [], name);
+		equal(config.warnings(ctx, 'dhcp4', lease(name)), [], name);
 
-	equal(config.start_warnings(ctx, 'dhcp4', dhcp4('"lease-database": { "type": "memfile" }')), []);
-	equal(config.start_warnings(ctx, 'dhcp4', dhcp4('"valid-lifetime": 600')), []);
-	equal(config.start_warnings(ctx, 'dhcp4', dhcp4(
+	equal(config.warnings(ctx, 'dhcp4', dhcp4('"lease-database": { "type": "memfile" }')), []);
+	equal(config.warnings(ctx, 'dhcp4', dhcp4('"valid-lifetime": 600')), []);
+	equal(config.warnings(ctx, 'dhcp4', dhcp4(
 		'"lease-database": { "type": "memfile", "persist": false, "name": "/tmp/x.csv" }')), [],
 		'the name is not used when the leases are not written');
 });
 
 test('a log file outside the log directory is reported with its logger', () => {
 	for (let output in [ '/tmp/kea.log', '/var/log/kea/sub/x.log', 'sub/x.log', '/var/log/kea//x.log' ])
-		equal(config.start_warnings(ctx, 'dhcp4', logger(output)),
-			[ { code: 'log-path', value: output, logger: 'kea-dhcp4', directory: '/var/log/kea' } ], output);
+		equal(config.warnings(ctx, 'dhcp4', logger(output)),
+			[ { code: 'log-path', effect: 'no-start', value: output, logger: 'kea-dhcp4', directory: '/var/log/kea' } ], output);
 
 	for (let output in [ 'kea-dhcp4.log', '/var/log/kea/kea-dhcp4.log', 'syslog', 'syslog:kea4', 'stdout', 'stderr' ])
-		equal(config.start_warnings(ctx, 'dhcp4', logger(output)), [], output);
+		equal(config.warnings(ctx, 'dhcp4', logger(output)), [], output);
 
-	equal(length(config.start_warnings(ctx, 'dhcp4', dhcp4(
+	equal(length(config.warnings(ctx, 'dhcp4', dhcp4(
 		'"loggers": [ { "name": "a", "output_options": [ { "output": "/tmp/a.log" }, { "output": "syslog" } ] },' +
 		' { "name": "b", "output-options": [ { "output": "/tmp/b.log" } ] } ],' +
 		' "lease-database": { "name": "/tmp/x.csv" }'))), 3,
@@ -313,23 +313,67 @@ test('a log file outside the log directory is reported with its logger', () => {
 
 test('only the DHCP daemons are checked, and only files that can be read', () => {
 	// kea-dhcp-ddns and kea-ctrl-agent refuse such a log file in their check.
-	equal(config.start_warnings(ctx, 'dhcp_ddns',
+	equal(config.warnings(ctx, 'dhcp_ddns',
 		'{ "DhcpDdns": { "loggers": [ { "name": "x", "output-options": [ { "output": "/tmp/x.log" } ] } ] } }'), []);
-	equal(config.start_warnings(ctx, 'ctrl_agent',
+	equal(config.warnings(ctx, 'ctrl_agent',
 		'{ "Control-agent": { "loggers": [ { "name": "x", "output-options": [ { "output": "/tmp/x.log" } ] } ] } }'), []);
-	equal(config.start_warnings(ctx, 'dhcp4', 'not json'), []);
-	equal(config.start_warnings(ctx, 'dhcp4', null), []);
-	equal(config.start_warnings(ctx, 'dhcp4', '{ "Dhcp6": { "lease-database": { "name": "/tmp/x.csv" } } }'), []);
-	equal(config.start_warnings(ctx, 'nope', lease('/tmp/x.csv')), []);
-	equal(length(config.start_warnings(ctx, 'dhcp4',
+	equal(config.warnings(ctx, 'dhcp4', 'not json'), []);
+	equal(config.warnings(ctx, 'dhcp4', null), []);
+	equal(config.warnings(ctx, 'dhcp4', '{ "Dhcp6": { "lease-database": { "name": "/tmp/x.csv" } } }'), []);
+	equal(config.warnings(ctx, 'nope', lease('/tmp/x.csv')), []);
+	equal(length(config.warnings(ctx, 'dhcp4',
 		'// a comment\n{ "Dhcp4": { /* another */ "lease-database": { "name": "/tmp/x.csv" } } }\n')), 1,
 		'comments do not hide the setting');
+});
+
+test('interfaces to listen on without retries for the sockets are reported', () => {
+	const listen = members => dhcp4(sprintf('"interfaces-config": { %s }', members));
+	const expected = value => [ { code: 'socket-retries', effect: 'no-listen', value } ];
+
+	equal(config.warnings(ctx, 'dhcp4', listen('"interfaces": [ "br-lan" ]')), expected('br-lan'));
+	equal(config.warnings(ctx, 'dhcp4', listen('"interfaces": [ "br-lan", "eth1/10.0.0.1" ]')),
+		expected('br-lan, eth1/10.0.0.1'));
+	equal(config.warnings(ctx, 'dhcp4', listen('"interfaces": [ "*" ]')), expected('*'));
+	equal(config.warnings(ctx, 'dhcp4',
+		listen('"interfaces": [ "br-lan" ], "service-sockets-max-retries": 0')), expected('br-lan'),
+		'no retries is what Kea does without the parameter');
+	equal(config.warnings(ctx, 'dhcp6',
+		'{ "Dhcp6": { "interfaces-config": { "interfaces": [ "br-lan" ] } } }'), expected('br-lan'));
+
+	equal(config.warnings(ctx, 'dhcp4',
+		listen('"interfaces": [ "br-lan" ], "service-sockets-max-retries": 60')), []);
+	equal(config.warnings(ctx, 'dhcp4', listen('"interfaces": [ ]')), [],
+		'the file shipped with Kea listens on nothing');
+	equal(config.warnings(ctx, 'dhcp4', dhcp4('"valid-lifetime": 600')), []);
+	equal(config.warnings(ctx, 'dhcp_ddns',
+		'{ "DhcpDdns": { "interfaces-config": { "interfaces": [ "br-lan" ] } } }'), []);
+});
+
+test('the control socket of a daemon is found in its configuration', () => {
+	const socket = members => dhcp4(members);
+
+	equal(config.control_socket(ctx, 'dhcp4',
+		socket('"control-socket": { "socket-type": "unix", "socket-name": "kea4-ctrl-socket" }')),
+		root + '/run/kea4-ctrl-socket', 'a name without a directory is in the runtime directory');
+	equal(config.control_socket(ctx, 'dhcp4',
+		socket('"control-socket": { "socket-type": "unix", "socket-name": "/var/run/kea/x" }')),
+		'/var/run/kea/x');
+	equal(config.control_socket(ctx, 'dhcp4', socket(
+		'"control-sockets": [ { "socket-type": "http", "socket-address": "127.0.0.1" },' +
+		' { "socket-type": "unix", "socket-name": "second" } ]')),
+		root + '/run/second', 'the list form, and only a socket of the kind that can be opened here');
+	equal(config.control_socket(ctx, 'dhcp_ddns',
+		'{ "DhcpDdns": { "control-socket": { "socket-name": "kea-ddns-ctrl-socket" } } }'),
+		root + '/run/kea-ddns-ctrl-socket');
+	equal(config.control_socket(ctx, 'dhcp4', socket('"valid-lifetime": 600')), null);
+	equal(config.control_socket(ctx, 'dhcp4', socket('"control-socket": { "socket-type": "unix" }')), null);
+	equal(config.control_socket(ctx, 'dhcp4', 'not json'), null);
 });
 
 test('save, read and validate_all pass the warnings on; nothing is refused for them', () => {
 	let before = fs.readfile(file);
 	let saved = config.save(ctx, 'dhcp4', lease('/tmp/x.csv'));
-	let expected = [ { code: 'lease-path', value: '/tmp/x.csv', directory: '/var/lib/kea' } ];
+	let expected = [ { code: 'lease-path', effect: 'no-start', value: '/tmp/x.csv', directory: '/var/lib/kea' } ];
 
 	equal(saved.result, true);
 	equal(saved.warnings, expected);

@@ -15,6 +15,8 @@ set -eu
 
 ROOT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 UCODE="${UCODE:-ucode}"
+# A test starts a second interpreter, for a stand-in of a control socket.
+export UCODE
 TARGET=0
 INSTALLED=0
 
@@ -50,7 +52,7 @@ run() {
 	fi
 }
 
-FILES="test/ucode/net.uc test/ucode/jsonc.uc test/ucode/config.uc test/ucode/importer.uc test/ucode/runtime.uc test/ucode/openwrt.uc"
+FILES="test/ucode/net.uc test/ucode/jsonc.uc test/ucode/config.uc test/ucode/importer.uc test/ucode/runtime.uc test/ucode/openwrt.uc test/ucode/cluster.uc"
 
 if [ "$TARGET" = 1 ]; then
 	FILES="$FILES test/ucode/target/config.uc test/ucode/target/service.uc test/ucode/target/import.uc test/ucode/target/runtime.uc"

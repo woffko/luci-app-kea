@@ -90,7 +90,10 @@ ubus method calls one function of the library in `ucode/kea/`:
 - `service.uc`: component state from procd, init actions, runtime files;
 - `openwrt.uc`: what dnsmasq and odhcpd are configured to serve. Pure: it
   takes the UCI sections as objects, so it is tested without UCI;
-- `runtime.uc`: version, system log and lease files;
+- `cluster.uc`: the reply of `ha-cluster` about its nodes, reduced to what
+  the high availability tab needs. Pure as well;
+- `runtime.uc`: version, system log, lease files, and `control()`, which
+  sends a command to a daemon over its control socket;
 - `importer.uc`: static lease classification and import. `classify_all()`
   is pure; `preview()` and `commit()` read and write the files;
 - `jsonc.uc`, `net.uc`: comment stripping and IPv4 helpers.
@@ -242,7 +245,10 @@ npm test                         # configuration model
 ```
 
 The backend tests need a ucode interpreter with the `fs` module, for example
-the host build from the SDK:
+the host build from the SDK. With the `socket` module as well, which that
+build has, they also run the client of the control socket against a
+stand-in server (`test/ucode/control-server.uc`), started as a second
+interpreter:
 
 ```sh
 UCODE=/path/to/openwrt-sdk/staging_dir/hostpkg/bin/ucode test/run-ucode-tests.sh
@@ -343,7 +349,10 @@ starts, stops or reloads anything: the calls that would do so
 (`setInitAction`, `setConflictAction`) are answered by the test, and for
 the question before a reload it tells the page that `kea-dhcp4` is running.
 `interceptServiceCalls()` in `lib.js` does this, and the screenshot script
-uses it too.
+uses it too. The same function can answer read calls that a test target
+cannot: the state of a daemon that does not listen or is part of a pair
+(`getDaemonState`), and the nodes of a cluster (`getHaNodes`), which `ha.js`
+uses for the fill-in.
 
 `ha.js` needs the `kea-hook-ha` and `kea-hook-lease-cmds` packages on the
 target; without them the editors do not offer the tab. It saves without

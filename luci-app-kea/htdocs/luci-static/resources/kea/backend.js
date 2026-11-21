@@ -54,6 +54,18 @@ var callServices = rpc.declare({
 	expect: { services: {} }
 });
 
+var callDaemonState = rpc.declare({
+	object: "luci.kea",
+	method: "getDaemonState",
+	expect: { daemons: {} }
+});
+
+var callHaNodes = rpc.declare({
+	object: "luci.kea",
+	method: "getHaNodes",
+	expect: { cluster: {} }
+});
+
 var callInitAction = rpc.declare({
 	object: "luci.kea",
 	method: "setInitAction",
@@ -103,10 +115,16 @@ function isRunning(services, name) {
 }
 
 /*
- * A setting that Kea accepts when it checks a file and refuses when it
- * starts, as the backend reports it, in words.
+ * A setting that Kea accepts when it checks a file and that keeps it from
+ * serving, as the backend reports it, in words. Its "effect" tells the two
+ * kinds apart: with "no-start" the daemon exits when it starts, with
+ * "no-listen" it may run without listening.
  */
 function warningText(warning) {
+	if (warning.code === "socket-retries")
+		return _("Kea is to listen on %s and does not try again when an interface is not ready. Started at boot before the interface is up, it opens no socket and stays that way. Set Socket Retries and Socket Retry Wait on the Global settings tab, for example 60 and 2000.")
+			.format(warning.value);
+
 	if (warning.code === "lease-path")
 		return _("The lease file %s is not in %s. Kea takes its lease file from that directory only: name the file without a directory, or do not name it.")
 			.format(warning.value, warning.directory);
@@ -123,6 +141,89 @@ function warningList(warnings) {
 	return E("div", {}, warnings.map(function(warning) {
 		return E("p", { "style": "margin: .25rem 0 .25rem 1rem" }, warningText(warning));
 	}));
+}
+
+function withEffect(warnings, effect) {
+	return (warnings || []).filter(function(warning) {
+		return warning.effect === effect;
+	});
+}
+
+/* The states of high availability in which a server does not do its part. */
+var HA_TROUBLE = { "terminated": true, "partner-down": true, "communication-recovery": true };
+
+/*
+ * What a running daemon says about itself, as the backend passes it on, in
+ * words: { level, summary, details }. The level is "ok", "wait", "bad" or
+ * "unknown". "bad" means that the process runs and does not serve where it
+ * was told to: Kea reports its sockets as failed when it could not open
+ * one of them, and names the interface in the message. That can be all it
+ * was to listen on, or one interface of several.
+ */
+function describeDaemon(state) {
+	var sockets, details = [], level, summary;
+
+	if (!state || !state.reachable) {
+		summary = !state ? _("state unknown") :
+			state.reason === "no-control-socket" ? _("state unknown: its configuration names no control socket") :
+			state.reason === "no-socket-module" ? _("state unknown: the package ucode-mod-socket is not installed") :
+				_("state unknown: it does not answer on its control socket");
+
+		return { level: "unknown", summary: summary, details: details };
+	}
+
+	sockets = state.sockets || {};
+
+	if (sockets.status === "ready") {
+		level = "ok";
+		summary = _("listening");
+	}
+	else if (sockets.status === "retrying") {
+		level = "wait";
+		summary = _("still trying to open its sockets");
+	}
+	else if (sockets.status === "failed") {
+		level = "bad";
+		summary = _("could not open all of its sockets");
+	}
+	else {
+		level = "unknown";
+		summary = _("state of the sockets unknown");
+	}
+
+	(sockets.errors || []).forEach(function(error) {
+		details.push(error);
+	});
+
+	/*
+	 * High availability switches the DHCP service off while the servers
+	 * start and synchronize, and on again when they are done. Without it,
+	 * only a command does that, and it stays off.
+	 */
+	if (state.serving === false) {
+		if ((state.ha || []).length) {
+			level = level === "bad" ? level : "wait";
+			details.push(_("It does not answer clients at the moment: high availability keeps the DHCP service switched off while the servers synchronize."));
+		}
+		else {
+			level = "bad";
+			details.push(_("It does not answer clients: its DHCP service was switched off by a command."));
+		}
+	}
+
+	(state.ha || []).forEach(function(relation) {
+		var local = relation.local || {};
+		var remote = relation.remote || {};
+
+		details.push(_("High availability (%s): this server, %s, is %s and in the state %s. Its partner %s is %s and was last seen in the state %s.")
+			.format(relation.mode, local.name, local.role, local.state, remote.name, remote.role, remote.state) +
+			(remote.interrupted ? " " + _("The connection to the partner is interrupted.") : ""));
+
+		if (level === "ok" && (HA_TROUBLE[local.state] || remote.interrupted))
+			level = "wait";
+	});
+
+	return { level: level, summary: summary, details: details };
 }
 
 return baseclass.extend({
@@ -148,6 +249,18 @@ return baseclass.extend({
 		});
 	},
 
+	/* What each running DHCP daemon says about itself: { dhcp4, dhcp6 }. */
+	getDaemonState: function() {
+		return L.resolveDefault(callDaemonState(), {});
+	},
+
+	/* The nodes of a cluster, when ha-cluster is there to ask. */
+	getHaNodes: function() {
+		return L.resolveDefault(callHaNodes(), {});
+	},
+
+	describeDaemon: describeDaemon,
+
 	getInterfaces: function() {
 		return L.resolveDefault(callNetworkInterfaces(), {}).then(function(result) {
 			return result.items || [];
@@ -167,18 +280,28 @@ return baseclass.extend({
 	notify: notify,
 
 	/*
-	 * A box that says Kea will not start with a file, with the reasons, or
-	 * null when there are none. "warnings" is what the backend returns with
-	 * a file that passed the check of the Kea binary.
+	 * Boxes that say what Kea will do with a file beyond accepting it, or
+	 * null when there is nothing to say. "warnings" is what the backend
+	 * returns with a file that passed the check of the Kea binary.
 	 */
 	renderWarnings: function(warnings) {
-		if (!warnings || !warnings.length)
-			return null;
+		var start = withEffect(warnings, "no-start");
+		var listen = withEffect(warnings, "no-listen");
+		var boxes = [];
 
-		return E("div", { "class": "alert-message warning kea-start-warnings" }, [
-			E("p", {}, _("Kea accepts this configuration when it checks it, but does not start with it:")),
-			warningList(warnings)
-		]);
+		if (start.length)
+			boxes.push(E("div", { "class": "alert-message warning kea-start-warnings" }, [
+				E("p", {}, _("Kea accepts this configuration when it checks it, but does not start with it:")),
+				warningList(start)
+			]));
+
+		if (listen.length)
+			boxes.push(E("div", { "class": "alert-message warning kea-listen-warnings" }, [
+				E("p", {}, _("With this configuration Kea may run without listening after a boot:")),
+				warningList(listen)
+			]));
+
+		return boxes.length ? E("div", {}, boxes) : null;
 	},
 
 	/* Show why a save or restore was refused, with the Kea output if any. */
@@ -230,8 +353,8 @@ return baseclass.extend({
 				return false;
 			}
 
-			if ((result.warnings || []).length)
-				self.notifyWarnings(name, result.warnings);
+			if (withEffect(result.warnings, "no-start").length)
+				self.notifyWarnings(name, withEffect(result.warnings, "no-start"));
 
 			return true;
 		});
@@ -252,7 +375,8 @@ return baseclass.extend({
 			if (!saved)
 				return false;
 
-			warnings = saved.warnings || [];
+			/* What only matters at the next boot is shown on the page, not here. */
+			warnings = withEffect(saved.warnings, "no-start");
 
 			if (warnings.length)
 				self.notifyWarnings(name, warnings);

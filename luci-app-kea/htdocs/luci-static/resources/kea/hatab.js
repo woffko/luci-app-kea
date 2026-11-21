@@ -2,6 +2,7 @@
 "require baseclass";
 "require kea.ha as ha";
 "require kea.widgets as widgets";
+"require kea.dialogs as dialogs";
 
 /*
  * The "High availability" tab of the DHCPv4 and DHCPv6 editors. It renders
@@ -34,11 +35,47 @@ function choices(values, labels) {
 }
 
 /*
+ * The offer to take the servers from a cluster: shown when ha-cluster is
+ * installed and knows this node and a partner. It fills the form and saves
+ * nothing.
+ */
+function renderFill(familyName, state, cluster, redraw) {
+	var names = [ cluster.node ].concat(cluster.peers).map(function(node) {
+		return node.label ? node.label + " (" + node.address + ")" : node.address;
+	});
+	var fill = function() {
+		ha.fillFromNodes(familyName, state, cluster);
+		redraw();
+	};
+
+	return widgets.notice("info", [
+		E("p", {}, _("ha-cluster knows the nodes of this cluster: %s. The form can take the name of this server and the peers from it, with port %d for this protocol. Nothing is saved until you save.")
+			.format(names.join(", "), ha.fillPort(familyName)) +
+			(cluster.dhcp_backend && cluster.dhcp_backend !== "kea" ?
+				" " + _("ha-cluster itself is still set up for another DHCP server (dhcp_backend).") : "")),
+		E("button", {
+			"class": "btn cbi-button cbi-button-action kea-ha-fill",
+			"click": function(ev) {
+				ev.preventDefault();
+
+				if (ha.hasPeers(state))
+					dialogs.confirm(_("Fill in from ha-cluster"),
+						_("Replace the name of this server and the peers of the form with the nodes of the cluster? Peers that are no node of the cluster are removed from the form."),
+						_("Replace"), fill, "positive");
+				else
+					fill();
+			}
+		}, _("Fill in from ha-cluster"))
+	]);
+}
+
+/*
  * Returns the nodes of the tab. "hooks" tells which hook libraries are
  * installed; "redraw" draws the tab again after a change that affects
- * other fields.
+ * other fields. "cluster" is what the backend knows of the nodes of a
+ * cluster, if anything.
  */
-function render(familyName, state, hooks, redraw) {
+function render(familyName, state, hooks, redraw, cluster) {
 	var nodes = [];
 	var section = [
 		E("h3", _("High availability")),
@@ -103,10 +140,13 @@ function render(familyName, state, hooks, redraw) {
 
 	nodes.push(E("div", { "class": "cbi-section" }, section));
 
+	if (cluster && cluster.available)
+		nodes.push(renderFill(familyName, state, cluster, redraw));
+
 	nodes.push(widgets.rowTable({
 		name: "kea-ha-peers",
 		title: ha.label("peers"),
-		description: _("Every server of the setup, this one included. The URL is where the Kea DHCP daemon of that server listens for its partners: an IP address and a port that nothing else uses there, for example http://192.168.1.1:8000/."),
+		description: _("Every server of the setup, this one included. The URL is where the Kea DHCP daemon of that server listens for its partners: an IP address and a port that nothing else uses there, for example http://192.168.1.1:8001/. DHCPv4 and DHCPv6 each need a port of their own, and the firewall has to let the partner reach it."),
 		titles: [ ha.label("name"), ha.label("url"), ha.label("role"), _("Automatic failover") ],
 		rows: state.peers,
 		empty: _("No peers."),

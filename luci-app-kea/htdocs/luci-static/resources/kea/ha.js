@@ -49,6 +49,21 @@ var FLAGS = {
 
 var PEER_FIELDS = [ "name", "url", "role", "autoFailover" ];
 
+/*
+ * The ports the form suggests for the URLs of the servers when it fills in
+ * the peers from a cluster. Each daemon listens on a URL of its own, so the
+ * two protocols need different ports, and every node has to arrive at the
+ * same ones.
+ */
+var FILL_PORTS = { dhcp4: 8001, dhcp6: 8002 };
+
+/* What a role suggested for hot standby becomes in the other modes. */
+var FILL_ROLES = {
+	"hot-standby": { primary: "primary", standby: "standby", backup: "backup" },
+	"load-balancing": { primary: "primary", standby: "secondary", backup: "backup" },
+	"passive-backup": { primary: "primary", standby: "backup", backup: "backup" }
+};
+
 var LABELS = {
 	mode: _("Mode"),
 	thisServer: _("This server"),
@@ -285,6 +300,59 @@ function build(familyName, config) {
 }
 
 /* A new peer row gets the role the mode still lacks. */
+/* "http://192.168.1.2:8001/", with brackets around an IPv6 address. */
+function peerUrl(address, port) {
+	return "http://" + (address.indexOf(":") >= 0 ? "[" + address + "]" : address) + ":" + port + "/";
+}
+
+/*
+ * Fill the name of this server and the list of peers from the nodes of a
+ * cluster, as the backend passes them on from ha-cluster: { node, peers },
+ * each entry with name, address and a role suggested for hot standby.
+ *
+ * A peer of the form that has the name of a node is kept, with whatever
+ * else it carries, and gets the URL and the role; the others go. The mode
+ * and everything below the peers stay as they are. Nothing is saved: the
+ * user reviews the form.
+ */
+function fillFromNodes(familyName, state, cluster) {
+	var roles = FILL_ROLES[state.mode] || FILL_ROLES["hot-standby"];
+	var port = FILL_PORTS[familyName];
+	var existing = {};
+	var hasPrimary = false;
+	var rows;
+
+	state.peers.forEach(function(row) {
+		if (row.name !== "" && !existing[row.name])
+			existing[row.name] = row;
+	});
+
+	rows = [ cluster.node ].concat(cluster.peers).map(function(node) {
+		var row = existing[node.name] || makePeer(null);
+
+		row.name = node.name;
+		row.url = peerUrl(node.address, port);
+		row.role = roles[node.role] || "backup";
+
+		return row;
+	});
+
+	/* Without a suggestion, this server is the primary and the next its partner. */
+	rows.forEach(function(row) {
+		hasPrimary = hasPrimary || row.role === "primary";
+	});
+
+	if (!hasPrimary && rows.length) {
+		rows[0].role = "primary";
+
+		if (rows.length > 1)
+			rows[1].role = roles.standby;
+	}
+
+	state.thisServer = cluster.node.name;
+	state.peers.splice.apply(state.peers, [ 0, state.peers.length ].concat(rows));
+}
+
 function newPeer(state) {
 	var row = makePeer(null);
 	var rules = MODE_ROLES[state.mode];
@@ -587,6 +655,10 @@ return baseclass.extend({
 	},
 
 	newPeer: newPeer,
+	fillFromNodes: fillFromNodes,
+	fillPort: function(familyName) {
+		return FILL_PORTS[familyName];
+	},
 	fieldError: fieldError,
 	peerError: peerError,
 	roleErrors: roleErrors,

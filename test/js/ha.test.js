@@ -391,6 +391,120 @@ test("a blank new peer row is ignored", () => {
 	assert.equal(ha.apply("dhcp4", config, state, HOOKS).config, config);
 });
 
+/* ---- filling in from a cluster ----------------------------------------- */
+
+/* What the backend passes on from "ubus call ha-cluster nodes". */
+const CLUSTER = {
+	available: true,
+	dhcp_backend: "kea",
+	node: { name: "ha-192-168-50-2", label: "node1", address: "192.168.50.2", role: "primary" },
+	peers: [ { name: "ha-192-168-50-3", label: "node2", address: "192.168.50.3", role: "standby" } ]
+};
+
+function peersOf(state) {
+	return state.peers.map((row) => [ row.name, row.url, row.role ]);
+}
+
+test("the nodes of a cluster fill this server and the peers", () => {
+	const state = ha.build("dhcp4", PLAIN);
+
+	state.enabled = true;
+	ha.fillFromNodes("dhcp4", state, CLUSTER);
+
+	assert.equal(state.thisServer, "ha-192-168-50-2");
+	assert.deepEqual(peersOf(state), [
+		[ "ha-192-168-50-2", "http://192.168.50.2:8001/", "primary" ],
+		[ "ha-192-168-50-3", "http://192.168.50.3:8001/", "standby" ]
+	]);
+	assert.deepEqual(ha.roleErrors(state), []);
+
+	const result = ha.apply("dhcp4", PLAIN, state, HOOKS);
+
+	assert.deepEqual(result.config.Dhcp4["hooks-libraries"][1].parameters["high-availability"], [ {
+		"this-server-name": "ha-192-168-50-2",
+		mode: "hot-standby",
+		peers: [
+			{ name: "ha-192-168-50-2", url: "http://192.168.50.2:8001/", role: "primary" },
+			{ name: "ha-192-168-50-3", url: "http://192.168.50.3:8001/", role: "standby" }
+		]
+	} ]);
+});
+
+test("each protocol gets a port of its own, and an IPv6 address its brackets", () => {
+	const v6 = ha.build("dhcp6", { Dhcp6: {} });
+
+	v6.enabled = true;
+	ha.fillFromNodes("dhcp6", v6, CLUSTER);
+	assert.deepEqual(v6.peers.map((row) => row.url),
+		[ "http://192.168.50.2:8002/", "http://192.168.50.3:8002/" ]);
+	assert.equal(ha.fillPort("dhcp4"), 8001);
+	assert.equal(ha.fillPort("dhcp6"), 8002);
+
+	const state = ha.build("dhcp6", { Dhcp6: {} });
+
+	state.enabled = true;
+	ha.fillFromNodes("dhcp6", state, {
+		node: { name: "a", address: "fd00:50::2", role: "primary" },
+		peers: [ { name: "b", address: "fd00:50::3", role: "standby" } ]
+	});
+	assert.deepEqual(state.peers.map((row) => row.url),
+		[ "http://[fd00:50::2]:8002/", "http://[fd00:50::3]:8002/" ]);
+	assert.equal(ha.peerError(state, state.peers[0], "url"), null);
+});
+
+test("the roles suggested for hot standby are turned into those of the mode", () => {
+	const three = Object.assign({}, CLUSTER, { peers: CLUSTER.peers.concat(
+		[ { name: "ha-192-168-50-4", label: "node3", address: "192.168.50.4", role: "backup" } ]) });
+
+	for (const [ mode, roles ] of [
+		[ "hot-standby", [ "primary", "standby", "backup" ] ],
+		[ "load-balancing", [ "primary", "secondary", "backup" ] ],
+		[ "passive-backup", [ "primary", "backup", "backup" ] ]
+	]) {
+		const state = ha.build("dhcp4", PLAIN);
+
+		state.enabled = true;
+		state.mode = mode;
+		ha.fillFromNodes("dhcp4", state, three);
+		assert.deepEqual(state.peers.map((row) => row.role), roles, mode);
+		assert.deepEqual(ha.roleErrors(state), [], mode);
+	}
+
+	/* Without a suggestion this server is the primary and the next its partner. */
+	const plain = ha.build("dhcp4", PLAIN);
+
+	plain.enabled = true;
+	ha.fillFromNodes("dhcp4", plain, {
+		node: { name: "a", address: "10.0.0.1", role: "" },
+		peers: [ { name: "b", address: "10.0.0.2", role: "" } ]
+	});
+	assert.deepEqual(plain.peers.map((row) => row.role), [ "primary", "standby" ]);
+});
+
+test("a peer that is already in the file keeps what else it carries", () => {
+	const config = withHa([ relationship({
+		peers: [
+			{ name: "ha-192-168-50-3", url: "http://192.168.1.2:8000/", role: "primary", "auto-failover": false,
+				"basic-auth-user": "kea" },
+			{ name: "old", url: "http://192.168.1.9:8000/", role: "standby" }
+		]
+	}) ]);
+	const state = ha.build("dhcp4", config);
+
+	ha.fillFromNodes("dhcp4", state, CLUSTER);
+
+	const peers = ha.apply("dhcp4", config, state, HOOKS)
+		.config.Dhcp4["hooks-libraries"][1].parameters["high-availability"][0].peers;
+
+	assert.deepEqual(peers, [
+		{ name: "ha-192-168-50-2", url: "http://192.168.50.2:8001/", role: "primary" },
+		{ name: "ha-192-168-50-3", url: "http://192.168.50.3:8001/", role: "standby", "auto-failover": false,
+			"basic-auth-user": "kea" }
+	], "the peer that is no node of the cluster is gone");
+	assert.equal(state.mode, "hot-standby");
+	assert.equal(state.heartbeatDelay, "5000", "the settings below the peers stay");
+});
+
 test("fallback values shown as placeholders are those of Kea 3.0.4", () => {
 	assert.deepEqual(ha.numberFields().map((field) => [ field, ha.fallback(field) ]), [
 		[ "heartbeatDelay", "10000" ],

@@ -7,8 +7,8 @@ import * as config from 'luci.kea.config';
 import * as jsonc from 'luci.kea.jsonc';
 import * as net from 'luci.kea.net';
 
-// What Kea is doing right now: its version, its messages in the system log
-// and the leases it has given out.
+// What Kea is doing right now: its version, its messages in the system log,
+// the leases it has given out, and what a running daemon says about itself.
 //
 // Leases are read from the files of the memfile backend, the only lease
 // backend the OpenWrt Kea packages are built with. Reading the files needs
@@ -34,6 +34,24 @@ const MAX_FILE_SIZE = 8 * 1024 * 1024;
 const MAX_LEASES = 2000;
 
 const LOG_PATTERN = 'kea-(dhcp4|dhcp6|dhcp-ddns|ctrl-agent|lfc)';
+
+// The ucode module for sockets is a package of its own. Without it the
+// daemons cannot be asked, and their state is reported as unknown.
+let socket = null;
+
+try {
+	socket = require('socket');
+}
+catch (e) {
+}
+
+// A daemon gets this long, in milliseconds, to accept a connection on its
+// control socket and again to answer. The plugin runs inside rpcd, which
+// must not wait for a daemon that hangs.
+const CONTROL_TIMEOUT = 1500;
+
+// More than any reply read here; a reply that long is cut off.
+const CONTROL_MAX = 262144;
 
 function now(ctx) {
 	return ctx.clock ? ctx.clock() : time();
@@ -147,6 +165,122 @@ export function log(ctx, count) {
 		result: true,
 		lines: map(slice(lines, max(0, length(lines) - count)), parse_log_line),
 		outputs: log_outputs(ctx)
+	};
+};
+
+// ---- control socket ---------------------------------------------------------
+
+// Send one command to a daemon over the control socket named in its
+// configuration. Returns the reply of the daemon, an object with "result",
+// or { error } with "no-socket-module", "no-control-socket",
+// "connect-failed" or "no-reply".
+export function control(ctx, name, command) {
+	if (ctx.control)
+		return ctx.control(name, command);
+
+	if (!socket)
+		return { error: 'no-socket-module' };
+
+	let path = config.control_socket(ctx, name, fs.readfile(config.path(ctx, name)));
+
+	if (!path)
+		return { error: 'no-control-socket' };
+
+	let conn = socket.connect({ path }, null, null, CONTROL_TIMEOUT);
+
+	if (!conn)
+		return { error: 'connect-failed' };
+
+	conn.send(sprintf('%J', { command }));
+
+	// Kea closes the connection after its reply.
+	let text = '';
+
+	while (length(text) < CONTROL_MAX) {
+		let events = socket.poll(CONTROL_TIMEOUT, conn);
+
+		if (!(events?.[0]?.[1]))
+			break;
+
+		let chunk = conn.recv(65536);
+
+		if (chunk == null || !length(chunk))
+			break;
+
+		text += chunk;
+	}
+
+	conn.close();
+
+	let reply = null;
+
+	try {
+		reply = json(text);
+	}
+	catch (e) {
+	}
+
+	return type(reply) == 'object' ? reply : { error: 'no-reply' };
+};
+
+function flag(value) {
+	return value == true;
+}
+
+function word(value) {
+	return type(value) == 'string' ? value : '';
+}
+
+// The reply of a DHCP daemon to "status-get", reduced to what the pages
+// show: whether its sockets are open, and the state of high availability.
+// Shapes as Kea 3.0.4 sends them.
+//
+// Returns { reachable: false, reason } or
+// { reachable: true, uptime, serving,
+//   sockets: { status, errors },          "ready", "retrying" or "failed"
+//   ha: [ { mode, local: { name, role, state },
+//           remote: { name, role, state, in_touch, interrupted, age } } ] }
+export function daemon_state(reply) {
+	if (type(reply) != 'object' || reply.result != 0 || type(reply.arguments) != 'object')
+		return { reachable: false, reason: word(reply?.error) || 'refused' };
+
+	let args = reply.arguments;
+	let sockets = type(args.sockets) == 'object' ? args.sockets : {};
+	let ha = [];
+
+	for (let relation in (type(args['high-availability']) == 'array' ? args['high-availability'] : [])) {
+		let servers = type(relation) == 'object' ? relation['ha-servers'] : null;
+		let local = type(servers?.local) == 'object' ? servers.local : {};
+		let remote = type(servers?.remote) == 'object' ? servers.remote : {};
+
+		push(ha, {
+			mode: word(relation?.['ha-mode']),
+			local: {
+				name: word(local['server-name']),
+				role: word(local.role),
+				state: word(local.state)
+			},
+			remote: {
+				name: word(remote['server-name']),
+				role: word(remote.role),
+				state: word(remote['last-state']),
+				in_touch: flag(remote['in-touch']),
+				interrupted: flag(remote['communication-interrupted']),
+				age: +remote.age || 0
+			}
+		});
+	}
+
+	return {
+		reachable: true,
+		uptime: +args.uptime || 0,
+		// A daemon can be told to stop answering while it runs.
+		serving: !flag(args['dhcp-state']?.['globally-disabled']),
+		sockets: {
+			status: word(sockets.status),
+			errors: filter(type(sockets.errors) == 'array' ? sockets.errors : [], item => type(item) == 'string')
+		},
+		ha
 	};
 };
 

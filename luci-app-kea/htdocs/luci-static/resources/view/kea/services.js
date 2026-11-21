@@ -3,6 +3,7 @@
 "require view";
 "require ui";
 "require kea.dialogs as dialogs";
+"require kea.backend as backend";
 
 var callStatus = rpc.declare({
 	object: "luci.kea",
@@ -179,7 +180,23 @@ function serviceRow(serviceDef, services, status, self) {
 	var enabled = self.effectiveServiceEnabled(serviceDef.name);
 	var changed = self.hasPendingService(serviceDef.name);
 	var running = boolValue(service.running);
+	var state = running ? (self.daemons || {})[serviceDef.name] : null;
+	var described = state ? backend.describeDaemon(state) : null;
+	var runtime = [ running ? badge(true, _("Running"), _("Stopped")) : badge(false, _("Running"), _("Stopped")) ];
 	var checkbox;
+
+	/* "Running" is what procd knows. Whether its sockets are open, only the daemon knows. */
+	if (described) {
+		if (described.level === "bad")
+			runtime.push(" ", badge(false, "", _("Socket error")));
+		else if (described.level === "wait")
+			runtime.push(" ", neutralBadge(_("Not ready")));
+
+		runtime.push(E("div", { "class": "kea-daemon-state kea-daemon-" + described.level },
+			[ E("small", {}, described.summary) ].concat(described.details.map(function(detail) {
+				return E("div", {}, E("small", {}, detail));
+			}))));
+	}
 
 	checkbox = E("input", {
 		"type": "checkbox",
@@ -204,7 +221,7 @@ function serviceRow(serviceDef, services, status, self) {
 			enabled ? _("Enabled") : _("Disabled"),
 			changed ? E("em", { "style": "margin-left:.35rem" }, _("pending")) : ""
 		]) : neutralBadge(_("Not configured"))),
-		E("td", { "class": "td left" }, running ? badge(true, _("Running"), _("Stopped")) : badge(false, _("Running"), _("Stopped"))),
+		E("td", { "class": "td left" }, runtime),
 		E("td", { "class": "td left" }, service.section || "-")
 	]);
 }
@@ -213,7 +230,8 @@ return view.extend({
 	load: function() {
 		return Promise.all([
 			L.resolveDefault(callStatus(), {}),
-			L.resolveDefault(callServices(), {})
+			L.resolveDefault(callServices(), {}),
+			backend.getDaemonState()
 		]);
 	},
 
@@ -222,10 +240,12 @@ return view.extend({
 
 		return Promise.all([
 			L.resolveDefault(callStatus(), {}),
-			L.resolveDefault(callServices(), {})
+			L.resolveDefault(callServices(), {}),
+			backend.getDaemonState()
 		]).then(function(data) {
 			self.status = data[0] || {};
 			self.services = data[1] || {};
+			self.daemons = data[2] || {};
 			self.renderContent();
 		});
 	},
@@ -521,6 +541,7 @@ return view.extend({
 	render: function(data) {
 		this.status = data[0] || {};
 		this.services = data[1] || {};
+		this.daemons = data[2] || {};
 		this.pendingServices = {};
 
 		return E("div", {}, [

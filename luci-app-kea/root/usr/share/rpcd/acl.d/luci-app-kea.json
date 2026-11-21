@@ -6,6 +6,8 @@
 				"luci.kea": [
 					"getStatus",
 					"getServices",
+					"getDaemonState",
+					"getHaNodes",
 					"getNetworkInterfaces",
 					"validate",
 					"getConfigList",
