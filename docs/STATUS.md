@@ -153,10 +153,13 @@ the machine:
 On a machine without `ha-cluster` the pages show neither an error nor the
 button.
 
-The package file of `v0.10.0` was built by the release workflow from the
-tagged commit and passed the 142 backend tests and six browser tests in that
+`0.10.1-r1` was not installed on the second machine.
+
+The package file of `v0.10.1` was built by the release workflow from the
+tagged commit and passed the 137 backend tests and six browser tests in that
 run, on OpenWrt 25.12.6 under QEMU with Kea 3.0.4. It holds the same files
-as the package that was tested by hand before.
+as the package that was tested by hand before. `v0.10.0` should not be used
+on a router with `luci-app-ha-cluster`.
 
 Not exercised: clients on a real network, two Kea servers exchanging
 leases, the lease file cleanup running while the page reads the files, the
