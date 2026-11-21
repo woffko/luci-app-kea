@@ -279,13 +279,16 @@ owner that day and are done in `0.9.0-r1`.
       same on every node, the address the partner reaches, and a suggested
       role. The application stays the only writer of the Kea files, and
       works without `ha-cluster`.
-- [ ] A fixed server identifier for DHCPv6. Proposed, not yet approved.
-      Kea keeps the identifier in `/var/lib/kea`, which is in memory on
-      OpenWrt, so the server has a new one after every boot, and when it
-      cannot make one at boot `kea-dhcp6` does not start. Write a
-      `server-id` from the hardware address of the interface when the
-      DHCPv6 page makes Kea listen and the file has none, and warn about a
-      file without one.
+- [ ] A fixed server identifier for DHCPv6. Not planned. The owner asked
+      for it on the condition that the changing identifier is a problem,
+      and the measurements of 2026-11-21 say it hardly is: a client keeps
+      its address and only renews later, at its rebind time. The one boot
+      in which `kea-dhcp6` did not start because it could not make an
+      identifier did not happen again in 22 boots. To be taken up if that
+      shows again.
+- [ ] Proposed by the `ha-cluster` project, not yet decided: reload
+      `ha-cluster` after a Kea file with changed peer URLs was applied, so
+      that its firewall rule follows the ports.
 - [ ] Open, with the `ha-cluster` project: how the Kea files of two nodes
       are kept equal. They may differ in `this-server-name` only. Kea
       accepts that value from an included file, but the application cannot
