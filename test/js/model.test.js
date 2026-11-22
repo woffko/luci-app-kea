@@ -451,7 +451,7 @@ test("the log output of the loggers is one field", () => {
 
 const DNS_ENTRY = {
 	library: "/usr/lib/kea/hooks/libdhcp_run_script.so",
-	parameters: { name: "/usr/lib/kea-dnsmasq-hosts/kea-hook", sync: false }
+	parameters: { name: "/usr/share/kea/scripts/kea-dnsmasq-hosts", sync: false }
 };
 const HA_HOOKS = [
 	{ library: "/usr/lib/kea/hooks/libdhcp_lease_cmds.so" },
@@ -468,7 +468,7 @@ test("the switch for client names in DNS reads the hook entry of the file", () =
 	assert.equal(on.dnsNames, true);
 
 	assert.equal(model.buildGlobal("dhcp4", { Dhcp4: { "hooks-libraries": [
-		{ library: "libdhcp_run_script.so", parameters: { name: "/usr/lib/kea-dnsmasq-hosts/kea-hook" } }
+		{ library: "libdhcp_run_script.so", parameters: { name: "/usr/share/kea/scripts/kea-dnsmasq-hosts" } }
 	] } }).dnsNames, true, "a library given by its name alone");
 
 	assert.deepEqual(model.buildGlobal("dhcp4", { Dhcp4: { "hooks-libraries": [

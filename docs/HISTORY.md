@@ -7,6 +7,24 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-22: Client names in DNS (`0.13.0-r1`)
+
+- Approved by the owner, as relayed by the `ha-cluster` project, which made
+  the packages for the other side: `kea-hook-run-script` and
+  `kea-dnsmasq-hosts`. The application writes one hook entry.
+- Kea refuses a configuration whose hook library is missing, with `-t` and
+  with `-T` ("HOOKS_OPEN_ERROR"), so a package removed later shows as an
+  error of the check of Kea; the application adds no warning of its own.
+- Tried with the packages as that project built them: Kea 3.0.4 refused
+  the script in `/usr/lib/kea-dnsmasq-hosts/`, because Kea 3 runs scripts
+  from `/usr/share/kea/scripts` only. That project was told; the switch
+  names `/usr/share/kea/scripts/kea-dnsmasq-hosts`. With the script copied
+  there, the whole way worked: the switch, Save & Apply, a client's lease,
+  the hosts file, and dnsmasq answering for the name.
+- On the test machine Kea could not open its socket on the new interface
+  while dnsmasq served DHCPv4 on `lan` ("failed to bind fallback socket"),
+  as found before; with DHCP of dnsmasq off on `lan` it could.
+
 ## 2026-11-22: Leases on the overviews, and "Reserve IP" (`0.12.0-r1`)
 
 - The owner asked whether the leases could be shown on the overview, with

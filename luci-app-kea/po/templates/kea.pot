@@ -71,8 +71,8 @@ msgid "Address"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:288
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:864
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:879
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:866
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:881
 msgid "Address Pools"
 msgstr ""
 
@@ -324,7 +324,7 @@ msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:199
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:489
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:1466
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:1468
 msgid "Global settings"
 msgstr ""
 
@@ -813,7 +813,7 @@ msgid ""
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:334
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:826
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:828
 msgid "Other Options"
 msgstr ""
 
@@ -851,7 +851,7 @@ msgid "Prefix"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:309
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:910
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:912
 msgid "Prefix Delegation"
 msgstr ""
 
@@ -1115,8 +1115,8 @@ msgid "Static Lease"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:371
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:1093
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:1121
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:1095
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:1123
 msgid "Static Reservations"
 msgstr ""
 
@@ -1290,7 +1290,7 @@ msgstr ""
 msgid "The text is not valid JSON, nothing was saved"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:1847
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:1849
 msgid "The texts are too large to compare line by line."
 msgstr ""
 
@@ -1452,7 +1452,7 @@ msgstr ""
 msgid "Yes"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:460
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:462
 msgid "a DUID has at least three octets"
 msgstr ""
 
@@ -1460,19 +1460,19 @@ msgstr ""
 msgid "a peer needs a name"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:379
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:381
 msgid "a subnet is required"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:450
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:452
 msgid "an identifier is required"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:1593
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:1595
 msgid "an interface device is required"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:485
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:487
 msgid "an option needs a name or a numeric code"
 msgstr ""
 
@@ -1480,7 +1480,7 @@ msgstr ""
 msgid "another peer has the same name"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:1661
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:1663
 msgid "another subnet of this configuration has the same prefix"
 msgstr ""
 
@@ -1599,11 +1599,11 @@ msgstr ""
 msgid "no peer has this name"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:458
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:460
 msgid "not a DUID: use hex octets such as 00:03:00:01:02:00:00:00:00:01"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:454
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:456
 msgid "not a MAC address such as 00:11:22:33:44:55"
 msgstr ""
 
@@ -1611,7 +1611,7 @@ msgstr ""
 msgid "not a URL such as http://192.168.1.2:8000/"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:464
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:466
 msgid "not a client ID: use hex octets such as 01:11:22:33:44:55:66"
 msgstr ""
 
@@ -1619,7 +1619,7 @@ msgstr ""
 msgid "not a mode Kea knows"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:389
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:391
 msgid "not a network device name"
 msgstr ""
 
@@ -1631,37 +1631,37 @@ msgstr ""
 msgid "not a whole number"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:404
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:406
 msgid "not a whole number of seconds"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:400
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:476
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:402
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:478
 msgid "not an IPv4 address"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:383
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:385
 msgid "not an IPv4 subnet such as 192.168.1.0/24"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:400
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:476
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:402
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:478
 msgid "not an IPv6 address"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:536
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:538
 msgid "not an IPv6 prefix such as fd00:1:0:200::/64"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:384
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:386
 msgid "not an IPv6 subnet such as fd00:1::/64"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:414
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:416
 msgid "not an address range or prefix such as fd00:1::100 - fd00:1::1ff"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:413
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:415
 msgid "not an address range such as 192.168.1.100 - 192.168.1.199"
 msgstr ""
 
@@ -1687,7 +1687,7 @@ msgstr ""
 msgid "s"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:1305
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:1307
 msgid "shared network"
 msgstr ""
 
@@ -1721,7 +1721,7 @@ msgid ""
 "servers cannot reach each other"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:479
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:481
 msgid "the address is outside the subnet"
 msgstr ""
 
@@ -1730,11 +1730,11 @@ msgstr ""
 msgid "the address was not reserved: %s"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:436
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:438
 msgid "the delegated length must not be shorter than the prefix length"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:427
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:429
 msgid "the delegated prefix is not an IPv6 address such as fd00:1:0:100::"
 msgstr ""
 
@@ -1758,7 +1758,7 @@ msgid ""
 "with it:"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:433
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:435
 msgid "the lengths must be between 1 and 128"
 msgstr ""
 
@@ -1766,15 +1766,15 @@ msgstr ""
 msgid "the name of this server is required"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:430
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:432
 msgid "the prefix length and the delegated length must be numbers"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:417
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:419
 msgid "the range ends before it starts"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:420
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:422
 msgid "the range is outside the subnet"
 msgstr ""
 
@@ -1782,7 +1782,7 @@ msgstr ""
 msgid "the service is not running after the reload. Check the system log."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:880
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:882
 msgid "these ranges overlap"
 msgstr ""
 
@@ -1802,10 +1802,10 @@ msgstr ""
 msgid "unnamed"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:468
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:470
 msgid "use hex octets, or text in single quotes such as 'port-7'"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:1094
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:1096
 msgid "used by more than one reservation"
 msgstr ""

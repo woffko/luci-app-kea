@@ -86,7 +86,7 @@ export function context(options) {
 		sbin_dir: options?.sbin_dir ?? '/usr/sbin',
 		hooks_dir: options?.hooks_dir ?? '/usr/lib/kea/hooks',
 		// The script of kea-dnsmasq-hosts that the run_script hook calls
-		dns_hosts_script: options?.dns_hosts_script ?? root + '/usr/lib/kea-dnsmasq-hosts/kea-hook',
+		dns_hosts_script: options?.dns_hosts_script ?? root + '/usr/share/kea/scripts/kea-dnsmasq-hosts',
 		uci_dir: options?.uci_dir,
 		uci_savedir: options?.uci_savedir,
 		service_list: options?.service_list,

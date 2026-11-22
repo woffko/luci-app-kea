@@ -321,12 +321,12 @@ project, and are done in `0.11.0-r1`.
       page, with a button that reserves the address of a lease. Asked for
       by the owner on 2026-11-22 ("по аналогии ... Делай оба варианта").
       `0.12.0`.
-- [ ] Open, for the owner: the names of DHCP clients in DNS. Under dnsmasq
-      they come from its own leases; under Kea nothing gives them to
-      dnsmasq, and OpenWrt does not package the hook of Kea that runs a
-      script for each lease. Proposed here: a small package of its own that
-      writes a hosts file for dnsmasq from the lease files of Kea, rather
-      than this application or `ha-cluster`.
+- [x] The names of DHCP clients in DNS. The `ha-cluster` project packages
+      the run_script hook of Kea and a package of its own,
+      `kea-dnsmasq-hosts`, that writes a hosts file for dnsmasq from the
+      lease files of Kea; this application has a switch that writes the
+      hook entry. Approved by the owner on 2026-11-22, as relayed by that
+      project. `0.13.0`.
 
 ## Decisions
 

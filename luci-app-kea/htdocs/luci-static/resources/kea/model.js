@@ -108,10 +108,12 @@ var LABELS = {
  *   { "library": "<hooks dir>/libdhcp_run_script.so",
  *     "parameters": { "name": DNS_HOSTS_SCRIPT, "sync": false } }
  *
- * An entry of the same library with another script is left alone.
+ * An entry of the same library with another script is left alone. Kea 3
+ * runs a script from /usr/share/kea/scripts only: with any other path the
+ * hook does not load, and the check of Kea refuses the file.
  */
 var RUN_SCRIPT_LIBRARY = "libdhcp_run_script.so";
-var DNS_HOSTS_SCRIPT = "/usr/lib/kea-dnsmasq-hosts/kea-hook";
+var DNS_HOSTS_SCRIPT = "/usr/share/kea/scripts/kea-dnsmasq-hosts";
 var DEFAULT_HOOKS_DIR = "/usr/lib/kea/hooks";
 
 /*

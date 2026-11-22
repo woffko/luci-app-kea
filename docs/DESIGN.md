@@ -478,6 +478,37 @@ Choosing an output sets it in every output option of every logger. Options
 that only matter for a file (`maxsize`, `maxver`, `flush`) stay; Kea accepts
 them with syslog. Without any logger the form adds one for the daemon.
 
+### Client names in DNS
+
+dnsmasq answers for the names of the clients it serves, from its own
+leases. Under Kea that is gone: dnsmasq takes no DDNS, and OpenWrt has no
+package that gives the leases of Kea to it. The `ha-cluster` project made
+two packages for it: `kea-hook-run-script`, the run_script hook of Kea,
+which runs a script for every lease event, and `kea-dnsmasq-hosts`, whose
+script only notes that something changed and whose service then writes a
+hosts file for dnsmasq from the lease files of Kea, and has dnsmasq read
+it. In a pair of Kea servers the leases are on both nodes, so each node
+writes its own file.
+
+This application only writes the one hook entry, by a switch on the
+Global settings tab of each DHCP page:
+
+```json
+{ "library": "/usr/lib/kea/hooks/libdhcp_run_script.so",
+  "parameters": { "name": "/usr/share/kea/scripts/kea-dnsmasq-hosts", "sync": false } }
+```
+
+Kea 3 runs scripts from `/usr/share/kea/scripts` only; with another path
+the hook does not load and the check refuses the file. With `sync` false
+Kea does not wait for the script, which in Kea 3.0.4 it does not anyway.
+
+The switch is shown when the library and the script are installed, and
+also when the file has the entry without them: Kea would not start with
+it, and the switch is the way to take it out. An entry of the hook with
+another script is left alone, and the tab says so instead of showing the
+switch. Kea loads hooks when it starts, so the change takes effect with
+Save & Apply, which restarts Kea for a changed file.
+
 ### Leases on the status overview
 
 LuCI shows the leases of dnsmasq and odhcpd on its status overview, under
