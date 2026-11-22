@@ -41,6 +41,13 @@ var callLeases = rpc.declare({
 	expect: { leases: {} }
 });
 
+var callReserveLease = rpc.declare({
+	object: "luci.kea",
+	method: "reserveLease",
+	params: [ "family", "identifier", "address", "hostname" ],
+	expect: { "": {} }
+});
+
 var callLog = rpc.declare({
 	object: "luci.kea",
 	method: "getLog",
@@ -268,6 +275,37 @@ return baseclass.extend({
 
 	getLeases: function() {
 		return L.resolveDefault(callLeases(), {});
+	},
+
+	/*
+	 * Reserve the address of a lease for its client, then make a running
+	 * daemon read the file. Resolves to true when the reservation was
+	 * written.
+	 */
+	reserveLease: function(family, identifier, address, hostname) {
+		var self = this;
+
+		return callReserveLease(family, identifier, address, hostname).then(function(reply) {
+			var warnings;
+
+			if (!reply || !reply.result) {
+				notify(self.daemonName(family) + ": " + _("the address was not reserved: %s")
+					.format((reply && reply.error) || _("no answer")), "danger");
+				return false;
+			}
+
+			warnings = withEffect(reply.warnings, "no-start");
+
+			if (warnings.length)
+				self.notifyWarnings(family, warnings);
+
+			return self.applyConfig(family, warnings).then(function() {
+				return true;
+			});
+		}).catch(function(err) {
+			notify(self.daemonName(family) + ": " + _("the address was not reserved: %s").format(err.message || err), "danger");
+			return false;
+		});
 	},
 
 	/*

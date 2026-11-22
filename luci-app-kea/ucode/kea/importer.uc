@@ -815,3 +815,79 @@ export function run(ctx, hosts, interfaces, options) {
 		...left_over(after.entries, [])
 	};
 };
+
+/* ---- leases and reservations ----------------------------------------------- */
+
+// Mark each lease of a runtime.leases() reply that Kea already reserves:
+// "reserved" is true when a reservation, also a disabled one, has the
+// identifier of the lease or its address. A lease marked so cannot be
+// reserved from the lease lists.
+export function mark_reserved(ctx, leases) {
+	let env = environment(ctx, []);
+
+	for (let family in [ 'dhcp4', 'dhcp6' ]) {
+		let reservations = [];
+
+		for (let subnet in subnets_of(env[family], family))
+			push(reservations, ...reservations_of(subnet), ...disabled_of(subnet));
+
+		for (let lease in (leases?.[family]?.items ?? [])) {
+			let identifier = family == 'dhcp4' ? lc(text(lease.hwaddr)) : text(lease.duid);
+			let address = family == 'dhcp4' ? lease.address : net.ipv6_canonical(text(lease.address));
+
+			lease.reserved = length(filter(reservations, reservation =>
+				(identifier != '' && same_identifier(family, reservation, identifier)) ||
+				(address != null && holds_address(family, reservation, address)))) > 0;
+		}
+	}
+
+	return leases;
+};
+
+// Reserve the address of a lease for its client: the "Reserve IP" button of
+// the lease lists. request: { family, identifier (MAC address or DUID),
+// address, hostname }. It goes the way of a static lease through the
+// import, with its checks: the address has to be in a Kea subnet, and
+// neither the client nor the address may be reserved already.
+//
+// Returns { result, family, warnings, backups }, or { result: false,
+// error }. Kea is not reloaded.
+export function reserve(ctx, interfaces, request) {
+	let family = request?.family;
+
+	if (!(family in [ 'dhcp4', 'dhcp6' ]))
+		return { result: false, error: 'invalid family' };
+
+	if (type(request.identifier) != 'string' || type(request.address) != 'string')
+		return { result: false, error: 'an identifier and an address are needed' };
+
+	let host = { '.name': 'lease', name: text(request.hostname), ip: request.address };
+
+	if (family == 'dhcp4')
+		host.mac = [ request.identifier ];
+	else
+		host.duid = [ request.identifier ];
+
+	return config.locked(ctx, () => {
+		let entries = classify_all([ host ], environment(ctx, interfaces));
+		let entry = filter(entries, candidate => candidate.family == family)[0];
+
+		if (!entry)
+			return { result: false, error: 'not an address of this protocol' };
+
+		if (entry.status != 'ready')
+			return { result: false, error: entry.notes[0] ?? entry.status };
+
+		let reply = commit_unlocked(ctx, [ host ], interfaces, [ entry.key ]);
+
+		if (!reply.result)
+			return reply;
+
+		return {
+			result: true,
+			family,
+			backups: reply.backups,
+			warnings: config.warnings(ctx, family, fs.readfile(config.path(ctx, family)) ?? '')
+		};
+	});
+};

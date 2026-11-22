@@ -480,6 +480,92 @@ test('if Kea rejects one file, neither file is replaced', () => {
 	equal(fs.lsdir(ctx.conf_dir), [ 'kea-dhcp4.conf', 'kea-dhcp6.conf' ]);
 });
 
+/* ---- leases and reservations ------------------------------------------------ */
+
+function lease_reply() {
+	return {
+		time: now,
+		dhcp4: { items: [
+			{ address: '192.168.1.100', hwaddr: '02:00:00:00:00:01' },
+			{ address: '192.168.1.101', hwaddr: '02:00:00:00:00:AA' },
+			{ address: '192.168.1.10', hwaddr: '02:00:00:00:00:99' },
+			{ address: '192.168.1.91', hwaddr: '02:00:00:00:00:d1' },
+			{ address: '192.168.1.130', hwaddr: '' }
+		] },
+		dhcp6: { items: [
+			{ address: 'fd00:1::100', duid: '00:03:00:01:02:00:00:00:00:01' },
+			{ address: 'fd00:1::200', duid: '00:03:00:01:02:00:00:00:00:77' }
+		] }
+	};
+}
+
+test('a lease is marked when Kea reserves its client or its address', () => {
+	reset();
+
+	// The fixture reserves 192.168.1.10 for 02:00:00:00:00:01 ("nas"), and
+	// keeps a disabled reservation for 02:00:00:00:00:d1.
+	let marked = importer.mark_reserved(ctx, lease_reply());
+
+	equal(map(marked.dhcp4.items, lease => lease.reserved), [ true, false, true, false, false ]);
+
+	let rich = parse(rich6).config.Dhcp6.subnet6[0].reservations[0];
+
+	ok(rich.duid != null, 'the DHCPv6 fixture reserves by DUID');
+	equal(map(marked.dhcp6.items, lease => lease.reserved),
+		[ lc(replace(rich.duid, ':', '')) == '00030001020000000001', false ]);
+});
+
+test('reserving a lease writes a reservation the way the import does', () => {
+	reset();
+
+	let reply = importer.reserve(ctx, interfaces,
+		{ family: 'dhcp4', identifier: '02:00:00:00:00:AA', address: '192.168.1.101', hostname: 'laptop' });
+
+	equal(reply.result, true);
+	equal(reply.family, 'dhcp4');
+	equal(reply.backups, { dhcp4: '20261111T163933Z' });
+	equal(type(reply.warnings), 'array');
+	equal(pop(parse(fs.readfile(file4)).config.Dhcp4.subnet4[0].reservations),
+		{ 'hw-address': '02:00:00:00:00:aa', 'ip-address': '192.168.1.101', hostname: 'laptop' });
+	equal(fs.readfile(file6), rich6, 'the other file is not touched');
+	equal(importer.mark_reserved(ctx, lease_reply()).dhcp4.items[1].reserved, true);
+
+	let v6 = importer.reserve(ctx, interfaces,
+		{ family: 'dhcp6', identifier: '00:03:00:01:02:00:00:00:00:77', address: 'fd00:1::200', hostname: '' });
+
+	equal(v6.result, true);
+	equal(pop(parse(fs.readfile(file6)).config.Dhcp6.subnet6[0].reservations),
+		{ duid: '00:03:00:01:02:00:00:00:00:77', 'ip-addresses': [ 'fd00:1::200' ] });
+});
+
+test('a lease that Kea reserves already, or cannot hold, is refused with the reason', () => {
+	reset();
+
+	equal(importer.reserve(ctx, interfaces,
+		{ family: 'dhcp4', identifier: '02:00:00:00:00:01', address: '192.168.1.100', hostname: 'nas' }),
+		{ result: false, error: 'Kea reserves 192.168.1.10 for this client; the import changes it to 192.168.1.100' });
+	equal(importer.reserve(ctx, interfaces,
+		{ family: 'dhcp4', identifier: '02:00:00:00:00:99', address: '192.168.1.10', hostname: '' }).error,
+		'the address is already reserved in Kea for 02:00:00:00:00:01');
+	equal(importer.reserve(ctx, interfaces,
+		{ family: 'dhcp4', identifier: '02:00:00:00:00:98', address: '172.16.0.5', hostname: '' }).error,
+		'the address is outside every Kea DHCPv4 subnet');
+	equal(importer.reserve(ctx, interfaces,
+		{ family: 'dhcp4', identifier: 'nonsense', address: '192.168.1.150', hostname: '' }).error,
+		'invalid MAC address');
+	equal(importer.reserve(ctx, interfaces, { family: 'dhcp5', identifier: 'x', address: 'y' }).error, 'invalid family');
+	equal(importer.reserve(ctx, interfaces, { family: 'dhcp4', identifier: null, address: '192.168.1.150' }).error,
+		'an identifier and an address are needed');
+	equal(importer.reserve(ctx, interfaces,
+		{ family: 'dhcp6', identifier: '00:03:00:01:02:00:00:00:00:77', address: '192.168.1.150', hostname: '' }).error,
+		'no IPv6 token (hostid) or address', 'an IPv4 address for DHCPv6');
+	equal(importer.reserve(ctx, interfaces,
+		{ family: 'dhcp4', identifier: '02:00:00:00:00:98', address: 'fd00:1::5', hostname: '' }).error,
+		'invalid IPv4 address', 'an IPv6 address for DHCPv4');
+	equal(fs.readfile(file4), rich4, 'nothing was written');
+	equal(fs.readfile(file6), rich6);
+});
+
 /* ---- the import command ---------------------------------------------------- */
 
 test('the command knows its arguments, and no others', () => {

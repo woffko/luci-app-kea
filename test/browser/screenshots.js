@@ -31,7 +31,7 @@ const path = require("node:path");
 process.env.OUT_DIR = process.env.OUT_DIR || path.join(__dirname, "..", "..", "docs", "images");
 
 const {
-	openPage, screenshot, waitForModal, main, footerButton, expectNotification,
+	BASE_URL, openPage, screenshot, waitForModal, main, footerButton, expectNotification,
 	openRawEditor, readRawConfig, writeRawConfig, interceptServiceCalls,
 	fieldRow, fieldInput, tableRows, addRow, openTab
 } = require("./lib.js");
@@ -43,7 +43,7 @@ const PICTURES = [
 	"overview", "services", "dhcp4", "changes", "global",
 	"ha", "ha-load-balancing", "ha-checks", "ha-changes",
 	"ha-fill", "warnings", "reload", "runtime",
-	"dhcp6", "leases", "configuration", "import"
+	"dhcp6", "leases", "status-leases", "configuration", "import"
 ];
 
 /*
@@ -368,6 +368,19 @@ main(async (page) => {
 				throw new Error("the lease fixture is missing: run test/make-lease-fixture.sh on the target");
 
 			await capture(page, "leases");
+		}
+
+		/* The leases of Kea on the status overview of LuCI. */
+		if (wanted("status-leases")) {
+			const section = page.locator(".cbi-section", { has: page.locator("h3", { hasText: /^Kea DHCP Leases/ }) });
+
+			await page.goto(BASE_URL + "/cgi-bin/luci/admin/status/overview", { waitUntil: "domcontentloaded" });
+			await section.locator("table.kea-active-leases-dhcp4 tr:not(.table-titles)").first().waitFor({ timeout: 30000 });
+			await page.waitForTimeout(1500);
+
+			/* luci-app-attendedsysupgrade asks once whether to look for upgrades; leave that unanswered. */
+			await page.evaluate(() => L.ui.hideModal());
+			await capture(page, "status-leases", true, section);
 		}
 
 		if (wanted("configuration")) {

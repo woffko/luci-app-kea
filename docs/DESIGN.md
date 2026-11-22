@@ -478,6 +478,34 @@ Choosing an output sets it in every output option of every logger. Options
 that only matter for a file (`maxsize`, `maxver`, `flush`) stay; Kea accepts
 them with syslog. Without any logger the form adds one for the daemon.
 
+### Leases on the status overview
+
+LuCI shows the leases of dnsmasq and odhcpd on its status overview, under
+"DHCP Leases". With Kea serving, that section is empty, and the leases are
+where nobody looks for them. So the application adds a section of its own
+to that page, `view/status/include/41_kea.js`, which the page loads with
+its other sections and reloads every few seconds, and shows the same on
+its Overview page, limited to the ten leases given out last of each
+protocol.
+
+The tables follow those of LuCI: interface, hostname (with the name the
+network knows for the MAC address, when it differs), address, MAC address
+or DUID and IAID, remaining time, and a button "Reserve IP". The interface
+is the one of the Kea subnet the lease is in; a relayed subnet has none.
+A declined address is not shown there: it is nobody's lease.
+
+"Reserve IP" turns the lease into a reservation in Kea. LuCI's button for
+dnsmasq writes a static lease to UCI and lets the user apply it; here the
+reservation goes into the Kea file at once, after a dialog that shows it
+and lets the user change the hostname, and a running Kea is made to read
+the file. The backend builds a static lease of the address and the MAC
+address or DUID and passes it through the import, so the same checks apply
+(a Kea subnet must hold the address; neither the client nor the address
+may be reserved already; Kea must accept the file), under the same lock.
+The button is greyed out when Kea already reserves an address for the
+client or the address for another client, also in a disabled reservation,
+and for a delegated prefix, which the import does not reserve.
+
 ### The import from a shell
 
 Another package that switches a router from dnsmasq to Kea, as

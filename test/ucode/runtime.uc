@@ -147,8 +147,31 @@ test('without lease files there is nothing to show, and no error', () => {
 	let reply = runtime.leases(ctx);
 
 	equal(reply.time, NOW);
-	equal(reply.dhcp4, { file: root + '/var/lib/kea/kea-leases4.csv', exists: false, count: 0, truncated: false, items: [] });
+	equal(reply.dhcp4, { file: root + '/var/lib/kea/kea-leases4.csv', exists: false, count: 0, truncated: false, items: [], subnets: {} });
 	equal(reply.dhcp6.file, root + '/var/lib/kea/kea-leases6.csv');
+});
+
+test('the subnets of a configuration are indexed by their id, with their interface', () => {
+	let root4 = {
+		subnet4: [
+			{ id: 3, subnet: '192.168.1.0/24', interface: 'br-lan' },
+			{ id: 4, subnet: '192.168.9.0/24' },
+			{ subnet: '192.168.8.0/24' }
+		],
+		'shared-networks': [
+			{ name: 'floor', interface: 'br-floor', subnet4: [ { id: 7, subnet: '10.20.0.0/24' }, { id: 8, subnet: '10.21.0.0/24', interface: 'br-x' } ] }
+		]
+	};
+
+	equal(runtime.subnet_index('dhcp4', root4), {
+		'3': { subnet: '192.168.1.0/24', interface: 'br-lan' },
+		'4': { subnet: '192.168.9.0/24', interface: '' },
+		'7': { subnet: '10.20.0.0/24', interface: 'br-floor' },
+		'8': { subnet: '10.21.0.0/24', interface: 'br-x' }
+	});
+	equal(runtime.subnet_index('dhcp6', { subnet6: [ { id: 2, subnet: 'fd00:1::/64', interface: 'br-lan' } ], subnet4: [ { id: 9 } ] }),
+		{ '2': { subnet: 'fd00:1::/64', interface: 'br-lan' } });
+	equal(runtime.subnet_index('dhcp4', null), {});
 });
 
 test('the files are read in the order Kea loads them', () => {

@@ -7,6 +7,25 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-22: Leases on the overviews, and "Reserve IP" (`0.12.0-r1`)
+
+- The owner asked whether the leases could be shown on the overview, with
+  a picture of the section "DHCP Leases" of LuCI, and asked for both: the
+  status overview of LuCI and the Overview page of the application.
+- A section for the status overview of LuCI, and the same tables on the
+  Overview page. The button "Reserve IP" of LuCI's section is there as
+  well; it goes through the import, which already knew how to place a
+  reservation and when not to.
+- `getLeases` now marks the leases Kea reserves, and names the subnets
+  with their interface.
+- On the test machine the status overview showed the dialog of
+  luci-app-attendedsysupgrade over the page, which the browser test closes
+  without answering. A first version of that test waited for a change on
+  the status overview while it had already moved to the Configuration page
+  to read the file; it reopens the overview now.
+- LuCI writes a remaining time as "0h 49m 57s"; the tables use its format,
+  the Leases page keeps its own.
+
 ## 2026-11-22: The import from a shell, and an event after Kea (M10, `0.11.0-r1`)
 
 - The owner decided that `ha-cluster` switches a cluster between dnsmasq

@@ -317,6 +317,10 @@ project, and are done in `0.11.0-r1`.
       since there are now two writers.
 - [x] The procd event `kea.service` after the application starts,
       restarts, reloads or stops Kea, for the trigger of `ha-cluster`.
+- [x] The leases of Kea on the status overview of LuCI and on the Overview
+      page, with a button that reserves the address of a lease. Asked for
+      by the owner on 2026-11-22 ("по аналогии ... Делай оба варианта").
+      `0.12.0`.
 - [ ] Open, for the owner: the names of DHCP clients in DNS. Under dnsmasq
       they come from its own leases; under Kea nothing gives them to
       dnsmasq, and OpenWrt does not package the hook of Kea that runs a

@@ -4,7 +4,7 @@
 
 LuCI application for managing the ISC Kea DHCP server on OpenWrt.
 
-> **Status: alpha (0.11.0).** Usable for testing on a lab router. Not ready to
+> **Status: alpha (0.12.0).** Usable for testing on a lab router. Not ready to
 > replace a production dnsmasq/odhcpd setup yet: see
 > [Known limitations](#known-limitations).
 
@@ -48,7 +48,9 @@ Menu location: **Services > Kea DHCP**.
   bring its firewall rules up to date when Kea takes a new configuration,
   so that the ports of the peer URLs stay open between the nodes.
 - **Leases**: the DHCPv4 and DHCPv6 leases in use, with remaining time,
-  read from the lease files of Kea.
+  read from the lease files of Kea; also on the Overview page and on the
+  status overview of LuCI, where the leases of dnsmasq are shown otherwise,
+  each with a button that reserves its address in Kea.
 - **Configuration**: raw editor for the four Kea config files, with a JSON
   syntax check and restore from backup.
 - **Import dnsmasq**: turns the static leases of OpenWrt (`/etc/config/dhcp`)
@@ -103,6 +105,11 @@ The import of OpenWrt static leases. Every lease gets a state and, where it
 cannot be imported, the reason.
 
 <img src="docs/images/import.png" alt="Import page listing static leases with their states" width="820">
+
+The leases of Kea on the status overview of LuCI. The first lease cannot be
+reserved again: Kea already reserves an address for that client.
+
+<img src="docs/images/status-leases.png" alt="Status overview of LuCI with the active DHCPv4 and DHCPv6 leases of Kea and their Reserve IP buttons" width="820">
 
 The Services page, with the OpenWrt DHCP services that would compete with
 Kea and what they are configured to serve.
