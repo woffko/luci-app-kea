@@ -7,6 +7,35 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-21: A pair made by the application, on the bench of `ha-cluster`
+
+No change to the package. The `ha-cluster` project ran the released
+`0.10.1-r1` on its pair, as asked after the fix.
+
+- The DHCP pages appeared at once, the button filled in the tab from the
+  reply of `ha-cluster`, and Save & Apply on both nodes gave a pair of each
+  protocol in hot-standby, with the firewall rule following and a client
+  served by the primary. The first time this application made the
+  configuration of a working pair.
+- A LuCI user with only the group `luci-app-kea` gets "Login session is
+  expired": LuCI itself needs `unauthenticated` and `luci-base` as well.
+  The README and PACKAGING now name the three groups.
+
+## 2026-11-21: Release `v0.10.1`
+
+- The owner merged the pull request and asked for the release. The tag
+  `v0.10.1` is on the merge commit on `main`.
+- The release workflow passed: the tag and the changelog fit the version,
+  the tagged commit is on `main`, the three CI jobs, and the draft release
+  with the package, its checksum and the changelog section.
+- The attached `luci-app-kea-0.10.1-r1.apk` holds the same files as the
+  package built and tested by hand with the rpcd plugin of `ha-cluster`
+  (compared with `apk adbdump`); the checksum in the release text is the
+  one of the file. The draft was then published.
+- It was tested in QEMU by the workflow, 137 backend tests on the router
+  and six browser tests, not on the second test machine and not yet on the
+  pair of the `ha-cluster` project, which was asked to run it again.
+
 ## 2026-11-21: The question to `ha-cluster` stopped LuCI (`0.10.1-r1`)
 
 - The `ha-cluster` project ran `0.10.0-r1` on a pair of routers with its
