@@ -48,7 +48,7 @@ function badge(status) {
 }
 
 function notice(kind, text) {
-	return E("div", { "class": "alert-message " + kind }, E("p", text));
+	return E("div", { "class": "alert-message " + kind }, E("p", {}, [ text ]));
 }
 
 return view.extend({
@@ -136,7 +136,7 @@ return view.extend({
 		if (result.changed)
 			lines.push("", _("Reload or restart Kea on the Services page to apply the new reservations."));
 
-		ui.addNotification(null, E("pre", { "style": "white-space: pre-wrap" }, lines.join("\n")), "info");
+		ui.addNotification(null, E("pre", { "style": "white-space: pre-wrap" }, [ lines.join("\n") ]), "info");
 	},
 
 	/* ---- rendering ---- */
@@ -185,15 +185,15 @@ return view.extend({
 			E("td", { "class": "td left" }, [
 				entry.name || E("em", {}, _("unnamed")),
 				E("br"),
-				E("small", {}, entry.source)
+				E("small", {}, [ entry.source ])
 			]),
-			E("td", { "class": "td left" }, (FAMILY[entry.family] || {}).label || entry.family),
-			E("td", { "class": "td left" }, entry.identifier || "-"),
-			E("td", { "class": "td left" }, entry.address || "-"),
-			E("td", { "class": "td left" }, entry.subnet || "-"),
+			E("td", { "class": "td left" }, [ (FAMILY[entry.family] || {}).label || entry.family ]),
+			E("td", { "class": "td left" }, [ entry.identifier || "-" ]),
+			E("td", { "class": "td left" }, [ entry.address || "-" ]),
+			E("td", { "class": "td left" }, [ entry.subnet || "-" ]),
 			E("td", { "class": "td left" }, badge(entry.status)),
 			E("td", { "class": "td left" }, (entry.notes || []).map(function(text) {
-				return E("div", {}, text);
+				return E("div", {}, [ text ]);
 			}))
 		]);
 	},

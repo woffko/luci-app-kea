@@ -329,6 +329,25 @@ project, and are done in `0.11.0-r1`.
       hook entry. Approved by the owner on 2026-11-22, as relayed by that
       project. `0.13.0`.
 
+## M11: After the audit of `0.13.0`
+
+An external audit before the image w0w6 of the owner, passed on by the
+`ha-cluster` project on 2026-11-22 with the owner's go for the plan.
+
+- [x] CA-LUCIKEA-03: show texts from the router as text on every page,
+      not only in the lease tables the audit names. `0.14.0`.
+- [x] CA-LUCIKEA-01: mask secrets for readers; refuse include directives
+      and run_script paths that would make Kea's check report on other
+      files. The audit's point that a reader can have Kea check a text of
+      their own did not hold: `validate` checks the files on disk only.
+      `0.14.0`.
+- [x] CA-LUCIKEA-02: no stop or disable for dnsmasq and odhcpd; ports
+      below 1024 refused in peer URLs. `0.14.0`.
+- [ ] CA-HACLUSTER-01, the part of Kea: authenticate the high
+      availability peers (basic-auth or TLS) with a secret the nodes
+      share. To be measured with two Kea servers, and agreed with the
+      `ha-cluster` project, which would provide the secret.
+
 ## Decisions
 
 Made by the project owner.

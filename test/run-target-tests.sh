@@ -84,6 +84,7 @@ target "
 	cp /etc/config/dhcp $WORK/dhcp.before
 	{ echo; cat $WORK/test/fixtures/dhcp-static-leases.uci; } >> /etc/config/dhcp
 	sh $WORK/test/make-lease-fixture.sh
+	logger -t kea-dhcp4 'INFO  [kea-dhcp4.test.2] LUCI_APP_KEA_MARKUP <i id=\"kea-markup\">a tag in a log line</i>'
 "
 
 if [ -n "${OUT_DIR:-}" ]; then

@@ -49,10 +49,10 @@ function renderFill(familyName, state, cluster, redraw) {
 	};
 
 	return widgets.notice("info", [
-		E("p", {}, _("ha-cluster knows the nodes of this cluster: %s. The form can take the name of this server and the peers from it, with port %d for this protocol. Nothing is saved until you save.")
+		E("p", {}, [ _("ha-cluster knows the nodes of this cluster: %s. The form can take the name of this server and the peers from it, with port %d for this protocol. Nothing is saved until you save.")
 			.format(names.join(", "), ha.fillPort(familyName)) +
 			(cluster.dhcp_backend && cluster.dhcp_backend !== "kea" ?
-				" " + _("ha-cluster itself is still set up for another DHCP server (dhcp_backend).") : "")),
+				" " + _("ha-cluster itself is still set up for another DHCP server (dhcp_backend).") : "") ]),
 		E("button", {
 			"class": "btn cbi-button cbi-button-action kea-ha-fill",
 			"click": function(ev) {
@@ -98,7 +98,7 @@ function render(familyName, state, hooks, redraw, cluster) {
 		var messages = ha.hasPeers(state) ? ha.roleErrors(state) : [];
 
 		roleNode.replaceChildren.apply(roleNode, messages.map(function(message) {
-			return widgets.notice("warning", E("p", message));
+			return widgets.notice("warning", E("p", {}, [ message ]));
 		}));
 
 		widgets.mark(thisServer, state.thisServer === "" ? null : ha.fieldError(state, "thisServer"));

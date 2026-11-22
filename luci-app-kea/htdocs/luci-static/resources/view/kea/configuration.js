@@ -49,7 +49,7 @@ function renderValidation(config) {
 		valid ? (backend.renderWarnings(config.warnings) || "") : "",
 		config.validation ? E("pre", {
 			"style": "white-space: pre-wrap; max-height: 18rem; overflow: auto"
-		}, config.validation) : ""
+		}, [ config.validation ]) : ""
 	]);
 }
 
@@ -101,7 +101,7 @@ return view.extend({
 		error = syntaxError(this.textarea.value);
 
 		if (error) {
-			ui.addNotification(null, E("p", _("The text is not valid JSON, nothing was saved") + ": " + error), "danger");
+			ui.addNotification(null, E("p", {}, [ _("The text is not valid JSON, nothing was saved") + ": " + error ]), "danger");
 			return Promise.resolve();
 		}
 

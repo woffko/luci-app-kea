@@ -437,6 +437,95 @@ test('where the loggers write', () => {
 		[ 'syslog', 'a.log' ], 'each output once');
 });
 
+/* ---- secrets, includes and scripts ---------------------------------------- */
+
+const DDNS = '{\n' +
+	'\t// the key the DNS server knows\n' +
+	'\t"DhcpDdns": {\n' +
+	'\t\t"tsig-keys": [ { "name": "k", "algorithm": "HMAC-SHA256", "secret": "c2VjcmV0" } ],\n' +
+	'\t\t"hooks-libraries": [ { "library": "x", "parameters": { "basic-auth-password" : "p\\"w", "password-file": "/etc/kea/pw" } } ],\n' +
+	'\t\t"user-context": { "password-hint": "none", "secretary": "x" }\n' +
+	'\t}\n' +
+	'}\n';
+
+test('a reader gets the passwords and secrets of a file masked, and nothing else changed', () => {
+	let masked = config.mask_secrets(DDNS);
+
+	equal(masked.masked, 2);
+	ok(index(masked.content, '"secret": "' + config.MASK + '"') > 0, 'the TSIG secret');
+	ok(index(masked.content, '"basic-auth-password" : "' + config.MASK + '"') > 0, 'with the space before the colon kept');
+	ok(index(masked.content, '"password-file": "/etc/kea/pw"') > 0, 'a path to a secret stays');
+	ok(index(masked.content, '"password-hint": "none"') > 0 && index(masked.content, '"secretary": "x"') > 0,
+		'other names that only contain the word stay');
+	ok(index(masked.content, '// the key the DNS server knows') > 0, 'comments stay');
+	equal(index(masked.content, 'c2VjcmV0'), -1);
+
+	fs.writefile(config.path(ctx, 'dhcp_ddns'), DDNS);
+
+	let reply = config.read_masked(ctx, 'dhcp_ddns');
+
+	equal(reply.masked, 2);
+	equal(index(reply.content, 'c2VjcmV0'), -1);
+	equal(config.read(ctx, 'dhcp_ddns').content, DDNS, 'a writer reads the file as it is');
+	fs.unlink(config.path(ctx, 'dhcp_ddns'));
+});
+
+test('a text with a masked secret is not written back', () => {
+	let before = fs.readfile(file);
+	let masked = config.mask_secrets(DDNS).content;
+
+	equal(config.forbidden(ctx, 'dhcp_ddns', masked),
+		'a secret in this text is masked; open the page with write access to change the file');
+	equal(config.forbidden(ctx, 'dhcp_ddns', DDNS), null);
+	equal(config.save(ctx, 'dhcp4', '{ "Dhcp4": { "user-context": { "password": "' + config.MASK + '" } } }').error,
+		'refused: a secret in this text is masked; open the page with write access to change the file');
+	equal(fs.readfile(file), before, 'nothing was written');
+});
+
+test('an include is allowed only of a *.json or *.conf file directly in the configuration directory', () => {
+	const include = path => sprintf('{ "Dhcp4": { <?include "%s"?> } }', path);
+	const refused = path => sprintf('the include of %s: only a *.json or *.conf file directly in %s can be included', path, ctx.conf_dir);
+
+	equal(config.forbidden(ctx, 'dhcp4', include(ctx.conf_dir + '/subnets.json')), null);
+	equal(config.forbidden(ctx, 'dhcp4', include(ctx.conf_dir + '/kea-dhcp6.conf')), null);
+
+	for (let path in [ '/etc/shadow', '/tmp/x.json', ctx.conf_dir + '/kea-api-password', ctx.conf_dir + '/backups/kea-dhcp4.x.conf',
+	                   ctx.conf_dir + '/../x.json', 'kea-dhcp6.conf', ctx.conf_dir + '/.hidden.json' ])
+		equal(config.forbidden(ctx, 'dhcp4', include(path)), refused(path), path);
+
+	// A link in the directory, to a file elsewhere or to nothing, and a directory.
+	fs.symlink('/etc/passwd', ctx.conf_dir + '/elsewhere.json');
+	fs.symlink(ctx.conf_dir + '/missing', ctx.conf_dir + '/dangling.json');
+	config.mkdir_p(ctx.conf_dir + '/dir.json', 0o755);
+
+	for (let name in [ 'elsewhere.json', 'dangling.json', 'dir.json' ])
+		equal(config.forbidden(ctx, 'dhcp4', include(ctx.conf_dir + '/' + name)), refused(ctx.conf_dir + '/' + name), name);
+
+	fs.unlink(ctx.conf_dir + '/elsewhere.json');
+	fs.unlink(ctx.conf_dir + '/dangling.json');
+	fs.rmdir(ctx.conf_dir + '/dir.json');
+
+	equal(config.forbidden(ctx, 'dhcp4', '{ <?include /etc/shadow ?> }'), 'an include directive that the application cannot read');
+	equal(config.forbidden(ctx, 'dhcp4', include(ctx.conf_dir + '/a.json') + include('/etc/shadow')), refused('/etc/shadow'),
+		'every directive of the text is looked at');
+});
+
+test('the run_script hook may run a script of Kea\'s script directory only', () => {
+	const hook = script => sprintf('{ "Dhcp4": { "hooks-libraries": [ { "library": "/usr/lib/kea/hooks/libdhcp_run_script.so", "parameters": { "name": %J } } ] } }', script);
+	const refused = 'the script of the run_script hook: Kea runs scripts from /usr/share/kea/scripts only';
+
+	equal(ctx.scripts_dir, '/usr/share/kea/scripts');
+	equal(config.forbidden(ctx, 'dhcp4', hook('/usr/share/kea/scripts/kea-dnsmasq-hosts')), null);
+
+	for (let script in [ '/root/.ssh/id_rsa', '/usr/share/kea/scripts/../../../etc/shadow', '/usr/share/kea/scripts/sub/x',
+	                     '/usr/share/kea/scriptsX/y', 'kea-dnsmasq-hosts', null ])
+		equal(config.forbidden(ctx, 'dhcp4', hook(script)), refused, `${script}`);
+
+	equal(config.forbidden(ctx, 'dhcp4', '{ "Dhcp4": { "hooks-libraries": [ { "library": "libdhcp_run_script.so" ' + "\n"),
+		'the run_script hook in a file the application cannot read');
+	equal(config.forbidden(ctx, 'dhcp4', hook('/root/x') + ' // other hooks are not looked at: libdhcp_ha.so'), refused);
+});
+
 /* ---- the lock around changes of a file ------------------------------------ */
 
 test('the lock is taken for a save and given back afterwards', () => {

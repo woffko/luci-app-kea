@@ -1,6 +1,6 @@
 # Project Status
 
-Status date: 2026-11-22. Package version `0.13.0-r1`, alpha.
+Status date: 2026-11-22. Package version `0.14.0-r1`, alpha.
 
 This is a code-level inventory of what exists and what is missing. The work
 needed to close the gaps is ordered in [ROADMAP.md](ROADMAP.md). Packaging
@@ -11,7 +11,7 @@ issues are listed separately in [PACKAGING.md](PACKAGING.md).
 | Area | State |
 |------|-------|
 | Package skeleton, menu, ACL | Done |
-| rpcd backend (`luci.kea`, 18 methods) | Done, in ucode |
+| rpcd backend (`luci.kea`, 19 methods) | Done, in ucode |
 | Overview page | Done, with the Kea version, what the running DHCP daemons say about themselves, the recent log messages and where the daemons write their log |
 | Services page | Done, with what dnsmasq and odhcpd are configured to serve and whether a running Kea daemon listens |
 | Raw configuration editor | Done, with syntax check, change view, backups and restore |
@@ -155,6 +155,26 @@ button.
 
 `0.10.1-r1` was not installed on the second machine.
 
+`0.14.0-r1` was tested on the QEMU machine and by CI: 160 backend tests on
+the router and seven browser tests, which now check that a host name and a
+log line with markup are shown as text and that the Services page has no
+Stop or Disable for dnsmasq and odhcpd. By hand on that machine, over the
+JSON-RPC of LuCI:
+
+| As | Call | Answer |
+|----|------|--------|
+| a login with only the read groups `unauthenticated`, `luci-base`, `luci-app-kea` | `getConfig` of a file with a TSIG secret | the secret masked |
+| the same | `getConfigRaw`, `saveConfig`, `setConflictAction` | Access denied |
+| root | `getConfigRaw` | the secret as it is |
+| root | `saveConfig` with `<?include "/etc/shadow"?>` | refused before Kea ran |
+| root | `saveConfig` with run_script `name` `/root/.ssh/x` | refused before Kea ran |
+| root | `saveConfig` of a text with the masked secret | refused |
+| root | `setConflictAction` dnsmasq `stop` | refused; dnsmasq ran on |
+
+A DHCP client that sent the host name `<img src=x onerror=alert(1)>` to Kea
+3.0.4 with its default settings got its lease stored with the host name
+`img`: Kea strips such names by itself.
+
 `0.13.0-r1` was tested on the QEMU machine and by CI, and by hand with the
 packages `kea-hook-run-script` 3.0.4-r2 and `kea-dnsmasq-hosts` 1.0.0-r1
 built by the `ha-cluster` project, installed with the Kea 3.0.4-r2 they
@@ -242,15 +262,16 @@ the `luci.kea.*` ucode modules:
 | `getNetworkInterfaces` | read | Interfaces from `/etc/config/network` (name, device, proto, addresses) and whether OpenWrt serves DHCPv4 or DHCPv6 on each, from `/etc/config/dhcp` |
 | `validate` | read | The Kea binary's own check of the DHCPv4, DHCPv6, DDNS and control agent configs, with the warnings for a file that passed |
 | `getConfigList` | read | The four Kea config files with size and presence |
-| `getConfig` | read | File content, byte for byte, plus validation result and warnings |
+| `getConfig` | read | File content with the values of passwords and secrets masked (`masked` counts them), plus validation result and warnings |
+| `getConfigRaw` | write | The same, byte for byte: for the pages that edit the files |
 | `listBackups` | read | Backups of one config file, newest first |
 | `importDnsmasqDryRun` | read | What an import of the static leases in `/etc/config/dhcp` would do |
-| `saveConfig` | write | Write to a temporary file, validate with the Kea binary, back up, replace; returns the warnings for the new file |
+| `saveConfig` | write | Refuse an include of anything but a `*.json` or `*.conf` file directly in `/etc/kea`, a run_script path outside `/usr/share/kea/scripts`, and a masked secret; then write to a temporary file, validate with the Kea binary, back up, replace; returns the warnings for the new file |
 | `restoreBackup` | write | Validate a backup, back up the current file, replace it; returns the warnings as well |
 | `reserveLease` | write | Reserve the address of a lease for its client, through the checks of the import; returns the warnings of the file. Does not reload Kea |
 | `setService` | write | Enable or disable a Kea component in UCI |
 | `setInitAction` | write | `enable`, `disable`, `start`, `stop`, `restart`, `reload` for `/etc/init.d/kea`. After `start`, `restart`, `reload` and `stop` it sends the procd event `kea.service` with the action, whether the script succeeded or not. After `start`, `restart` and `reload` it runs `/etc/init.d/ha-cluster firewall` for an enabled `ha-cluster` that has Kea as its DHCP server, and the reply then has `cluster_firewall`, true when that command succeeded |
-| `setConflictAction` | write | The same actions, restricted to `dnsmasq` and `odhcpd` |
+| `setConflictAction` | write | `start`, `restart`, `reload` and `enable` for `dnsmasq` and `odhcpd`; not `stop` or `disable` |
 | `importDnsmasqCommit` | write | Write the selected entries (or all ready ones) to `kea-dhcp4.conf` and `kea-dhcp6.conf` |
 
 Backups are kept in `/etc/kea/backups/` as `<config>.<UTC timestamp>.conf`,
@@ -312,10 +333,10 @@ that a hook failed to load.
   component table with staged enable/disable checkboxes committed by Save or
   Save & Apply; conflict table for dnsmasq and odhcpd with what each is
   configured to serve (DHCPv4 and DHCPv6 by interface, router
-  advertisements, DNS) and explicit actions. Stopping a service, or taking
-  it out of the boot sequence, is asked about first while it is the DNS
-  server or sends router advertisements. The row of a running Kea DHCP
-  daemon says whether its sockets are open.
+  advertisements, DNS), start, restart and enabling autostart. They are not
+  stopped or disabled from here; the page points to LuCI's settings of the
+  interfaces, where their DHCP is switched off per interface. The row of a
+  running Kea DHCP daemon says whether its sockets are open.
 - **DHCPv4** and **DHCPv6** (`dhcp4.js`, `dhcp6.js`): one tab per OpenWrt
   interface, one per subnet that is not bound to an interface, one per
   subnet of a shared network, and one for the global settings.
@@ -478,7 +499,7 @@ Kea, on OpenWrt.
 | Test | Runs on | Covers |
 |------|---------|--------|
 | `node --test "test/js/*.test.js"` | Any machine with Node.js | The configuration model (56 cases, plus the stock Kea configs when `KEA_STOCK_DIR` is set) and the high availability model (28 cases), with what `ha-cluster` says about its nodes; one case reads the backend sources and fails when they call a ubus object that rpcd serves |
-| `test/run-ucode-tests.sh` | Any machine with a ucode interpreter | The backend library with a stand-in for the Kea binary: comment stripping, JSON writing, IPv4 and IPv6 helpers, save, backups, restore, retention, how the Kea binary is called and its refusal reported, import classification and commit, lease files, log lines, version, the settings Kea does not start with, log outputs, what dnsmasq and odhcpd serve, the client of the control socket against a stand-in server, the state of a daemon, when `ha-cluster` follows the Kea files, the lock around changes of a file, the import command, the subnets of a lease, reserving a lease (116 cases) |
+| `test/run-ucode-tests.sh` | Any machine with a ucode interpreter | The backend library with a stand-in for the Kea binary: comment stripping, JSON writing, IPv4 and IPv6 helpers, save, backups, restore, retention, how the Kea binary is called and its refusal reported, import classification and commit, lease files, log lines, version, the settings Kea does not start with, log outputs, what dnsmasq and odhcpd serve, the client of the control socket against a stand-in server, the state of a daemon, when `ha-cluster` follows the Kea files, the lock around changes of a file, the import command, the subnets of a lease, reserving a lease, masked secrets, the includes and run_script paths that are refused (120 cases) |
 | `test/run-ucode-tests.sh --target` | OpenWrt with the Kea daemons | The same plus 40 cases with the real Kea binaries, UCI and procd: validation, a hook checking its parameters (needs `kea-hook-ha`), that Kea accepts a lease file and a log file in a wrong directory, service state, init actions and the event after them, the call of `ha-cluster` with a stand-in for its init script, API password, import from a UCI fixture, the installed import command with a dry run on the system's own files, version and system log. Uses a temporary root, except that one test line is written to the system log |
 | `test/browser/smoke.js` | Node.js + Playwright against a target | Every page renders without JavaScript errors |
 | `test/browser/editor.js` | Node.js + Playwright against a test target | Editors (pools, options, global settings, shared networks, input checks, change view), raw editor, backups and example removal end to end, with Kea validating every save |

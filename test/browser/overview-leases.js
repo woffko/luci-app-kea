@@ -90,7 +90,7 @@ main(async (page) => {
 		assert.deepEqual(withoutTime(v4, 4), [
 			[ "br-lan", "nas", "192.168.1.100", "02:00:00:00:00:01", "reserved" ],
 			[ "br-lan", "laptop", "192.168.1.101", "02:00:00:00:00:aa", "can reserve" ],
-			[ "-", "printer", "10.20.0.15", "02:00:00:00:00:15", "can reserve" ]
+			[ "-", "<i>printer</i>", "10.20.0.15", "02:00:00:00:00:15", "can reserve" ]
 		]);
 		assert.match(v4[0][4], /^0h 4\dm \d+s$/, "the remaining time of the first lease, as LuCI writes it");
 		ok("status overview: the DHCPv4 leases in use, without the declined address; a client Kea reserves cannot be reserved again");

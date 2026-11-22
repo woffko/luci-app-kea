@@ -1,7 +1,9 @@
 #!/bin/sh
 
 # Write Kea lease files for the browser test of the Leases page and for the
-# screenshots. The leases expire within the hour, counted from now.
+# screenshots. The leases expire within the hour, counted from now. One
+# host name carries markup, as a DHCP client may send it: the pages have to
+# show it as text.
 #
 #   sh make-lease-fixture.sh [directory]            write the files
 #   sh make-lease-fixture.sh --remove [directory]   remove them again
@@ -65,7 +67,7 @@ address,hwaddr,client_id,valid_lifetime,expire,subnet_id,fqdn_fwd,fqdn_rev,hostn
 192.168.1.102,02:00:00:00:00:02,,3600,$((NOW - 60)),3,0,0,gone,0,,0
 192.168.1.103,02:00:00:00:00:03,,0,$((NOW - 600)),3,0,0,given-back,0,,0
 192.168.1.120,,,86400,$((NOW + 80000)),3,0,0,,1,,0
-10.20.0.15,02:00:00:00:00:15,,3600,$((NOW + 2400)),7,0,0,printer,0,,0
+10.20.0.15,02:00:00:00:00:15,,3600,$((NOW + 2400)),7,0,0,<i>printer</i>,0,,0
 LEASES
 
 # An address, a delegated prefix, and an address that was released.

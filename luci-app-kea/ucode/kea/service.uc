@@ -272,11 +272,20 @@ export function init_action(ctx, action) {
 
 // Control of the services that compete with Kea for DHCP clients. Nothing
 // else can be controlled through this method.
+// Not stopped and not taken out of the boot sequence: dnsmasq is the DNS
+// server of most routers and odhcpd sends the IPv6 router advertisements.
+// To make room for Kea, DHCP is switched off for an interface in
+// /etc/config/dhcp, which is LuCI's own page and the ACL of "dhcp".
+const CONFLICT_ACTIONS = [ 'start', 'restart', 'reload', 'enable' ];
+
 export function conflict_action(ctx, name, action) {
 	if (!(name in CONFLICT_SERVICES))
 		return { result: false, error: 'invalid service name' };
 
-	if (!(action in INIT_ACTIONS))
+	if (action in [ 'stop', 'disable' ])
+		return { result: false, error: name + ' is not stopped or disabled from here: switch off its DHCP for the interface instead' };
+
+	if (!(action in CONFLICT_ACTIONS))
 		return { result: false, error: 'invalid service action' };
 
 	if (!init_installed(ctx, name))

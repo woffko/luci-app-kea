@@ -4,7 +4,7 @@
 
 LuCI application for managing the ISC Kea DHCP server on OpenWrt.
 
-> **Status: alpha (0.13.0).** Usable for testing on a lab router. Not ready to
+> **Status: alpha (0.14.0).** Usable for testing on a lab router. Not ready to
 > replace a production dnsmasq/odhcpd setup yet: see
 > [Known limitations](#known-limitations).
 
@@ -32,7 +32,8 @@ Menu location: **Services > Kea DHCP**.
 - **Services**: start, stop, restart, reload and autostart for the Kea init
   service; enable or disable `kea-dhcp4`, `kea-dhcp6`, `kea-dhcp-ddns` and
   `kea-ctrl-agent`; what `dnsmasq` and `odhcpd` are configured to serve,
-  their state, and explicit controls for them.
+  their state, and start and restart for them. They are not stopped from
+  here: their DHCP is switched off per interface in LuCI's own settings.
 - **DHCPv4**: one tab per interface or subnet with the subnet, its address
   pools, gateway, DNS servers, domain, timers, any other DHCP option, and
   reservations by MAC address, client ID, DUID, circuit ID or flex ID. A

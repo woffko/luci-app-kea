@@ -9,6 +9,42 @@ Released versions are tagged `vX.Y.Z` and have their package on the
 [Releases page](https://github.com/woffko/luci-app-kea/releases). All
 versions are alpha.
 
+## 0.14.0-r1 (2026-11-22)
+
+After an external audit of `0.11.0` and `0.13.0` (findings CA-LUCIKEA-01
+to 03). The changes matter most where LuCI has users other than root.
+
+### Security
+
+- Texts from the router are shown as text everywhere: leases, log lines,
+  the output of Kea's check, configuration values in tabs, notices and
+  warnings, the static leases of the import. Before, most of them went into
+  the page as HTML. Kea 3.0.4 strips a host name with markup that a DHCP
+  client sends, so this mattered for a configuration that turns that off,
+  for leases that reach Kea another way, and for text from the files.
+- A user with read access to the application gets the configuration
+  files with their passwords and secrets masked (TSIG keys, the clients of
+  the control agent, high availability peers, database connections). A
+  user who may change the files gets them as they are, through the new
+  write-level method `getConfigRaw`. A text with a masked secret is not
+  saved.
+- A configuration file may include only a `*.json` or `*.conf` file
+  directly in `/etc/kea`, not a link; and the run_script hook may run only
+  a script in `/usr/share/kea/scripts`. Both are refused before Kea checks
+  the text: Kea's check runs as root and its errors would tell about other
+  files of the router.
+
+### Changed
+
+- dnsmasq and odhcpd are no longer stopped or taken out of the boot
+  sequence from the Services page or the backend: dnsmasq is the DNS
+  server of most routers, odhcpd sends the IPv6 router advertisements. The
+  page points to LuCI's settings of the interfaces, where their DHCP is
+  switched off for the interfaces Kea serves. Start, restart and enabling
+  autostart remain.
+- The High availability tab takes a port from 1024 up in a peer URL:
+  `ha-cluster` opens that port in the firewall between the nodes.
+
 ## 0.13.0-r1 (2026-11-22)
 
 ### Added

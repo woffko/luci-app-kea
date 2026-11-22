@@ -72,7 +72,16 @@ const methods = {
 		}
 	},
 
+	// For every user with read access: the file with its secrets masked.
 	getConfig: {
+		args: { name: 'name' },
+		call: function(request) {
+			return config.read_masked(ctx, request.args.name);
+		}
+	},
+
+	// For a user who may change the file: the file as it is.
+	getConfigRaw: {
 		args: { name: 'name' },
 		call: function(request) {
 			return config.read(ctx, request.args.name);

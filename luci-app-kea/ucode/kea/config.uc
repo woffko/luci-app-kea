@@ -85,6 +85,8 @@ export function context(options) {
 		run_dir: options?.run_dir ?? '/var/run/kea',
 		sbin_dir: options?.sbin_dir ?? '/usr/sbin',
 		hooks_dir: options?.hooks_dir ?? '/usr/lib/kea/hooks',
+		// The only directory Kea 3 runs a script of the run_script hook from
+		scripts_dir: options?.scripts_dir ?? '/usr/share/kea/scripts',
 		// The script of kea-dnsmasq-hosts that the run_script hook calls
 		dns_hosts_script: options?.dns_hosts_script ?? root + '/usr/share/kea/scripts/kea-dnsmasq-hosts',
 		uci_dir: options?.uci_dir,
@@ -515,6 +517,126 @@ export function read(ctx, name) {
 	};
 };
 
+// ---- what a reader sees, and what a writer may write ------------------------
+
+// The value that stands for a secret in what a user with read access gets.
+export const MASK = '********';
+
+// Members whose value is a secret: "password", "secret" and any name that
+// ends in "-password" or "-secret" (the TSIG keys of kea-dhcp-ddns, the
+// clients of the control agent, the peers of high availability, database
+// connections). A name ending in "-file" is a path and stays.
+function secret_member(name) {
+	return match(name, /(^|-)(password|secret)$/) != null;
+}
+
+// A member with a string value in the text of a JSON file: its name, the
+// space around the colon, and the value as written.
+const STRING_MEMBER = /"([A-Za-z0-9_-]+)"([ \t\r\n]*):([ \t\r\n]*)"((\\.|[^"\\])*)"/g;
+
+// The text of a configuration file with the value of every secret member
+// replaced by MASK: { content, masked }, "masked" counting the values. The
+// text keeps its comments and layout; only string values are replaced.
+export function mask_secrets(content) {
+	let masked = 0;
+	let text = replace(`${content ?? ''}`, STRING_MEMBER, (all, name, before, after, value) => {
+		if (!secret_member(name))
+			return all;
+
+		masked++;
+
+		return sprintf('"%s"%s:%s"%s"', name, before, after, MASK);
+	});
+
+	return { content: text, masked };
+};
+
+// Whether a secret member of the text has MASK as its value.
+function holds_mask(content) {
+	let found = false;
+
+	replace(content, STRING_MEMBER, (all, name, before, after, value) => {
+		if (secret_member(name) && value == MASK)
+			found = true;
+
+		return all;
+	});
+
+	return found;
+}
+
+// What read() returns to a user who may read the Kea pages but not change
+// them: the same, with the secrets masked.
+export function read_masked(ctx, name) {
+	let reply = read(ctx, name);
+
+	if (reply.result) {
+		let masked = mask_secrets(reply.content);
+
+		reply.content = masked.content;
+		reply.masked = masked.masked;
+	}
+
+	return reply;
+};
+
+// Why a text must not be written, or null. Checked before Kea sees the
+// text, because Kea's own check runs as root and reports what it found:
+//
+// - An include directive makes Kea read another file, and its errors give
+//   away what that file holds. Only a file directly in the configuration
+//   directory, named *.json or *.conf, may be included; Kea's own files
+//   there are readable through the pages anyway, its API password is not.
+//   A link is refused wherever it points, also one that points nowhere.
+// - The run_script hook looks at the file it is given before it checks the
+//   directory, so its error says whether a path exists. Only a script in
+//   ctx.scripts_dir is passed on.
+// - A secret that a reader got masked must not be written back as MASK.
+export function forbidden(ctx, name, content) {
+	let at = 0;
+
+	for (let start = index(content, '<?include'); start >= 0; start = index(substr(content, at), '<?include')) {
+		start += at;
+
+		let directive = match(substr(content, start), /^<\?include[ \t]+"([^"]*)"[ \t]*\?>/);
+		let file = directive?.[1];
+
+		if (!file)
+			return 'an include directive that the application cannot read';
+
+		let base = match(file, /^\/(.*)\/([A-Za-z0-9_][A-Za-z0-9._-]*\.(json|conf))$/);
+
+		let kind = fs.lstat(file)?.type;
+
+		if (!base || '/' + base[1] != ctx.conf_dir || (kind != null && kind != 'file'))
+			return sprintf('the include of %s: only a *.json or *.conf file directly in %s can be included', file, ctx.conf_dir);
+
+		at = start + length(directive[0]);
+	}
+
+	let parsed = jsonc.parse(content);
+	let root = type(parsed.config) == 'object' ? parsed.config[CONFIGS[name]?.root] : null;
+
+	if (parsed.error && index(content, 'libdhcp_run_script') >= 0)
+		return 'the run_script hook in a file the application cannot read';
+
+	for (let hook in (type(root?.['hooks-libraries']) == 'array' ? root['hooks-libraries'] : [])) {
+		if (type(hook) != 'object' || !match(`${hook.library ?? ''}`, /(^|\/)libdhcp_run_script\.so$/))
+			continue;
+
+		let script = hook.parameters?.name;
+
+		if (type(script) != 'string' || index(script, ctx.scripts_dir + '/') != 0 ||
+		    match(script, /(^|\/)\.\.?(\/|$)/) || index(substr(script, length(ctx.scripts_dir) + 1), '/') >= 0)
+			return sprintf('the script of the run_script hook: Kea runs scripts from %s only', ctx.scripts_dir);
+	}
+
+	if (holds_mask(content))
+		return 'a secret in this text is masked; open the page with write access to change the file';
+
+	return null;
+};
+
 // ---- backups ---------------------------------------------------------------
 //
 // Backups are <backup_dir>/<config basename>.<id>.conf. The id is a UTC
@@ -728,6 +850,11 @@ function save_unlocked(ctx, name, content) {
 
 	if (type(content) != 'string')
 		return { result: false, error: 'invalid config content' };
+
+	let refused = forbidden(ctx, name, content);
+
+	if (refused)
+		return { result: false, error: 'refused: ' + refused };
 
 	let file = path(ctx, name);
 	let tmp = file + '.luci-tmp';

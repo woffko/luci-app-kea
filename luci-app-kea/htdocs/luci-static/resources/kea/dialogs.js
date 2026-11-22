@@ -18,7 +18,7 @@ return baseclass.extend({
 	/* Ask before doing something; "kind" styles the confirming button. */
 	confirm: function(title, message, confirmLabel, action, kind) {
 		ui.showModal(title, [
-			E("p", message),
+			E("p", {}, typeof message === "string" ? [ message ] : message),
 			E("div", { "class": "right" }, [
 				E("button", { "class": "btn", "click": ui.hideModal }, _("Cancel")),
 				" ",
@@ -49,7 +49,7 @@ return baseclass.extend({
 			};
 
 			ui.showModal(title, [
-				E("div", {}, typeof message === "string" ? E("p", message) : message),
+				E("div", {}, typeof message === "string" ? E("p", {}, [ message ]) : message),
 				E("div", { "class": "right" }, [
 					E("button", { "class": "btn", "click": answer(false) }, _("Cancel")),
 					" ",
@@ -75,7 +75,7 @@ return baseclass.extend({
 			E("p", { "class": "kea-changes" }, _("There are no changes."));
 
 		ui.showModal(_("Changes"), [
-			note ? E("p", note) : "",
+			note ? E("p", {}, [ note ]) : "",
 			body,
 			E("div", { "class": "right" }, [
 				E("button", { "class": "btn", "click": ui.hideModal }, _("Close"))

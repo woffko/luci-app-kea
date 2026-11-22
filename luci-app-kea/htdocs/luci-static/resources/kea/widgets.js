@@ -7,12 +7,26 @@
  * it.
  */
 
+/*
+ * The content of an element as LuCI's E() should take it: a string as text.
+ * E() puts a string child into innerHTML; a list of strings and nodes goes
+ * in as text and nodes. Every text this application shows from the router
+ * (leases, log lines, configuration values, messages of Kea) goes through
+ * here or is put in a list itself.
+ */
+function text(content) {
+	if (content == null || content === "")
+		return [];
+
+	return Array.isArray(content) ? content : [ content ];
+}
+
 function field(label, child, description) {
 	return E("div", { "class": "cbi-value" }, [
-		E("label", { "class": "cbi-value-title" }, label),
+		E("label", { "class": "cbi-value-title" }, text(label)),
 		E("div", { "class": "cbi-value-field" }, [
 			child,
-			description ? E("div", { "class": "cbi-value-description" }, description) : ""
+			description ? E("div", { "class": "cbi-value-description" }, text(description)) : ""
 		])
 	]);
 }
@@ -57,7 +71,7 @@ function checkbox(object, key, onChange) {
 }
 
 function notice(kind, children) {
-	return E("div", { "class": "alert-message " + kind }, children);
+	return E("div", { "class": "alert-message " + kind }, text(children));
 }
 
 function deleteButton(onClick) {
@@ -80,7 +94,7 @@ function rowTable(options) {
 	var draw = function() {
 		var rows = options.rows.map(function(row) {
 			return E("tr", { "class": "tr" }, options.renderRow(row).map(function(cell) {
-				return E("td", { "class": "td left" }, cell);
+				return E("td", { "class": "td left" }, text(cell));
 			}).concat([ E("td", { "class": "td right" }, deleteButton(function() {
 				options.rows.splice(options.rows.indexOf(row), 1);
 				draw();
@@ -94,7 +108,7 @@ function rowTable(options) {
 			rows = [ E("tr", { "class": "tr" }, E("td", {
 				"class": "td left",
 				"colspan": String(options.titles.length + 1)
-			}, options.empty)) ];
+			}, text(options.empty))) ];
 
 		body.replaceChildren.apply(body, rows);
 	};
@@ -102,11 +116,11 @@ function rowTable(options) {
 	draw();
 
 	return E("div", { "class": "cbi-section" }, [
-		E("h3", options.title),
-		options.description ? E("div", { "class": "cbi-section-descr" }, options.description) : "",
+		E("h3", {}, text(options.title)),
+		options.description ? E("div", { "class": "cbi-section-descr" }, text(options.description)) : "",
 		E("table", { "class": "table " + options.name }, [
 			E("thead", {}, E("tr", { "class": "tr table-titles" }, options.titles.concat([ "" ]).map(function(title) {
-				return E("th", { "class": "th left" }, title);
+				return E("th", { "class": "th left" }, text(title));
 			}))),
 			body
 		]),
@@ -167,6 +181,8 @@ function textArea(object, key, placeholder, check) {
 }
 
 return baseclass.extend({
+	text: text,
+
 	field: field,
 	mark: mark,
 	textInput: textInput,

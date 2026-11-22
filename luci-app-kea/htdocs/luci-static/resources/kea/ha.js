@@ -185,6 +185,14 @@ function checkUrl(value, tls) {
 	if (!match[4] || Number(match[4].slice(1)) < 1 || Number(match[4].slice(1)) > 65535)
 		return _("the URL needs a port, as in http://192.168.1.2:8001/: without one the servers cannot reach each other");
 
+	/*
+	 * ha-cluster lets the port of every peer URL through the firewall of the
+	 * pair. A port below 1024 is one of the router's own services, such as
+	 * SSH, DNS or LuCI.
+	 */
+	if (Number(match[4].slice(1)) < 1024)
+		return _("use a port from 1024 up: ha-cluster opens it in the firewall between the nodes, and a lower port belongs to a service of the router");
+
 	if (match[1] === "https" && !tls)
 		return _("https needs the TLS parameters trust-anchor, cert-file and key-file");
 
