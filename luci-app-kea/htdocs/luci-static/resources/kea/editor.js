@@ -512,11 +512,39 @@ function createView(familyName) {
 					_("How often Kea tries again to open its sockets on an interface that is not ready, and how long it waits in between, in milliseconds. Without retries, a Kea that is started at boot before its interface is up keeps running and never listens. When this page makes Kea listen on an interface and neither value is set, it sets 60 and 2000."))
 			);
 
+			var dns = this.renderDnsNames(global);
+
+			if (dns)
+				nodes.push(dns);
+
 			this.editorNode.replaceChildren(
 				E("div", { "class": "cbi-section" }, nodes),
 				this.renderOptions(global.options,
 					_("DHCP options sent to the clients of every subnet. Use the option name or its numeric code."))
 			);
+		},
+
+		/*
+		 * The switch for client names in the local DNS. Shown when the
+		 * packages it needs are installed, and also when the file has the
+		 * entry without them, so that it can be switched off.
+		 */
+		renderDnsNames: function(global) {
+			var hooks = this.status.hooks || {};
+			var installed = !!(hooks.run_script && hooks.dns_hosts);
+			var current = global.dnsNamesState;
+
+			if (current.state === "other")
+				return field(model.label("dnsNames"),
+					E("em", {}, _("not available")),
+					_("The run_script hook of Kea already runs another script, %s. This page leaves that entry alone.").format(current.script || "?"));
+
+			if (!installed && current.state === "off")
+				return null;
+
+			return field(model.label("dnsNames"), checkbox(global, "dnsNames"), installed ?
+				_("Kea tells the kea-dnsmasq-hosts package about every lease, and dnsmasq then answers for the names of the clients in the local DNS. Kea loads the hook when it is restarted, which Save & Apply does.") :
+				_("Kea does not start with this setting: the hook library of kea-hook-run-script or the script of kea-dnsmasq-hosts is not installed. Switch it off, or install both packages."));
 		},
 
 		renderHa: function() {
@@ -545,8 +573,12 @@ function createView(familyName) {
 
 		/* Merge the form into the configuration; null if the form has errors. */
 		buildConfig: function() {
-			var result = model.applyTabs(familyName, this.config, this.tabs, this.global);
 			var hooks = this.status.hooks || {};
+
+			if (this.global && hooks.dir)
+				this.global.hooksDir = hooks.dir;
+
+			var result = model.applyTabs(familyName, this.config, this.tabs, this.global);
 			var withHa = haModel.apply(familyName, result.config || this.config, this.ha, hooks.dir);
 			var errors = (result.errors || []).concat(withHa.errors || []);
 

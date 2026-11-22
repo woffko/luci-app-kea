@@ -334,7 +334,11 @@ export function status(ctx) {
 		hooks: {
 			dir: ctx.hooks_dir,
 			ha: !!fs.access(ctx.hooks_dir + '/libdhcp_ha.so'),
-			lease_cmds: !!fs.access(ctx.hooks_dir + '/libdhcp_lease_cmds.so')
+			lease_cmds: !!fs.access(ctx.hooks_dir + '/libdhcp_lease_cmds.so'),
+			// What the switch for client names in DNS needs: the run_script
+			// hook of Kea and the script of kea-dnsmasq-hosts
+			run_script: !!fs.access(ctx.hooks_dir + '/libdhcp_run_script.so', 'r'),
+			dns_hosts: !!fs.access(ctx.dns_hosts_script, 'x')
 		},
 		configs,
 		conflicts

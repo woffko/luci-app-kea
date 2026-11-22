@@ -362,6 +362,8 @@ test('status reports installed parts and running conflicts', () => {
 		serves: { dhcp4: [], dhcp6: [ 'lan' ], ra: [] }
 	});
 	equal(type(status.hooks.ha), 'bool');
+	equal(type(status.hooks.run_script), 'bool');
+	equal(type(status.hooks.dns_hosts), 'bool');
 	equal(status.hooks.dir, '/usr/lib/kea/hooks');
 });
 
