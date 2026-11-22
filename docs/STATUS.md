@@ -570,6 +570,22 @@ Kea, on OpenWrt.
   and not yet built as a package. What it relies on: the options `enabled`
   and `dhcp_backend` of the section `config` in `/etc/config/ha-cluster`,
   and the command being named in the init script.
+- A pair of Kea servers accepts commands from anyone who reaches its
+  port, unless it uses mutual TLS. Measured with two `kea-dhcp4` 3.0.4 on
+  the test machine, hot standby, with the listener of the pair:
+
+  | Peers set up with | A `dhcp-disable` from a stranger |
+  |-------------------|----------------------------------|
+  | `http`, nothing else | carried out |
+  | `http`, `basic-auth-user` and `basic-auth-password` on both peers | carried out |
+  | `https`, `trust-anchor`, `cert-file`, `key-file`, `require-client-certs` | no answer: the TLS handshake fails, without a certificate as with a foreign one |
+
+  In 3.0.4 the basic-auth parameters of a peer only make the server send
+  credentials to that peer; the listener checks none (the sources set no
+  authentication for it). With mutual TLS the pair reached hot-standby,
+  also with one self-signed certificate shared by both nodes and used as
+  their trust anchor. The tab takes such a setup: an `https` URL needs the
+  three TLS parameters among the additional parameters.
 - A pair of routers made by this application was run once, on a bench of
   the `ha-cluster` project on 2026-11-21: two OpenWrt 25.12.6 x86-64 nodes
   under KVM and a client, Kea 3.0.4, `ha-cluster` from its sources, and the

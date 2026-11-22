@@ -344,9 +344,12 @@ An external audit before the image w0w6 of the owner, passed on by the
 - [x] CA-LUCIKEA-02: no stop or disable for dnsmasq and odhcpd; ports
       below 1024 refused in peer URLs. `0.14.0`.
 - [ ] CA-HACLUSTER-01, the part of Kea: authenticate the high
-      availability peers (basic-auth or TLS) with a secret the nodes
-      share. To be measured with two Kea servers, and agreed with the
-      `ha-cluster` project, which would provide the secret.
+      availability peers. Measured on 2026-11-22: in Kea 3.0.4 only mutual
+      TLS protects the listener of a pair; basic-auth does not (see
+      STATUS). The tab takes https URLs with the TLS parameters already;
+      what is open is where the certificate comes from, which the owner
+      and the `ha-cluster` project decide, and whether the fill-in from
+      `ha-cluster` writes the TLS parameters as well.
 
 ## Decisions
 

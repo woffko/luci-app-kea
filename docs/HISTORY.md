@@ -25,6 +25,12 @@ landed.
 - CA-LUCIKEA-02 held. Stop and Disable are gone for dnsmasq and odhcpd.
 - Verified by hand over LuCI's JSON-RPC with a login that has the read
   groups only, and as root.
+- For CA-HACLUSTER-01, the authentication of a Kea pair was measured with
+  two servers: basic-auth on the peers left a stranger's `dhcp-disable`
+  carried out, mutual TLS refused it. Kea 3.0.4 sets no authentication on
+  the listener of a pair; its basic-auth parameters are for the requests a
+  server sends. The results went to the `ha-cluster` project, which is to
+  bring the question of the certificate to the owner.
 - Two slips on the way, both found by the tests: an exported function of
   ucode needs a semicolon after its body; and a test that linked to
   `/etc/hostname`, which OpenWrt does not have. The second made the check
