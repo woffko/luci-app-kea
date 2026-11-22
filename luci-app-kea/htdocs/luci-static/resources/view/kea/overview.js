@@ -2,7 +2,12 @@
 "require rpc";
 "require view";
 "require ui";
+"require network";
 "require kea.backend as backend";
+"require kea.leasetable as leasetable";
+
+/* How many leases of each protocol the page shows; the Leases page has all. */
+var LEASES_SHOWN = 10;
 
 /* How many messages of the system log the page shows. */
 var LOG_LINES = 30;
@@ -84,8 +89,37 @@ return view.extend({
 			L.resolveDefault(callStatus(), {}),
 			L.resolveDefault(callValidate(), {}),
 			backend.getLog(LOG_LINES),
-			backend.getDaemonState()
+			backend.getDaemonState(),
+			backend.getLeases(),
+			L.resolveDefault(network.getHostHints(), null)
 		]);
+	},
+
+	renderLeases: function(leases, hints) {
+		var self = this;
+		var count = function(family) {
+			return leasetable.activeLeases(leases, family).length;
+		};
+		var tables = leasetable.render(leases, hints, {
+			limit: LEASES_SHOWN,
+			refresh: function() {
+				return Promise.all([
+					backend.getLeases(),
+					L.resolveDefault(network.getHostHints(), null)
+				]).then(function(data) {
+					self.renderLeases(data[0], data[1]);
+				});
+			}
+		});
+
+		this.leaseNode.replaceChildren(
+			E("div", { "class": "cbi-section-descr" }, [
+				_("In use: %d DHCPv4 and %d DHCPv6 leases.").format(count("dhcp4"), count("dhcp6")),
+				" ",
+				E("a", { "href": L.url("admin/services/kea/leases") }, _("All leases"))
+			]),
+			tables || E("p", {}, E("em", {}, _("Kea keeps no leases yet.")))
+		);
 	},
 
 	renderLog: function(log) {
@@ -165,6 +199,8 @@ return view.extend({
 
 		this.logNode = E("div", {});
 		this.renderLog(data[2] || {});
+		this.leaseNode = E("div", { "class": "kea-overview-leases" });
+		this.renderLeases(data[4] || {}, data[5]);
 
 		Object.keys(validation).forEach(function(name) {
 			var item = validation[name] || {};
@@ -199,6 +235,11 @@ return view.extend({
 				[ _("Init script installed"), boolLabel(status.init_installed) ],
 				[ _("Init autostart enabled"), boolLabel(status.init_enabled) ]
 			].concat(daemonRows)),
+
+			E("div", { "class": "cbi-section" }, [
+				E("h3", _("Leases")),
+				this.leaseNode
+			]),
 
 			renderObjectTable(_("Installed Components"), [
 				[ "kea-dhcp4", boolLabel(binaries.dhcp4 && binaries.dhcp4.installed) ],

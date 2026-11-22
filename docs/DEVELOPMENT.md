@@ -6,7 +6,8 @@
 luci-app-kea/                                 the OpenWrt package; nothing outside it is packaged
   Makefile                                      package definition (includes luci.mk)
   htdocs/luci-static/resources/view/kea/        LuCI JavaScript views (one per page)
-  htdocs/luci-static/resources/kea/             shared modules: model, ha, backend, widgets, dialogs, editor, hatab
+  htdocs/luci-static/resources/kea/             shared modules: model, ha, backend, widgets, dialogs, editor, hatab, leasetable
+  htdocs/luci-static/resources/view/status/include/41_kea.js  the Kea leases on the status overview of LuCI
   root/usr/share/rpcd/ucode/luci.kea            rpcd plugin: maps ubus methods to the library
   root/usr/libexec/luci-app-kea/import-dnsmasq  the import from a shell, for other packages
   ucode/kea/                                    backend library, installed as the luci.kea.* modules
@@ -302,7 +303,7 @@ TARGET_SSH="ssh root@<target>" BASE_URL=http://<target> \
 
 The script copies the tests to the target, runs the backend tests against
 the installed library, loads the fixtures the browser tests need, runs the
-six browser tests, and removes the fixtures again, also when a test
+seven browser tests, and removes the fixtures again, also when a test
 failed. The rest of this section is what it does, step by step, for running
 one test by hand.
 
@@ -428,7 +429,7 @@ node test/browser/screenshots.js ha ha-checks
 - **Tests on OpenWrt in QEMU**: boots the official OpenWrt image, installs
   Kea from the OpenWrt package repository and the package of the build job,
   and runs `test/run-target-tests.sh`: the backend tests on the router and
-  the six browser tests. A failed run keeps its screenshots and the console
+  the seven browser tests. A failed run keeps its screenshots and the console
   of the machine as the artifact `target-test-failure`. The job takes two to
   six minutes. Starting the machine, installing Kea and running the tests is
   about a minute and a half of that, with KVM, which the runner lets the job

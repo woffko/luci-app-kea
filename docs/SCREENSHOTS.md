@@ -1,17 +1,19 @@
 # Screenshots
 
 Taken on OpenWrt 25.12.6 with Kea 3.0.4, using the test fixtures of this
-repository as configuration. The pictures of the Overview page as a whole,
-of the leases, the raw editor and the import are from version `0.7.0`,
-where these pages look the same; those of the Services page, the DHCP
-pages and the warning are from `0.8.0`, the others from `0.9.0`. `test/browser/screenshots.js` regenerates them; see
+repository as configuration. The pictures of the leases, the raw editor and
+the import are from version `0.7.0`, where these pages look the same; those
+of the Services page, the DHCP pages and the warning are from `0.8.0`, the
+Overview page as a whole and the leases on the status overview of LuCI
+from `0.12.0`, the others from `0.9.0`. `test/browser/screenshots.js` regenerates them; see
 [DEVELOPMENT.md](DEVELOPMENT.md#screenshots).
 
 ## Overview
 
-The Kea version, installed components, configuration files, the result of
-checking each file with its Kea daemon, and the recent Kea messages of the
-system log: here a DHCPv4 and a DHCPv6 client being served. The messages
+The Kea version, the leases in use, installed components, configuration
+files, the result of checking each file with its Kea daemon, and the recent
+Kea messages of the system log: here a DHCPv4 and a DHCPv6 client being
+served. The messages
 are there because the configuration of this test logs to syslog; the
 configuration files shipped with Kea do not.
 
@@ -124,6 +126,16 @@ The leases in use, from the lease files of Kea. The declined address is one
 a client refused because it found it taken.
 
 ![Leases page](images/leases.png)
+
+## Leases on the status overview of LuCI
+
+The section "Kea DHCP Leases" under Status, Overview, next to the section
+of dnsmasq, which has nothing to show when Kea serves DHCP. Each lease has
+a button that reserves its address in Kea. It is greyed out for the client
+"nas", for which Kea already reserves an address, and for the delegated
+prefix.
+
+![Kea leases on the status overview](images/status-leases.png)
 
 ## Configuration
 

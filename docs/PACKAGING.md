@@ -3,7 +3,7 @@
 Audit date: 2026-11-11. Audited revision: `b6eedcf` (package version
 `0.1.0-r1`). The findings marked "fixed" below were resolved in `0.1.0-r2`
 (roadmap milestone M0) and re-checked with a real build and install. The
-current version is `0.11.0-r1`.
+current version is `0.12.0-r1`.
 
 ## References
 
@@ -58,7 +58,7 @@ time.
 ```text
 Package: luci-app-kea
 Submenu: 3. Applications
-Version: 0.11.0-r1
+Version: 0.12.0-r1
 Depends: +libc +luci-base +kea-uci +kea-lfc +ucode-mod-socket
 Section: luci
 Category: LuCI
@@ -174,6 +174,14 @@ to display anything. Revisit if reviewers of an upstream submission object.
 `getLeases` and `getLog`, added in `0.7.0`, are read-level as well. They
 return the addresses, MAC addresses and host names of DHCP clients, which
 LuCI read access already shows for dnsmasq and odhcpd on its status pages.
+
+`0.12.0` added `reserveLease` to the write group: it adds one reservation
+to a Kea file, as `importDnsmasqCommit` does for a static lease, with the
+same checks. It also installs a view outside its own directory,
+`view/status/include/41_kea.js`, which the status overview of
+`luci-mod-status` loads with its other sections; without that package the
+file is not used. That section calls `getLeases` and `reserveLease` of this
+application, so a user without its ACL group sees no section there.
 
 `0.11.0` added no method and changed no ACL. The write-level
 `setInitAction` now also sends the procd event `kea.service` after

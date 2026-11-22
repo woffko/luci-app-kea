@@ -49,7 +49,7 @@ const methods = {
 
 	getLeases: {
 		call: function() {
-			return { leases: runtime.leases(ctx) };
+			return { leases: importer.mark_reserved(ctx, runtime.leases(ctx)) };
 		}
 	},
 
@@ -103,6 +103,13 @@ const methods = {
 	importDnsmasqDryRun: {
 		call: function() {
 			return { import: importer.preview(ctx, dhcp_hosts(), service.network_interfaces(ctx)) };
+		}
+	},
+
+	reserveLease: {
+		args: { family: 'family', identifier: 'identifier', address: 'address', hostname: 'hostname' },
+		call: function(request) {
+			return importer.reserve(ctx, service.network_interfaces(ctx), request.args);
 		}
 	},
 

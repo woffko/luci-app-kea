@@ -29,6 +29,7 @@
 					"setConflictAction",
 					"saveConfig",
 					"restoreBackup",
+					"reserveLease",
 					"importDnsmasqCommit"
 				]
 			}

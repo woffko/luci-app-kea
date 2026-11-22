@@ -9,6 +9,25 @@ Released versions are tagged `vX.Y.Z` and have their package on the
 [Releases page](https://github.com/woffko/luci-app-kea/releases). All
 versions are alpha.
 
+## 0.12.0-r1 (2026-11-22)
+
+### Added
+
+- The leases of Kea on the status overview of LuCI (Status, Overview), in
+  a section of their own next to "DHCP Leases", which shows the leases of
+  dnsmasq and odhcpd only. Two tables, as in that section: the DHCPv4 and
+  the DHCPv6 leases in use, with interface, hostname, address, MAC address
+  or DUID and IAID, and the remaining time. The section is hidden when Kea
+  keeps no leases.
+- A button "Reserve IP" on each lease, as LuCI has for dnsmasq: it
+  reserves the address in Kea for that client, with a hostname that can be
+  changed first, and makes a running Kea read the file. It goes through
+  the checks of the import and is greyed out when Kea already reserves an
+  address for the client, or the address for another one.
+- The same tables on the Overview page of the application, with the
+  number of leases in use and the ten given out last of each protocol, and
+  a link to the Leases page.
+
 ## 0.11.0-r1 (2026-11-22)
 
 For other packages that switch a router from dnsmasq to Kea, such as

@@ -399,14 +399,47 @@ export function collect(family, texts, at) {
 	return sort(leases, (a, b) => address_order(family, a, b));
 };
 
-// Where the daemon keeps its leases, from its configuration.
-function lease_database(ctx, family) {
+// The top-level object of the daemon's configuration, or null.
+function family_root(ctx, family) {
 	let parsed = jsonc.parse(fs.readfile(config.path(ctx, family)) ?? '');
 	let root = type(parsed.config) == 'object' ? parsed.config[FAMILIES[family].root] : null;
-	let database = type(root) == 'object' ? root['lease-database'] : null;
+
+	return type(root) == 'object' ? root : null;
+}
+
+// Where the daemon keeps its leases, from its configuration.
+function lease_database(root) {
+	let database = root?.['lease-database'];
 
 	return type(database) == 'object' ? database : {};
 }
+
+// The subnets of the configuration by their id: { "<id>": { subnet,
+// interface } }, also those of a shared network, which may name the
+// interface for all of its subnets. A lease names its subnet by the id.
+export function subnet_index(family, root) {
+	let key = family == 'dhcp4' ? 'subnet4' : 'subnet6';
+	let index = {};
+	let add = (subnets, network) => {
+		for (let subnet in (type(subnets) == 'array' ? subnets : []))
+			if (type(subnet) == 'object' && subnet.id != null)
+				index[`${subnet.id}`] = {
+					subnet: `${subnet.subnet ?? ''}`,
+					interface: `${subnet.interface ?? network?.interface ?? ''}`
+				};
+	};
+
+	if (type(root) != 'object')
+		return index;
+
+	add(root[key], null);
+
+	for (let network in (type(root['shared-networks']) == 'array' ? root['shared-networks'] : []))
+		if (type(network) == 'object')
+			add(network[key], network);
+
+	return index;
+};
 
 // The lease files of one protocol in the order Kea loads them: the result
 // of the last cleanup, or its inputs if it did not finish, then the file
@@ -430,13 +463,14 @@ function lease_files(file) {
 }
 
 function family_leases(ctx, family) {
-	let database = lease_database(ctx, family);
+	let root = family_root(ctx, family);
+	let database = lease_database(root);
 	let dbtype = database.type ?? 'memfile';
 	let name = type(database.name) == 'string' && database.name != '' ? database.name : FAMILIES[family].file;
 	let file = index(name, '/') == 0 ? ctx.root + name : ctx.lease_dir + '/' + name;
 	// "note" is set when there is nothing to read: "no-memfile",
 	// "no-persist" or "too-large".
-	let reply = { file, exists: false, count: 0, truncated: false, items: [] };
+	let reply = { file, exists: false, count: 0, truncated: false, items: [], subnets: subnet_index(family, root) };
 
 	if (dbtype != 'memfile') {
 		reply.note = 'no-memfile';

@@ -26,8 +26,11 @@ export default [
 				N_: 'readonly',
 				L: 'readonly',
 				E: 'readonly',
+				/* LuCI's cbi.js, loaded on every page */
+				cbi_update_table: 'readonly',
 				/* LuCI modules named in "require" directives */
 				baseclass: 'readonly',
+				network: 'readonly',
 				poll: 'readonly',
 				rpc: 'readonly',
 				ui: 'readonly',
@@ -39,6 +42,7 @@ export default [
 				ha: 'readonly',
 				haModel: 'readonly',
 				hatab: 'readonly',
+				leasetable: 'readonly',
 				model: 'readonly',
 				widgets: 'readonly'
 			},
