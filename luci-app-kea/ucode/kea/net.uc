@@ -21,6 +21,18 @@ export function ipv4_to_int(addr) {
 	return value;
 };
 
+// 3232235777 -> "192.168.1.1".
+export function int_to_ipv4(value) {
+	let parts = [];
+
+	for (let i = 0; i < 4; i++) {
+		unshift(parts, value % 256);
+		value = int(value / 256);
+	}
+
+	return join('.', parts);
+};
+
 // "192.168.1.0/24" -> { first, last } as integers. A bare address is a /32.
 export function parse_cidr(value) {
 	let parts = split(value ?? '', '/');

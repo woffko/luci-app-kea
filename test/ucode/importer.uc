@@ -569,10 +569,11 @@ test('a lease that Kea reserves already, or cannot hold, is refused with the rea
 /* ---- the import command ---------------------------------------------------- */
 
 test('the command knows its arguments, and no others', () => {
-	equal(importer.command_options([]), { dry_run: false, include_review: false, help: false });
-	equal(importer.command_options(null), { dry_run: false, include_review: false, help: false });
+	equal(importer.command_options([]), { dry_run: false, include_review: false, leases: false, help: false });
+	equal(importer.command_options(null), { dry_run: false, include_review: false, leases: false, help: false });
 	equal(importer.command_options([ '--dry-run', '--include-review' ]),
-		{ dry_run: true, include_review: true, help: false });
+		{ dry_run: true, include_review: true, leases: false, help: false });
+	equal(importer.command_options([ '--leases' ]).leases, true);
 	equal(importer.command_options([ '-h' ]).help, true);
 	equal(importer.command_options([ '--help' ]).help, true);
 	equal(importer.command_options([ '--dry-run', '--all' ]), { error: 'unknown argument: --all' });
@@ -691,6 +692,64 @@ test('with only one of the two files, the other protocol is left blocked', () =>
 	equal(reply.selected, [ 'dual:dhcp4' ]);
 	ok('dual:dhcp6 blocked' in left_keys(reply));
 	equal(fs.access(file6), null);
+});
+
+/* ---- the leases of dnsmasq ---------------------------------------------- */
+
+test('the leases of dnsmasq go to Kea with lease4-add, each once, inside a Kea subnet', () => {
+	reset();
+
+	let sent = [];
+	let answers = { '192.168.1.120': { result: 1, text: 'lease for address 192.168.1.120 already exists' } };
+	let lctx = config.context({
+		root, run_dir: root + '/run', clock: () => now,
+		control: (name, command) => {
+			if (command == 'status-get')
+				return { result: 0, arguments: {} };
+
+			push(sent, command);
+
+			return answers[command.arguments['ip-address']] ?? { result: 0, text: 'Lease for address added.' };
+		}
+	});
+	const leases = join('\n', [
+		sprintf('%d 02:00:00:00:00:AA 192.168.1.101 laptop 01:02:00:00:00:00:aa', now + 600),
+		sprintf('%d 02:00:00:00:00:bb 192.168.1.120 * *', now + 300),
+		sprintf('%d 02:00:00:00:00:cc 192.168.1.130 gone *', now - 5),
+		sprintf('%d 02:00:00:00:00:dd 172.16.9.9 far *', now + 300),
+		'0 02:00:00:00:00:ee 192.168.1.140 forever *',
+		'',
+		'duid 00:01:00:01:aa:bb:cc:dd'
+	]);
+
+	let reply = importer.move_leases(lctx, leases, now);
+
+	equal(reply.result, true);
+	equal(reply.added, 1);
+	equal(sent[0], { command: 'lease4-add', arguments: {
+		'ip-address': '192.168.1.101', 'hw-address': '02:00:00:00:00:aa', 'subnet-id': 3,
+		'valid-lft': 600, expire: now + 600, hostname: 'laptop', 'client-id': '01:02:00:00:00:00:aa'
+	} });
+	equal(sent[1].arguments.hostname, null, 'no name for "*"');
+	equal(reply.skipped, [
+		{ address: '192.168.1.120', reason: 'lease for address 192.168.1.120 already exists' },
+		{ address: '192.168.1.130', reason: 'the lease has run out' },
+		{ address: '172.16.9.9', reason: 'the address is in no DHCPv4 subnet of Kea' },
+		{ address: '192.168.1.140', reason: 'the lease has no end; Kea is given none such' }
+	]);
+});
+
+test('without a running Kea, or without its lease commands, no lease moves', () => {
+	let down = config.context({ root, run_dir: root + '/run', control: () => ({ error: 'connect-failed' }) });
+
+	equal(importer.move_leases(down, '1 02:00:00:00:00:aa 192.168.1.101 x *', 0),
+		{ result: false, reason: 'kea-not-running', added: 0, skipped: [] });
+
+	let bare = config.context({ root, run_dir: root + '/run',
+		control: (name, command) => command == 'status-get' ? { result: 0 } : { result: 2, text: "'lease4-add' command not supported." } });
+
+	equal(importer.move_leases(bare, sprintf('%d 02:00:00:00:00:aa 192.168.1.101 x *', now + 60), now).reason,
+		'the lease commands hook of Kea is not loaded');
 });
 
 rm_rf(root);

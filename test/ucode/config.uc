@@ -437,6 +437,24 @@ test('where the loggers write', () => {
 		[ 'syslog', 'a.log' ], 'each output once');
 });
 
+/* ---- a subnet on an interface Kea does not listen on ---------------------- */
+
+test('a subnet bound to an interface that interfaces-config does not list is warned about', () => {
+	const conf = (interfaces, extra) => sprintf('{ "Dhcp4": { "interfaces-config": { "interfaces": %J, "service-sockets-max-retries": 60 }, ' +
+		'"subnet4": [ { "id": 1, "subnet": "10.0.87.0/24", "interface": "bond0.87" }, { "id": 2, "subnet": "10.9.0.0/24" } ]%s } }',
+		interfaces, extra ?? '');
+	const warned = (interfaces, extra) => filter(config.warnings(ctx, 'dhcp4', conf(interfaces, extra)), w => w.code == 'subnet-interface');
+
+	// As on a router of the owner: a subnet on bond0.87, and an empty list.
+	equal(warned([]), [ { code: 'subnet-interface', effect: 'no-listen', value: '10.0.87.0/24', interface: 'bond0.87' } ]);
+	equal(warned([ 'br-lan' ]), [ { code: 'subnet-interface', effect: 'no-listen', value: '10.0.87.0/24', interface: 'bond0.87' } ]);
+	equal(warned([ 'bond0.87' ]), []);
+	equal(warned([ 'bond0.87/10.0.87.1' ]), [], 'a device with an address');
+	equal(warned([ '*' ]), [], 'every interface');
+	equal(warned([ 'bond0.87' ], ', "shared-networks": [ { "name": "x", "interface": "eth5", "subnet4": [ { "id": 3, "subnet": "10.5.0.0/24" } ] } ]'),
+		[ { code: 'subnet-interface', effect: 'no-listen', value: '10.5.0.0/24', interface: 'eth5' } ], 'the interface of a shared network');
+});
+
 /* ---- secrets, includes and scripts ---------------------------------------- */
 
 const DDNS = '{\n' +

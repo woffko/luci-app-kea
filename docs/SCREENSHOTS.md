@@ -154,6 +154,15 @@ file. A JSON syntax error is reported under the text while typing.
 
 ![Raw configuration editor](images/configuration.png)
 
+## Setup
+
+The DHCPv4 configuration made from what dnsmasq serves on a fresh router:
+one subnet for `lan`, with the pool dnsmasq had, and the answer of Kea's
+check. The file is still the example of the Kea package, so it can be
+written; the leases of dnsmasq can be moved once kea-dhcp4 runs.
+
+![Setup page](images/setup.png)
+
 ## Import dnsmasq
 
 What an import of the OpenWrt static leases would do: one row per lease and

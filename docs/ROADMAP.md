@@ -351,6 +351,22 @@ An external audit before the image w0w6 of the owner, passed on by the
       and the `ha-cluster` project decide, and whether the fill-in from
       `ha-cluster` writes the TLS parameters as well.
 
+## M12: From dnsmasq to Kea in one step
+
+Decided by the owner on 2026-11-22, as relayed by the `ha-cluster`
+project: the configuration is made from dnsmasq's settings by this
+application, `ha-cluster` runs it when a cluster switches to Kea, and a
+page does the same by hand; only the example file of the package is
+replaced automatically; the leases of dnsmasq are moved "if it is not
+hard". Done in `0.15.0`.
+
+- [x] `setup-from-dnsmasq` and the Setup page, with the contract agreed
+      with the `ha-cluster` project (arguments, JSON, exit statuses).
+- [x] `import-dnsmasq --leases` and the button on the Setup page.
+- [x] The note on Overview and Services while Kea is not set up, and the
+      warning for a subnet on an interface Kea does not listen on.
+- [ ] DHCPv6, and the TLS of a pair, in the same generator.
+
 ## Decisions
 
 Made by the project owner.

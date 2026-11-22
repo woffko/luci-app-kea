@@ -10,6 +10,7 @@ import * as runtime from 'luci.kea.runtime';
 import { interface_addresses } from 'luci.kea.net';
 import { text, uci_bool, dhcp_services } from 'luci.kea.openwrt';
 import * as cluster from 'luci.kea.cluster';
+import * as setup from 'luci.kea.setup';
 
 // Service state and control: the Kea init service and its components, the
 // competing OpenWrt DHCP services, and the runtime files Kea needs.
@@ -297,6 +298,20 @@ export function conflict_action(ctx, name, action) {
 	return { result: true };
 };
 
+// Which hook libraries of Kea, and which script for client names in DNS,
+// are installed.
+function hook_flags(ctx) {
+	return {
+		dir: ctx.hooks_dir,
+		ha: !!fs.access(ctx.hooks_dir + '/libdhcp_ha.so'),
+		lease_cmds: !!fs.access(ctx.hooks_dir + '/libdhcp_lease_cmds.so'),
+		// What the switch for client names in DNS needs: the run_script
+		// hook of Kea and the script of kea-dnsmasq-hosts
+		run_script: !!fs.access(ctx.hooks_dir + '/libdhcp_run_script.so', 'r'),
+		dns_hosts: !!fs.access(ctx.dns_hosts_script, 'x')
+	};
+}
+
 export function status(ctx) {
 	let binaries = {};
 	let configs = {};
@@ -340,16 +355,43 @@ export function status(ctx) {
 			api_password_path: ctx.api_password
 		},
 		binaries,
-		hooks: {
-			dir: ctx.hooks_dir,
-			ha: !!fs.access(ctx.hooks_dir + '/libdhcp_ha.so'),
-			lease_cmds: !!fs.access(ctx.hooks_dir + '/libdhcp_lease_cmds.so'),
-			// What the switch for client names in DNS needs: the run_script
-			// hook of Kea and the script of kea-dnsmasq-hosts
-			run_script: !!fs.access(ctx.hooks_dir + '/libdhcp_run_script.so', 'r'),
-			dns_hosts: !!fs.access(ctx.dns_hosts_script, 'x')
-		},
+		hooks: hook_flags(ctx),
 		configs,
-		conflicts
+		conflicts,
+		// Whether the DHCPv4 server is set up: see setup.unconfigured()
+		setup: { state: setup.file_state(ctx), unconfigured: setup.unconfigured(ctx) }
 	};
+};
+
+// What setup.plan() needs, from UCI and the files of the router. "cluster"
+// is the reply of "ha-cluster nodes" if the caller has it: the backend
+// does not ask for it, since it runs inside rpcd.
+export function setup_input(ctx, cluster_reply) {
+	let uci = cursor(ctx.uci_dir, ctx.uci_savedir);
+	let input = {
+		dhcp: [],
+		dnsmasq: [],
+		network: [],
+		cluster: type(cluster_reply) == 'object' ? cluster_reply : null,
+		hooks: hook_flags(ctx),
+		scripts_dir: ctx.scripts_dir
+	};
+
+	uci.foreach('dhcp', 'dhcp', s => push(input.dhcp, s));
+	uci.foreach('dhcp', 'dnsmasq', s => push(input.dnsmasq, s));
+	uci.foreach('network', 'interface', s => push(input.network, s));
+
+	return input;
+};
+
+// Where dnsmasq keeps its leases.
+export function dnsmasq_lease_file(ctx) {
+	let file = null;
+
+	cursor(ctx.uci_dir, ctx.uci_savedir).foreach('dhcp', 'dnsmasq', s => {
+		if (file == null)
+			file = text(s.leasefile);
+	});
+
+	return (file != null && file != '') ? file : '/tmp/dhcp.leases';
 };

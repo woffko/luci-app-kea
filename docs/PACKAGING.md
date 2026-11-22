@@ -3,7 +3,7 @@
 Audit date: 2026-11-11. Audited revision: `b6eedcf` (package version
 `0.1.0-r1`). The findings marked "fixed" below were resolved in `0.1.0-r2`
 (roadmap milestone M0) and re-checked with a real build and install. The
-current version is `0.14.0-r1`.
+current version is `0.15.0-r1`.
 
 ## References
 
@@ -58,7 +58,7 @@ time.
 ```text
 Package: luci-app-kea
 Submenu: 3. Applications
-Version: 0.14.0-r1
+Version: 0.15.0-r1
 Depends: +libc +luci-base +kea-uci +kea-lfc +ucode-mod-socket
 Section: luci
 Category: LuCI
@@ -171,6 +171,15 @@ passwords and secrets in the files it returns (TSIG keys in
 database connections); the write-level `getConfigRaw` returns them as they
 are, for the pages that edit the files. Before, `getConfig` returned them
 to every reader, which an external audit found (CA-LUCIKEA-01).
+
+`0.15.0` added two write-level methods for the Setup page:
+`setupFromDnsmasq` (what the configuration made from dnsmasq's settings
+would be, and writing it while the file is still the example of the
+package) and `moveDnsmasqLeases` (the leases of dnsmasq into a running
+kea-dhcp4). The package installs a second program for root,
+`/usr/libexec/luci-app-kea/setup-from-dnsmasq`; it runs `apk audit` to
+tell the example of the package from a changed file. `getStatus` says
+whether the DHCPv4 server is set up.
 
 `0.14.0` also took `stop` and `disable` away from the write-level
 `setConflictAction`: a user who may change the Kea files could stop the

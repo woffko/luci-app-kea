@@ -10,6 +10,7 @@ luci-app-kea/                                 the OpenWrt package; nothing outsi
   htdocs/luci-static/resources/view/status/include/41_kea.js  the Kea leases on the status overview of LuCI
   root/usr/share/rpcd/ucode/luci.kea            rpcd plugin: maps ubus methods to the library
   root/usr/libexec/luci-app-kea/import-dnsmasq  the import from a shell, for other packages
+  root/usr/libexec/luci-app-kea/setup-from-dnsmasq  the configuration made from dnsmasq's settings, for ha-cluster
   ucode/kea/                                    backend library, installed as the luci.kea.* modules
   root/usr/share/luci/menu.d/luci-app-kea.json  menu entries
   root/usr/share/rpcd/acl.d/luci-app-kea.json   rpcd ACL
@@ -303,7 +304,7 @@ TARGET_SSH="ssh root@<target>" BASE_URL=http://<target> \
 
 The script copies the tests to the target, runs the backend tests against
 the installed library, loads the fixtures the browser tests need, runs the
-seven browser tests, and removes the fixtures again, also when a test
+eight browser tests, and removes the fixtures again, also when a test
 failed. The rest of this section is what it does, step by step, for running
 one test by hand.
 
@@ -429,7 +430,7 @@ node test/browser/screenshots.js ha ha-checks
 - **Tests on OpenWrt in QEMU**: boots the official OpenWrt image, installs
   Kea from the OpenWrt package repository and the package of the build job,
   and runs `test/run-target-tests.sh`: the backend tests on the router and
-  the seven browser tests. A failed run keeps its screenshots and the console
+  the eight browser tests. A failed run keeps its screenshots and the console
   of the machine as the artifact `target-test-failure`. The job takes two to
   six minutes. Starting the machine, installing Kea and running the tests is
   about a minute and a half of that, with KVM, which the runner lets the job

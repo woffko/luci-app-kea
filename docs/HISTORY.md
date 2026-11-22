@@ -7,6 +7,22 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-22: From dnsmasq to Kea in one step (M12, `0.15.0-r1`)
+
+- Decided by the owner and passed on by the `ha-cluster` project, after a
+  router of the owner whose Kea configuration, made by hand, listened on
+  no interface. The contract of the command was agreed with that project
+  before the work.
+- apk keeps a checksum of every file of a package, and `apk audit
+  --backup` marks a changed configuration file with "U": that tells the
+  example of the Kea package from a file someone changed. OpenWrt has no
+  `sha1sum` to compare the checksum directly, so the audit is used.
+- Tried with a real client: dnsmasq served it, the command wrote the
+  configuration, Kea started, the lease moved, and the client got its
+  address again from Kea.
+- On the owner's word as relayed, the page does not replace a changed
+  file: it shows what it would write.
+
 ## 2026-11-22: Release `v0.14.0`
 
 - The owner asked for the pull request to be merged and released

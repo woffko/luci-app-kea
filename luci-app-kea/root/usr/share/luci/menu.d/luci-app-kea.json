@@ -25,6 +25,14 @@
 			"path": "kea/services"
 		}
 	},
+	"admin/services/kea/setup": {
+		"title": "Setup",
+		"order": 25,
+		"action": {
+			"type": "view",
+			"path": "kea/setup"
+		}
+	},
 	"admin/services/kea/dhcp4": {
 		"title": "DHCPv4",
 		"order": 30,

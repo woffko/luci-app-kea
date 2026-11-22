@@ -101,6 +101,10 @@ export function context(options) {
 		cluster_timeout: options?.cluster_timeout ?? 15000,
 		// Held while a Kea configuration file is changed; see locked()
 		lock_file: options?.lock_file ?? root + '/var/lock/luci-app-kea.lock',
+		// The package database of apk, and a stand-in for "apk audit"
+		// (tests); see setup.file_state()
+		apk_db: options?.apk_db ?? root + '/lib/apk/db/installed',
+		apk_audit: options?.apk_audit,
 		lock_wait: options?.lock_wait ?? 10000
 	};
 };
@@ -316,6 +320,10 @@ function log_kind(output) {
 //   the sockets. Kea opens its sockets once, when it starts. At boot it is
 //   started while an interface may not be ready, then opens nothing, and
 //   stays that way.
+// - "subnet-interface": a subnet bound to an interface (the "interface" of
+//   the subnet or of its shared network) that interfaces-config does not
+//   list. Kea takes it and answers nobody there. The entry names the
+//   interface.
 //
 // With the effect "no-pair", the servers of a high availability pair
 // cannot reach each other:
@@ -380,6 +388,30 @@ export function warnings(ctx, name, content) {
 			effect: 'no-listen',
 			value: join(', ', map(listen.interfaces, entry => `${entry}`))
 		});
+
+	// A subnet bound to an interface that Kea does not listen on: Kea takes
+	// it, and nobody on that interface gets an answer. An entry of the list
+	// may be "device" or "device/address"; "*" is every interface.
+	let listed = map(type(listen?.interfaces) == 'array' ? listen.interfaces : [], entry => split(`${entry}`, '/')[0]);
+
+	if (!('*' in listed)) {
+		let bound = [];
+		let subnets_key = name == 'dhcp4' ? 'subnet4' : 'subnet6';
+
+		for (let subnet in (type(root[subnets_key]) == 'array' ? root[subnets_key] : []))
+			push(bound, [ subnet, null ]);
+
+		for (let network in (type(root['shared-networks']) == 'array' ? root['shared-networks'] : []))
+			for (let subnet in (type(network?.[subnets_key]) == 'array' ? network[subnets_key] : []))
+				push(bound, [ subnet, network ]);
+
+		for (let pair in bound) {
+			let device = pair[0]?.interface ?? pair[1]?.interface;
+
+			if (type(device) == 'string' && device != '' && !(device in listed))
+				push(found, { code: 'subnet-interface', effect: 'no-listen', value: `${pair[0]?.subnet ?? ''}`, interface: device });
+		}
+	}
 
 	return found;
 };

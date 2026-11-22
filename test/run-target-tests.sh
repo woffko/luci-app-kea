@@ -26,7 +26,7 @@ set -eu
 
 ROOT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 WORK=/tmp/luci-app-kea-test
-BROWSER_TESTS="smoke editor ha leases overview-leases warnings import"
+BROWSER_TESTS="smoke editor ha leases overview-leases warnings import setup"
 
 export BASE_URL="${BASE_URL:-http://127.0.0.1:8080}"
 

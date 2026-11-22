@@ -7,6 +7,8 @@ import * as config from 'luci.kea.config';
 import * as service from 'luci.kea.service';
 import * as importer from 'luci.kea.importer';
 import * as runtime from 'luci.kea.runtime';
+import * as setup from 'luci.kea.setup';
+import * as fs from 'fs';
 
 // rpcd plugin for luci-app-kea. The work is done by the luci.kea.* modules;
 // this file only maps ubus methods to them. Method names and reply shapes
@@ -119,6 +121,24 @@ const methods = {
 		args: { family: 'family', identifier: 'identifier', address: 'address', hostname: 'hostname' },
 		call: function(request) {
 			return importer.reserve(ctx, service.network_interfaces(ctx), request.args);
+		}
+	},
+
+	// The Setup page: what the configuration made from dnsmasq's settings
+	// would be, and writing it where the file is still the sample. The page
+	// passes the reply of "ha-cluster nodes" it got itself.
+	setupFromDnsmasq: {
+		args: { dry_run: true, cluster: {} },
+		call: function(request) {
+			return setup.run(ctx, service.setup_input(ctx, request.args.cluster),
+				{ dry_run: request.args.dry_run !== false });
+		}
+	},
+
+	// Hand the leases of dnsmasq to a running kea-dhcp4.
+	moveDnsmasqLeases: {
+		call: function() {
+			return importer.move_leases(ctx, fs.readfile(service.dnsmasq_lease_file(ctx)) ?? '', time());
 		}
 	},
 

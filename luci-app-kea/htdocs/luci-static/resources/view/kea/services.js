@@ -508,6 +508,7 @@ return view.extend({
 
 		return E("div", {}, [
 			E("h2", _("Kea Services")),
+			backend.setupNote(this.status) || "",
 			E("div", { "id": "kea-services-content" }, [
 				this.renderInitSection(),
 				this.renderConflictSection(),

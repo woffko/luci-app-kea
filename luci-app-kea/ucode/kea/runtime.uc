@@ -171,7 +171,8 @@ export function log(ctx, count) {
 // ---- control socket ---------------------------------------------------------
 
 // Send one command to a daemon over the control socket named in its
-// configuration. Returns the reply of the daemon, an object with "result",
+// configuration: a name, or { command, arguments }. Returns the reply of
+// the daemon, an object with "result",
 // or { error } with "no-socket-module", "no-control-socket",
 // "connect-failed" or "no-reply".
 export function control(ctx, name, command) {
@@ -191,7 +192,7 @@ export function control(ctx, name, command) {
 	if (!conn)
 		return { error: 'connect-failed' };
 
-	conn.send(sprintf('%J', { command }));
+	conn.send(sprintf('%J', type(command) == 'object' ? command : { command }));
 
 	// Kea closes the connection after its reply.
 	let text = '';

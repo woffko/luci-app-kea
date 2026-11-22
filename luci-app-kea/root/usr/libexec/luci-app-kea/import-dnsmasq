@@ -6,12 +6,18 @@
 // another package that switches a router from dnsmasq to Kea.
 //
 //   import-dnsmasq [--dry-run] [--include-review]
+//   import-dnsmasq --leases
 //
 // Without arguments the static leases that are ready are imported; with
 // --include-review also those that lose a setting Kea cannot express
 // (lease time, tags, the dns flag, broadcast) or are disabled. An entry
 // that would change a reservation Kea already has is never imported here.
 // --dry-run writes nothing.
+//
+// --leases hands the leases dnsmasq has given out to a running kea-dhcp4,
+// so that its clients keep their addresses: see move_leases() in
+// importer.uc. It needs the lease commands hook loaded in Kea, and prints
+// { result, added, skipped }, or "reason": "kea-not-running" with exit 1.
 //
 // Writes one JSON object to standard output: see run() in
 // /usr/share/ucode/luci/kea/importer.uc. Exit status:
@@ -27,11 +33,12 @@
 'use strict';
 
 import { cursor } from 'uci';
+import * as fs from 'fs';
 import * as config from 'luci.kea.config';
 import * as service from 'luci.kea.service';
 import * as importer from 'luci.kea.importer';
 
-const USAGE = 'usage: import-dnsmasq [--dry-run] [--include-review]\n';
+const USAGE = 'usage: import-dnsmasq [--dry-run] [--include-review] | --leases\n';
 
 let options = importer.command_options(ARGV);
 
@@ -47,6 +54,20 @@ if (options.help) {
 }
 
 let ctx = config.context();
+
+if (options.leases) {
+	if (options.dry_run || options.include_review) {
+		warn(USAGE);
+		printf('%J\n', { result: false, error: '--leases is used alone' });
+		exit(2);
+	}
+
+	let moved = importer.move_leases(ctx, fs.readfile(service.dnsmasq_lease_file(ctx)) ?? '', time());
+
+	printf('%J\n', moved);
+	exit(moved.result ? 0 : 1);
+}
+
 let hosts = [];
 
 cursor().foreach('dhcp', 'host', s => push(hosts, s));
