@@ -7,6 +7,15 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-22: Release `v0.14.0`
+
+- The owner asked for the pull request to be merged and released
+  ("сливай и выпускай"). The tag is on the merge commit on `main`.
+- The release workflow passed, with 160 backend tests and seven browser
+  tests. The attached file holds the same files as the package tested by
+  hand (compared with `apk adbdump`), its checksum is in the release text
+  and matched the public download. Published as a pre-release.
+
 ## 2026-11-22: After the audit (`0.14.0-r1`)
 
 - An external audit of `v0.11.0` and `v0.13.0`, made for the image w0w6 of
