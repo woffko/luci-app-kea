@@ -1,6 +1,6 @@
 # Project Status
 
-Status date: 2026-11-21. Package version `0.10.1-r1`, alpha.
+Status date: 2026-11-22. Package version `0.11.0-r1`, alpha.
 
 This is a code-level inventory of what exists and what is missing. The work
 needed to close the gaps is ordered in [ROADMAP.md](ROADMAP.md). Packaging
@@ -155,6 +155,22 @@ button.
 
 `0.10.1-r1` was not installed on the second machine.
 
+`0.11.0-r1` was tested on the QEMU machine and by CI: 152 backend tests on
+the router and six browser tests. By hand on that machine:
+
+- The import command with rpcd stopped: a dry run in 0.03 seconds, an
+  import of the two ready entries of the fixture in 0.13 seconds, a second
+  run that wrote nothing, exit status 2 for an unknown argument and 1
+  without a Kea configuration.
+- A save from LuCI while another process held the lock for three seconds:
+  it waited and succeeded after 3.05 seconds; rpcd answered other calls
+  afterwards.
+- A procd service standing in for `ha-cluster`, with
+  `procd_add_raw_trigger "kea.service" 1000`: its command ran one second
+  after each start, reload, stop and restart of Kea from the application,
+  and not after "enable". The call of the application returned in 0.01
+  seconds each time.
+
 The package file of `v0.10.1` was built by the release workflow from the
 tagged commit and passed the 137 backend tests and six browser tests in that
 run, on OpenWrt 25.12.6 under QEMU with Kea 3.0.4. It holds the same files
@@ -180,12 +196,12 @@ the `luci.kea.*` ucode modules:
 
 | Module | Content |
 |--------|---------|
-| `config.uc` | Paths, validation with the Kea binary, read, save, backups, restore; the settings that pass the check and stop the daemon; where the loggers write |
+| `config.uc` | Paths, validation with the Kea binary, read, save, backups, restore, the lock around every change of a file; the settings that pass the check and stop the daemon; where the loggers write |
 | `service.uc` | Component and service state from procd, init actions, runtime files |
 | `openwrt.uc` | What dnsmasq and odhcpd are configured to serve, from the sections of `/etc/config/dhcp` |
-| `cluster.uc` | The nodes of a cluster as `ha-cluster` names them, in the shape the high availability tab needs; and whether `ha-cluster` follows the Kea files and has the command for it |
+| `cluster.uc` | Whether `ha-cluster` follows the Kea files, and whether its init script has a command |
 | `runtime.uc` | Kea version, Kea messages of the system log, leases from the lease files, and a client for the control socket of a daemon |
-| `importer.uc` | Static lease classification against the Kea configuration, and import |
+| `importer.uc` | Static lease classification against the Kea configuration, import, and the import command |
 | `jsonc.uc` | JSON with `//`, `#` and `/* */` comments |
 | `net.uc` | IPv4 helpers |
 
@@ -205,7 +221,7 @@ the `luci.kea.*` ucode modules:
 | `saveConfig` | write | Write to a temporary file, validate with the Kea binary, back up, replace; returns the warnings for the new file |
 | `restoreBackup` | write | Validate a backup, back up the current file, replace it; returns the warnings as well |
 | `setService` | write | Enable or disable a Kea component in UCI |
-| `setInitAction` | write | `enable`, `disable`, `start`, `stop`, `restart`, `reload` for `/etc/init.d/kea`. After `start`, `restart` and `reload` it runs `/etc/init.d/ha-cluster firewall` for an enabled `ha-cluster` that has Kea as its DHCP server, and the reply then has `cluster_firewall`, true when that command succeeded |
+| `setInitAction` | write | `enable`, `disable`, `start`, `stop`, `restart`, `reload` for `/etc/init.d/kea`. After `start`, `restart`, `reload` and `stop` it sends the procd event `kea.service` with the action, whether the script succeeded or not. After `start`, `restart` and `reload` it runs `/etc/init.d/ha-cluster firewall` for an enabled `ha-cluster` that has Kea as its DHCP server, and the reply then has `cluster_firewall`, true when that command succeeded |
 | `setConflictAction` | write | The same actions, restricted to `dnsmasq` and `odhcpd` |
 | `importDnsmasqCommit` | write | Write the selected entries (or all ready ones) to `kea-dhcp4.conf` and `kea-dhcp6.conf` |
 
@@ -425,8 +441,8 @@ Kea, on OpenWrt.
 | Test | Runs on | Covers |
 |------|---------|--------|
 | `node --test "test/js/*.test.js"` | Any machine with Node.js | The configuration model (56 cases, plus the stock Kea configs when `KEA_STOCK_DIR` is set) and the high availability model (28 cases), with what `ha-cluster` says about its nodes; one case reads the backend sources and fails when they call a ubus object that rpcd serves |
-| `test/run-ucode-tests.sh` | Any machine with a ucode interpreter | The backend library with a stand-in for the Kea binary: comment stripping, JSON writing, IPv4 and IPv6 helpers, save, backups, restore, retention, how the Kea binary is called and its refusal reported, import classification and commit, lease files, log lines, version, the settings Kea does not start with, log outputs, what dnsmasq and odhcpd serve, the client of the control socket against a stand-in server, the state of a daemon, when `ha-cluster` follows the Kea files (101 cases) |
-| `test/run-ucode-tests.sh --target` | OpenWrt with the Kea daemons | The same plus 36 cases with the real Kea binaries, UCI and procd: validation, a hook checking its parameters (needs `kea-hook-ha`), that Kea accepts a lease file and a log file in a wrong directory, service state, init actions, the call of `ha-cluster` with a stand-in for its init script, API password, import from a UCI fixture, version and system log. Uses a temporary root, except that one test line is written to the system log |
+| `test/run-ucode-tests.sh` | Any machine with a ucode interpreter | The backend library with a stand-in for the Kea binary: comment stripping, JSON writing, IPv4 and IPv6 helpers, save, backups, restore, retention, how the Kea binary is called and its refusal reported, import classification and commit, lease files, log lines, version, the settings Kea does not start with, log outputs, what dnsmasq and odhcpd serve, the client of the control socket against a stand-in server, the state of a daemon, when `ha-cluster` follows the Kea files, the lock around changes of a file, the import command (112 cases) |
+| `test/run-ucode-tests.sh --target` | OpenWrt with the Kea daemons | The same plus 40 cases with the real Kea binaries, UCI and procd: validation, a hook checking its parameters (needs `kea-hook-ha`), that Kea accepts a lease file and a log file in a wrong directory, service state, init actions and the event after them, the call of `ha-cluster` with a stand-in for its init script, API password, import from a UCI fixture, the installed import command with a dry run on the system's own files, version and system log. Uses a temporary root, except that one test line is written to the system log |
 | `test/browser/smoke.js` | Node.js + Playwright against a target | Every page renders without JavaScript errors |
 | `test/browser/editor.js` | Node.js + Playwright against a test target | Editors (pools, options, global settings, shared networks, input checks, change view), raw editor, backups and example removal end to end, with Kea validating every save |
 | `test/browser/ha.js` | Node.js + Playwright against a test target that has `kea-hook-ha` | The high availability tab end to end for both protocols, with Kea loading the hook on every save, including the peers filled in from a cluster. It answers the call for the nodes itself |
@@ -649,7 +665,11 @@ Kea, on OpenWrt.
   over.
 - The import rewrites the Kea file as plain JSON and removes comments. The
   page says so when the file has comments.
-- The import does not reload Kea.
+- The import does not reload Kea, from the page or from the command.
+- The lock keeps two writers from interleaving, not a page from saving what
+  it loaded before. A DHCP page that is open while the import command runs
+  still holds the file as it was, and a save from it replaces the imported
+  reservations. Reload the page after an import from a script.
 - `/etc/kea/luci-reservations.json`, written by versions before `0.4.0`, is
   no longer read or written. It can be deleted.
 

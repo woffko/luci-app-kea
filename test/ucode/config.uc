@@ -437,6 +437,70 @@ test('where the loggers write', () => {
 		[ 'syslog', 'a.log' ], 'each output once');
 });
 
+/* ---- the lock around changes of a file ------------------------------------ */
+
+test('the lock is taken for a save and given back afterwards', () => {
+	equal(ctx.lock_file, root + '/var/lock/luci-app-kea.lock');
+
+	let inner = null;
+
+	equal(config.locked(ctx, () => {
+		// Inside, another holder is refused at once.
+		let other = fs.open(ctx.lock_file, 'a');
+
+		inner = other.lock('xn');
+		other.close();
+
+		// A call from inside runs at once: the lock belongs to the process.
+		return config.locked(ctx, () => 'nested');
+	}), 'nested');
+
+	equal(inner, null, 'the lock was held');
+
+	let after = fs.open(ctx.lock_file, 'a');
+
+	equal(after.lock('xn'), true, 'and given back');
+	after.lock('u');
+	after.close();
+});
+
+test('a save waits for another holder of the lock, and gives up', () => {
+	let hasty = config.context({ ...ctx, lock_wait: 300 });
+	let holder = fs.open(ctx.lock_file, 'a');
+	let before = fs.readfile(file);
+
+	equal(holder.lock('x'), true);
+
+	let result = config.save(hasty, 'dhcp4', body(9000));
+
+	holder.lock('u');
+	holder.close();
+
+	equal(result, { result: false, error: 'another change of the Kea configuration is in progress' });
+	equal(fs.readfile(file), before, 'nothing was written');
+	equal(config.save(hasty, 'dhcp4', body(9000)).result, true, 'it works once the lock is free');
+});
+
+test('the lock is given back when the function fails', () => {
+	let failed = false;
+
+	try {
+		config.locked(ctx, () => die('broken'));
+	}
+	catch (e) {
+		failed = index(e.message, 'broken') >= 0;
+	}
+
+	equal(failed, true, 'the error reaches the caller');
+
+	let probe = fs.open(ctx.lock_file, 'a');
+
+	equal(probe.lock('xn'), true);
+	probe.lock('u');
+	probe.close();
+	equal(config.locked(ctx, () => 'again'), 'again', 'and the next call is not taken for a nested one');
+});
+
 test('write_private and mkdir_p', () => {
 	equal(config.mkdir_p(root + '/a/b/c', 0o750), true);
 	equal(config.mkdir_p(root + '/a/b/c', 0o750), true);

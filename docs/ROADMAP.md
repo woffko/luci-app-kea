@@ -302,6 +302,28 @@ owner that day and are done in `0.9.0-r1`.
       the new file cannot be loaded. Kea exits when the signal arrives in
       its first moments after a start, by the same bench.
 
+## M10: A router that switches from dnsmasq to Kea by itself
+
+The owner decided on 2026-11-22 that images carry Kea and this application
+with every Kea service off, and that `ha-cluster` chooses the DHCP server
+of a cluster by itself (`dhcp_backend 'auto'`). At a switch to Kea the
+static leases are to be imported first, without anyone at the page. Both
+items were approved by the owner that day, as relayed by the `ha-cluster`
+project, and are done in `0.11.0-r1`.
+
+- [x] The import from a shell: `/usr/libexec/luci-app-kea/import-dnsmasq`,
+      which needs neither rpcd nor LuCI, says what it left, and has exit
+      statuses a script can use. Every change of a Kea file takes a lock,
+      since there are now two writers.
+- [x] The procd event `kea.service` after the application starts,
+      restarts, reloads or stops Kea, for the trigger of `ha-cluster`.
+- [ ] Open, for the owner: the names of DHCP clients in DNS. Under dnsmasq
+      they come from its own leases; under Kea nothing gives them to
+      dnsmasq, and OpenWrt does not package the hook of Kea that runs a
+      script for each lease. Proposed here: a small package of its own that
+      writes a hosts file for dnsmasq from the lease files of Kea, rather
+      than this application or `ha-cluster`.
+
 ## Decisions
 
 Made by the project owner.

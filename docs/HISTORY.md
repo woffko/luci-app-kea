@@ -7,6 +7,32 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-22: The import from a shell, and an event after Kea (M10, `0.11.0-r1`)
+
+- The owner decided that `ha-cluster` switches a cluster between dnsmasq
+  and Kea by itself, and that the static leases are imported first, at the
+  switch. Asked by the `ha-cluster` project, the import was first tried
+  from a root shell over ubus on the test machine: it worked, and a nested
+  call from an rpcd exec plugin as well, but not from anything the backend
+  runs and waits for, and only while rpcd runs. A ucode script using the
+  library directly worked with rpcd stopped.
+- So: a command, `/usr/libexec/luci-app-kea/import-dnsmasq`, with the
+  arguments and exit statuses agreed with that project, and a report of
+  what it left. And the procd event `kea.service` after the four init
+  actions, for a trigger of `ha-cluster`. An event at the change of a
+  service flag, asked for first, was left out: it would have switched
+  dnsmasq off before Kea was started.
+- With two writers of the Kea files, every change now takes a lock. ucode
+  locks a file with `lock("x")`, `lock("xn")` and `lock("u")`; `"ex"` is
+  refused.
+- Two slips on the way, both shown by the first test runs: ucode resolves
+  names in order, so a function that calls one declared further down
+  fails at run time ("access to undeclared variable"); and an assertion
+  helper was used in an on-target test without being imported.
+- Both items were approved by the owner in the words "luci-app-kea сделать
+  команду импорта и отправлять событие после запуска, перезапуска или
+  остановки Kea. - разрешаю", relayed by the `ha-cluster` project.
+
 ## 2026-11-21: A pair made by the application, on the bench of `ha-cluster`
 
 No change to the package. The `ha-cluster` project ran the released
