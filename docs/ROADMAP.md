@@ -217,7 +217,8 @@ are no longer in use.
       [RELEASING.md](RELEASING.md).
 - [x] Tag `v0.x` releases. `v0.7.0` on 2026-11-17 is the first, made by
       hand with the package of its CI run attached. `v0.8.0` followed on
-      2026-11-20, `v0.9.0`, `v0.10.0` and `v0.10.1` on 2026-11-21.
+      2026-11-20, `v0.9.0`, `v0.10.0` and `v0.10.1` on 2026-11-21,
+      `v0.11.0`, `v0.12.0` and `v0.13.0` on 2026-11-22.
 - [x] Document installation of the package that CI builds.
 - [x] Run the on-target and browser tests in CI against an OpenWrt root
       filesystem or virtual machine. Done with the official image under

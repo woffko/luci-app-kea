@@ -7,6 +7,24 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-22: Releases `v0.11.0`, `v0.12.0` and `v0.13.0`
+
+- The owner asked for the four open pull requests to be merged and
+  released ("слей и выпусти сам и удали ветки потом"). They were merged in
+  their order, and each version was tagged on its own merge commit on
+  `main`, so that the three releases carry the version their changelog
+  section names.
+- The three runs of the release workflow passed: 152 backend tests and six
+  browser tests for `v0.11.0`, 156 and seven for `v0.12.0` and `v0.13.0`.
+  Each draft had its package, the checksum of that file in its text and
+  its changelog section; the file of `v0.13.0` holds the same files as the
+  package tested by hand (compared with `apk adbdump`). The drafts were
+  published as pre-releases, and each file downloaded from its public link
+  had its checksum.
+- None of them was installed on the second test machine. The switch of
+  `v0.13.0` waits for a build of `kea-dnsmasq-hosts` that puts its script in
+  `/usr/share/kea/scripts`.
+
 ## 2026-11-22: Client names in DNS (`0.13.0-r1`)
 
 - Approved by the owner, as relayed by the `ha-cluster` project, which made

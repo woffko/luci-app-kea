@@ -196,11 +196,13 @@ the router and six browser tests. By hand on that machine:
   and not after "enable". The call of the application returned in 0.01
   seconds each time.
 
-The package file of `v0.10.1` was built by the release workflow from the
-tagged commit and passed the 137 backend tests and six browser tests in that
-run, on OpenWrt 25.12.6 under QEMU with Kea 3.0.4. It holds the same files
-as the package that was tested by hand before. `v0.10.0` should not be used
-on a router with `luci-app-ha-cluster`.
+The package files of `v0.11.0`, `v0.12.0` and `v0.13.0` were built by the
+release workflow from their tagged commits and passed the tests in those
+runs, on OpenWrt 25.12.6 under QEMU with Kea 3.0.4: 152 backend tests and
+six browser tests for `v0.11.0`, 156 and seven for the other two. The file
+of `v0.13.0` holds the same files as the package that was tested by hand
+before. `v0.10.1` was the last release before them; `v0.10.0` should not be
+used on a router with `luci-app-ha-cluster`.
 
 Not exercised: clients on a real network, two Kea servers exchanging
 leases, the lease file cleanup running while the page reads the files, the
