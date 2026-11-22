@@ -7,6 +7,16 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-22: Release `v0.15.0`
+
+- The owner said to merge and release when ready. The tag is on the merge
+  commit on `main`.
+- The release workflow passed, with 173 backend tests and eight browser
+  tests. The attached file holds the same files as a package built from
+  the merged `main` by hand (compared with `apk adbdump`); its checksum is
+  in the release text and matched the public download. Published as a
+  pre-release.
+
 ## 2026-11-22: From dnsmasq to Kea in one step (M12, `0.15.0-r1`)
 
 - Decided by the owner and passed on by the `ha-cluster` project, after a
