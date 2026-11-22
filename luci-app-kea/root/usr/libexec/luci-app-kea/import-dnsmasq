@@ -1,0 +1,57 @@
+#!/usr/bin/ucode
+// SPDX-License-Identifier: Apache-2.0
+//
+// Import the static leases of /etc/config/dhcp into the Kea DHCPv4 and
+// DHCPv6 configuration, as the Import page of luci-app-kea does: for
+// another package that switches a router from dnsmasq to Kea.
+//
+//   import-dnsmasq [--dry-run] [--include-review]
+//
+// Without arguments the static leases that are ready are imported; with
+// --include-review also those that lose a setting Kea cannot express
+// (lease time, tags, the dns flag, broadcast) or are disabled. An entry
+// that would change a reservation Kea already has is never imported here.
+// --dry-run writes nothing.
+//
+// Writes one JSON object to standard output: see run() in
+// /usr/share/ucode/luci/kea/importer.uc. Exit status:
+//   0  done, or nothing to do
+//   1  nothing written: Kea refused the result, a file could not be
+//      written, or there is no Kea DHCP configuration
+//   2  an unknown argument
+//
+// It needs neither rpcd nor LuCI to run. It does not reload Kea: after a
+// run with "changed" true, a running Kea reads the files when it is
+// reloaded (/etc/init.d/kea reload).
+
+'use strict';
+
+import { cursor } from 'uci';
+import * as config from 'luci.kea.config';
+import * as service from 'luci.kea.service';
+import * as importer from 'luci.kea.importer';
+
+const USAGE = 'usage: import-dnsmasq [--dry-run] [--include-review]\n';
+
+let options = importer.command_options(ARGV);
+
+if (options.error) {
+	warn(USAGE);
+	printf('%J\n', { result: false, error: options.error });
+	exit(2);
+}
+
+if (options.help) {
+	print(USAGE);
+	exit(0);
+}
+
+let ctx = config.context();
+let hosts = [];
+
+cursor().foreach('dhcp', 'host', s => push(hosts, s));
+
+let reply = importer.run(ctx, hosts, service.network_interfaces(ctx), options);
+
+printf('%J\n', reply);
+exit(reply.result ? 0 : 1);

@@ -8,6 +8,7 @@ luci-app-kea/                                 the OpenWrt package; nothing outsi
   htdocs/luci-static/resources/view/kea/        LuCI JavaScript views (one per page)
   htdocs/luci-static/resources/kea/             shared modules: model, ha, backend, widgets, dialogs, editor, hatab
   root/usr/share/rpcd/ucode/luci.kea            rpcd plugin: maps ubus methods to the library
+  root/usr/libexec/luci-app-kea/import-dnsmasq  the import from a shell, for other packages
   ucode/kea/                                    backend library, installed as the luci.kea.* modules
   root/usr/share/luci/menu.d/luci-app-kea.json  menu entries
   root/usr/share/rpcd/acl.d/luci-app-kea.json   rpcd ACL

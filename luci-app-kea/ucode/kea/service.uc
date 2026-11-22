@@ -220,6 +220,24 @@ function cluster_firewall(ctx) {
 	return system(config.shellquote(script) + ' firewall </dev/null >/dev/null 2>&1', ctx.cluster_timeout) == 0;
 }
 
+// The actions after which other packages are told, by kea_event().
+const EVENT_ACTIONS = [ 'start', 'restart', 'reload', 'stop' ];
+
+// Tell other packages that this application ran /etc/init.d/kea with one of
+// EVENT_ACTIONS: a procd event of the type "kea.service" with the action.
+// procd runs what a package has registered for it, such as ha-cluster with
+//   procd_add_raw_trigger "kea.service" 1000 /etc/init.d/ha-cluster dhcp-backend
+// on its own, later; nothing is waited for here. The event says only that
+// the init script ran, not how it went: a listener looks at Kea itself.
+function kea_event(ctx, action) {
+	let event = { type: 'kea.service', data: { action } };
+
+	if (ctx.service_event)
+		return ctx.service_event(event);
+
+	connect()?.call('service', 'event', event);
+}
+
 // With "cluster_firewall" in the answer, ha-cluster was called as well,
 // because Kea was made to read its files: true when its command succeeded.
 // Its failure is not a failure of the action.
@@ -235,7 +253,12 @@ export function init_action(ctx, action) {
 	if (reads_files && !ensure_state(ctx))
 		return { result: false, error: 'failed to prepare Kea runtime state' };
 
-	if (run_init(ctx, 'kea', action) != 0)
+	let status = run_init(ctx, 'kea', action);
+
+	if (action in EVENT_ACTIONS)
+		kea_event(ctx, action);
+
+	if (status != 0)
 		return { result: false, error: 'init action failed' };
 
 	let reply = { result: true };

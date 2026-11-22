@@ -6,7 +6,7 @@
 
 import * as fs from 'fs';
 import { cursor } from 'uci';
-import { test, equal, tmpdir, rm_rf, fixture, done } from '../lib.uc';
+import { test, equal, ok, tmpdir, rm_rf, fixture, done } from '../lib.uc';
 import * as config from 'luci.kea.config';
 import * as importer from 'luci.kea.importer';
 import { parse } from 'luci.kea.jsonc';
@@ -88,6 +88,43 @@ test('a second import finds nothing left to do', () => {
 	equal(result.changed, false);
 	equal(result.imported, 0);
 });
+
+/* ---- the installed command ------------------------------------------------- */
+
+const COMMAND = '/usr/libexec/luci-app-kea/import-dnsmasq';
+
+// Runs the command with the arguments and returns { status, output }.
+function command(args) {
+	let out = root + '/command.out';
+	let status = system(sprintf('%s %s >%s 2>/dev/null', COMMAND, args, out));
+
+	return { status, output: trim(fs.readfile(out) ?? '') };
+}
+
+if (fs.access(COMMAND, 'x')) {
+	test('the command answers its arguments with the exit status it promises', () => {
+		equal(command('--help').status, 0);
+		ok(index(command('--help').output, 'usage: import-dnsmasq') == 0);
+
+		let wrong = command('--bogus');
+
+		equal(wrong.status, 2);
+		equal(json(wrong.output), { result: false, error: 'unknown argument: --bogus' });
+	});
+
+	// The system's own files: a dry run writes nothing.
+	test('a dry run of the command on this system reads its files and writes nothing', () => {
+		let before4 = fs.readfile('/etc/kea/kea-dhcp4.conf');
+		let run = command('--dry-run');
+		let reply = json(run.output);
+
+		equal(run.status, reply.result ? 0 : 1);
+		equal(reply.mode, 'dry-run');
+		equal(sort(keys(reply.counts)), [ 'blocked', 'present', 'ready', 'review', 'update' ]);
+		equal(type(reply.left), 'array');
+		equal(fs.readfile('/etc/kea/kea-dhcp4.conf'), before4);
+	});
+}
 
 rm_rf(root);
 done();

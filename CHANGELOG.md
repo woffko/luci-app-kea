@@ -9,6 +9,30 @@ Released versions are tagged `vX.Y.Z` and have their package on the
 [Releases page](https://github.com/woffko/luci-app-kea/releases). All
 versions are alpha.
 
+## 0.11.0-r1 (2026-11-22)
+
+For other packages that switch a router from dnsmasq to Kea, such as
+`ha-cluster`.
+
+### Added
+
+- `/usr/libexec/luci-app-kea/import-dnsmasq`: the import of the static
+  leases of `/etc/config/dhcp`, as on the Import page, from a shell. Without
+  arguments it imports what is ready; `--include-review` adds the leases
+  that lose a setting Kea cannot express; `--dry-run` writes nothing. It
+  prints what it did and what it left as JSON, exits with 0 when done or
+  when there was nothing to do, 1 when it wrote nothing, 2 for an unknown
+  argument, and needs neither rpcd nor LuCI. It does not reload Kea.
+- After the application starts, restarts, reloads or stops Kea, it sends
+  the procd event `kea.service` with the action, so that another package
+  can act on it with a trigger of its own.
+
+### Changed
+
+- Every change of a Kea configuration file, from the pages or from the new
+  command, takes a lock, so that two writers do not lose each other's
+  change. A save waits up to ten seconds for another one to finish.
+
 ## 0.10.1-r1 (2026-11-21)
 
 ### Fixed

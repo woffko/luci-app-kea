@@ -160,6 +160,41 @@ test('a failing init script is reported', () => {
 	fs.unlink(root + '/fail');
 });
 
+test('other packages are told when Kea was started, restarted, reloaded or stopped', () => {
+	let events = [];
+	let ectx = config.context({ ...options, service_list: name => ({}), service_event: event => push(events, event) });
+
+	for (let action in [ 'start', 'restart', 'reload', 'stop', 'enable', 'disable' ])
+		equal(service.init_action(ectx, action).result, true, action);
+
+	equal(events, [
+		{ type: 'kea.service', data: { action: 'start' } },
+		{ type: 'kea.service', data: { action: 'restart' } },
+		{ type: 'kea.service', data: { action: 'reload' } },
+		{ type: 'kea.service', data: { action: 'stop' } }
+	], 'not for the autostart');
+
+	// Whatever the outcome: the event says that the script ran.
+	events = [];
+	fs.writefile(root + '/fail', '');
+	equal(service.init_action(ectx, 'restart'), { result: false, error: 'init action failed' });
+	fs.unlink(root + '/fail');
+	equal(events, [ { type: 'kea.service', data: { action: 'restart' } } ]);
+
+	// Not when the script was not run at all.
+	events = [];
+	equal(service.init_action(ectx, 'start; reboot').result, false);
+	equal(events, []);
+});
+
+test('procd takes the event', () => {
+	let bus = require('ubus').connect();
+	let reply = bus.call('service', 'event', { type: 'kea.service', data: { action: 'test' } });
+
+	equal(bus.error(), null);
+	equal(reply, null);
+});
+
 test('only dnsmasq and odhcpd can be controlled as conflicting services', () => {
 	equal(service.conflict_action(ctx, 'rpcd', 'stop'), { result: false, error: 'invalid service name' });
 	equal(service.conflict_action(ctx, '../kea', 'stop'), { result: false, error: 'invalid service name' });

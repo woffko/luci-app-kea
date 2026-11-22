@@ -4,7 +4,7 @@
 
 LuCI application for managing the ISC Kea DHCP server on OpenWrt.
 
-> **Status: alpha (0.10.1).** Usable for testing on a lab router. Not ready to
+> **Status: alpha (0.11.0).** Usable for testing on a lab router. Not ready to
 > replace a production dnsmasq/odhcpd setup yet: see
 > [Known limitations](#known-limitations).
 
@@ -53,7 +53,8 @@ Menu location: **Services > Kea DHCP**.
   syntax check and restore from backup.
 - **Import dnsmasq**: turns the static leases of OpenWrt (`/etc/config/dhcp`)
   into Kea reservations for DHCPv4 and DHCPv6. The page shows what would
-  happen to each lease and why, and you choose what to import.
+  happen to each lease and why, and you choose what to import. Scripts can
+  run the same import with `/usr/libexec/luci-app-kea/import-dnsmasq`.
 
 The DHCPv4 and DHCPv6 pages change only what you edit. Settings they do not
 show (relay settings, client classes, hooks, extra keys of a pool or a

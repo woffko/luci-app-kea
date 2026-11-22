@@ -629,12 +629,7 @@ function apply(entry) {
 	return 'imported';
 }
 
-// Import entries by key ("<UCI section>:<family>"). Without keys, every
-// entry that is ready is imported.
-//
-// Both configuration files are validated before either is replaced, and
-// each replacement goes through config.save(), which keeps a backup.
-export function commit(ctx, hosts, interfaces, keys) {
+function commit_unlocked(ctx, hosts, interfaces, keys) {
 	let env = environment(ctx, interfaces);
 	let entries = classify_all(hosts, env);
 	let by_key = {};
@@ -703,5 +698,120 @@ export function commit(ctx, hosts, interfaces, keys) {
 		skipped: length(skipped_entries),
 		skipped_entries,
 		backups
+	};
+}
+
+// Import entries by key ("<UCI section>:<family>"). Without keys, every
+// entry that is ready is imported.
+//
+// Both configuration files are validated before either is replaced, and
+// each replacement goes through config.save(), which keeps a backup. The
+// files are read, changed and written under the lock of config.locked().
+export function commit(ctx, hosts, interfaces, keys) {
+	return config.locked(ctx, () => commit_unlocked(ctx, hosts, interfaces, keys));
+};
+
+/* ---- the import command --------------------------------------------------- */
+
+// /usr/libexec/luci-app-kea/import-dnsmasq runs the import from a shell, for
+// another package such as ha-cluster that switches a router from dnsmasq to
+// Kea. It does what the Import page does with its default selection, and
+// reports what it left, so that the caller can name it.
+
+const STATUSES = [ 'ready', 'review', 'update', 'present', 'blocked' ];
+const LEFT_FIELDS = [ 'key', 'source', 'family', 'status', 'name', 'identifier', 'address', 'subnet', 'notes' ];
+
+// The arguments of the command: { dry_run, include_review, help }, or
+// { error } for one it does not know.
+export function command_options(args) {
+	let options = { dry_run: false, include_review: false, help: false };
+
+	for (let arg in (type(args) == 'array' ? args : [])) {
+		if (arg == '--dry-run')
+			options.dry_run = true;
+		else if (arg == '--include-review')
+			options.include_review = true;
+		else if (arg in [ '-h', '--help' ])
+			options.help = true;
+		else
+			return { error: 'unknown argument: ' + arg };
+	}
+
+	return options;
+};
+
+// How many entries have each status, and those that are neither present in
+// Kea nor among "chosen", with what the caller needs to name them.
+function left_over(entries, chosen) {
+	let counts = {};
+	let left = [];
+
+	for (let status in STATUSES)
+		counts[status] = 0;
+
+	for (let entry in entries) {
+		counts[entry.status]++;
+
+		if (entry.status != 'present' && !(entry.key in chosen)) {
+			let item = {};
+
+			for (let field in LEFT_FIELDS)
+				item[field] = entry[field];
+
+			push(left, item);
+		}
+	}
+
+	return { counts, left };
+}
+
+// Import the entries that are ready, and with options.include_review those
+// that need review as well; never those that would change a reservation Kea
+// already has. With options.dry_run nothing is written.
+//
+// The reply has "result", "mode" ("commit" or "dry-run"), "selected" (the
+// keys imported, or that would be), "files", "counts" (entries by status)
+// and "left" (the entries not imported and not already in Kea). "counts"
+// and "left" describe the files as they are after the run. A commit adds
+// what commit() returns. With "result" false nothing was written.
+export function run(ctx, hosts, interfaces, options) {
+	let mode = options?.dry_run ? 'dry-run' : 'commit';
+	let wanted = options?.include_review ? [ 'ready', 'review' ] : [ 'ready' ];
+	let before = preview(ctx, hosts, interfaces);
+
+	if (!before.files.dhcp4.parsed && !before.files.dhcp6.parsed)
+		return {
+			result: false,
+			mode,
+			error: 'no Kea DHCP configuration to import into',
+			selected: [],
+			files: before.files,
+			...left_over(before.entries, [])
+		};
+
+	let selected = map(filter(before.entries, entry => entry.status in wanted), entry => entry.key);
+
+	if (mode == 'dry-run')
+		return {
+			result: true,
+			mode,
+			changed: false,
+			selected,
+			files: before.files,
+			...left_over(before.entries, selected)
+		};
+
+	// commit() takes an empty selection for "everything ready".
+	let reply = length(selected) ?
+		commit(ctx, hosts, interfaces, selected) :
+		{ result: true, changed: false, imported: 0, updated: 0, skipped: 0, skipped_entries: [], backups: {} };
+	let after = preview(ctx, hosts, interfaces);
+
+	return {
+		...reply,
+		mode,
+		selected,
+		files: after.files,
+		...left_over(after.entries, [])
 	};
 };

@@ -92,8 +92,12 @@ export function context(options) {
 		clock: options?.clock,
 		log_reader: options?.log_reader,
 		control: options?.control,
+		service_event: options?.service_event,
 		// How long a command of ha-cluster may take, in milliseconds
-		cluster_timeout: options?.cluster_timeout ?? 15000
+		cluster_timeout: options?.cluster_timeout ?? 15000,
+		// Held while a Kea configuration file is changed; see locked()
+		lock_file: options?.lock_file ?? root + '/var/lock/luci-app-kea.lock',
+		lock_wait: options?.lock_wait ?? 10000
 	};
 };
 
@@ -640,9 +644,83 @@ export function check(ctx, name, content) {
 	return result;
 };
 
-// Validate new content, back up the current file and replace it. The file
-// is never replaced by content the Kea binary rejects.
-export function save(ctx, name, content) {
+// The lock around every change of a Kea configuration file.
+//
+// The files have two writers since the import command: the backend inside
+// rpcd, which handles one call at a time, and that command, run from a
+// shell by another package. Both read a file, change it, check it with the
+// Kea binary and put it in place under the same temporary name, which
+// takes a second or two; two at once would lose a change.
+//
+// locked() runs fn while it holds an exclusive lock on ctx.lock_file and
+// returns what fn returns. A call from inside fn runs at once: the lock
+// belongs to the process. It waits for another holder up to ctx.lock_wait
+// milliseconds and then gives up without running fn. The lock is the
+// kernel's (flock): it goes with the process that held it, also when that
+// process dies.
+let lock_depth = 0;
+
+function run_locked(fn) {
+	let result = null;
+	let failure = null;
+
+	lock_depth++;
+
+	try {
+		result = fn();
+	}
+	catch (e) {
+		failure = e;
+	}
+
+	lock_depth--;
+
+	if (failure)
+		die(failure?.message ?? failure);
+
+	return result;
+}
+
+export function locked(ctx, fn) {
+	if (lock_depth > 0)
+		return run_locked(fn);
+
+	mkdir_p(fs.dirname(ctx.lock_file), 0o755);
+
+	let handle = fs.open(ctx.lock_file, 'a');
+
+	if (!handle)
+		return { result: false, error: 'cannot open the lock file ' + ctx.lock_file };
+
+	for (let waited = 0; !handle.lock('xn'); waited += 100) {
+		if (waited >= ctx.lock_wait) {
+			handle.close();
+			return { result: false, error: 'another change of the Kea configuration is in progress' };
+		}
+
+		sleep(100);
+	}
+
+	let result = null;
+	let failure = null;
+
+	try {
+		result = run_locked(fn);
+	}
+	catch (e) {
+		failure = e;
+	}
+
+	handle.lock('u');
+	handle.close();
+
+	if (failure)
+		die(failure?.message ?? failure);
+
+	return result;
+};
+
+function save_unlocked(ctx, name, content) {
 	if (!CONFIGS[name])
 		return { result: false, error: 'invalid config name' };
 
@@ -685,9 +763,15 @@ export function save(ctx, name, content) {
 		validation: check.output,
 		warnings: warnings(ctx, name, content)
 	};
+}
+
+// Validate new content, back up the current file and replace it. The file
+// is never replaced by content the Kea binary rejects.
+export function save(ctx, name, content) {
+	return locked(ctx, () => save_unlocked(ctx, name, content));
 };
 
-export function restore(ctx, name, id) {
+function restore_unlocked(ctx, name, id) {
 	if (!CONFIGS[name])
 		return { result: false, error: 'invalid config name' };
 
@@ -722,4 +806,8 @@ export function restore(ctx, name, id) {
 		backup: saved.backup,
 		warnings: saved.warnings
 	};
+}
+
+export function restore(ctx, name, id) {
+	return locked(ctx, () => restore_unlocked(ctx, name, id));
 };

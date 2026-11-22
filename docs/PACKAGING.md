@@ -3,7 +3,7 @@
 Audit date: 2026-11-11. Audited revision: `b6eedcf` (package version
 `0.1.0-r1`). The findings marked "fixed" below were resolved in `0.1.0-r2`
 (roadmap milestone M0) and re-checked with a real build and install. The
-current version is `0.10.1-r1`.
+current version is `0.11.0-r1`.
 
 ## References
 
@@ -58,7 +58,7 @@ time.
 ```text
 Package: luci-app-kea
 Submenu: 3. Applications
-Version: 0.10.1-r1
+Version: 0.11.0-r1
 Depends: +libc +luci-base +kea-uci +kea-lfc +ucode-mod-socket
 Section: luci
 Category: LuCI
@@ -174,6 +174,14 @@ to display anything. Revisit if reviewers of an upstream submission object.
 `getLeases` and `getLog`, added in `0.7.0`, are read-level as well. They
 return the addresses, MAC addresses and host names of DHCP clients, which
 LuCI read access already shows for dnsmasq and odhcpd on its status pages.
+
+`0.11.0` added no method and changed no ACL. The write-level
+`setInitAction` now also sends the procd event `kea.service` after
+`start`, `restart`, `reload` and `stop`, with the action as its only data;
+which packages act on it is up to them. The package installs one program,
+`/usr/libexec/luci-app-kea/import-dnsmasq`, for root: it runs the import
+outside rpcd, so the ACL does not apply to it, and it can do nothing the
+write-level `importDnsmasqCommit` cannot.
 
 `0.10.1` removed `getHaNodes` and added `ha-cluster` `nodes` to the read
 group of the ACL. The pages now ask `ha-cluster` for the nodes of its

@@ -478,6 +478,59 @@ Choosing an output sets it in every output option of every logger. Options
 that only matter for a file (`maxsize`, `maxver`, `flush`) stay; Kea accepts
 them with syslog. Without any logger the form adds one for the daemon.
 
+### The import from a shell
+
+Another package that switches a router from dnsmasq to Kea, as
+`ha-cluster` does with its backend `auto`, has to import the static leases
+first and without anyone at the page. It could call `importDnsmasqCommit`
+over ubus, but not from anything the backend of this application runs and
+waits for, such as the command `firewall` of `ha-cluster`: rpcd would wait
+for itself, as it did for the nodes of a cluster. And rpcd has to run.
+
+`/usr/libexec/luci-app-kea/import-dnsmasq` uses the library directly
+instead. Without arguments it imports what the Import page selects by
+itself, the entries that are ready. `--include-review` adds those that
+lose a setting or are disabled. An entry that would change a reservation
+Kea already has is never imported here: that needs someone to look.
+
+It reports, as JSON, what it imported and what it left (by status, and
+each left entry with its key, name, identifier and the reason), as the
+files are after the run, so that the caller can name what it could not
+carry over. The exit status says whether anything was refused: 0 also when
+there was nothing to do, so that a caller can run it at every switch.
+
+### The lock
+
+Since the import command there are two writers of the Kea files: rpcd,
+which runs one call at a time, and that command. Both read a file, change
+it, check it with the Kea binary and rename a temporary file into place,
+under the same name. Every change therefore runs under an exclusive lock
+on `/var/lock/luci-app-kea.lock`: a save, a restore, and an import from
+reading the files to writing the last one. The lock is the kernel's
+(`flock`), so it goes with a process that dies; a holder waits up to ten
+seconds for another one, then gives up and writes nothing.
+
+It does not cover a page that loaded a file before an import and saves it
+afterwards: that save is a change of its own and replaces what the import
+wrote.
+
+### Telling other packages about Kea
+
+After the application runs `/etc/init.d/kea` with `start`, `restart`,
+`reload` or `stop`, it sends the procd event `kea.service`, with the action
+as `data.action`. A package that wants to know registers a trigger, as
+`ha-cluster` does with
+`procd_add_raw_trigger "kea.service" 1000 /etc/init.d/ha-cluster dhcp-backend`.
+procd runs that command on its own, after the delay, so nothing of it
+happens inside the call of the application, which returns at once. The
+event is sent whether the script succeeded or not: it says that something
+was done, and a listener looks at Kea itself.
+
+There is no event when a component is switched on or off on the Services
+page. That only changes `/etc/config/kea`; Kea is not started until the
+user does so, and a listener that acted on the flag would switch dnsmasq
+off before Kea answers.
+
 ### Second DHCP server on an interface
 
 The backend reports for each OpenWrt interface whether `/etc/config/dhcp`
@@ -516,7 +569,10 @@ Covered by `test/ucode/importer.uc` and `test/ucode/target/import.uc`:
 - token placement with one and with several DHCPv6 subnets;
 - import of a selection, of a disabled lease, of an update;
 - a second import changes nothing;
-- if Kea rejects one file, neither is replaced.
+- if Kea rejects one file, neither is replaced;
+- the import command: its arguments, a dry run, a run and a second run,
+  what it leaves, a refusal, and no Kea configuration; on the target, the
+  installed command and its exit status.
 
 ### Backend RPC, with temporary config roots
 

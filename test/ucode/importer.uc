@@ -480,5 +480,132 @@ test('if Kea rejects one file, neither file is replaced', () => {
 	equal(fs.lsdir(ctx.conf_dir), [ 'kea-dhcp4.conf', 'kea-dhcp6.conf' ]);
 });
 
+/* ---- the import command ---------------------------------------------------- */
+
+test('the command knows its arguments, and no others', () => {
+	equal(importer.command_options([]), { dry_run: false, include_review: false, help: false });
+	equal(importer.command_options(null), { dry_run: false, include_review: false, help: false });
+	equal(importer.command_options([ '--dry-run', '--include-review' ]),
+		{ dry_run: true, include_review: true, help: false });
+	equal(importer.command_options([ '-h' ]).help, true);
+	equal(importer.command_options([ '--help' ]).help, true);
+	equal(importer.command_options([ '--dry-run', '--all' ]), { error: 'unknown argument: --all' });
+	equal(importer.command_options([ 'commit' ]), { error: 'unknown argument: commit' });
+});
+
+const NOTHING_LEFT_TO_WRITE = { result: true, changed: false, imported: 0, updated: 0, skipped: 0, skipped_entries: [], backups: {} };
+
+function left_keys(reply) {
+	return map(reply.left, entry => entry.key + ' ' + entry.status);
+}
+
+test('a dry run says what would be imported and what would be left', () => {
+	reset();
+
+	let reply = importer.run(ctx, hosts, interfaces, { dry_run: true });
+
+	equal(reply.result, true);
+	equal(reply.mode, 'dry-run');
+	equal(reply.changed, false);
+	equal(reply.selected, [ 'dual:dhcp4', 'dual:dhcp6' ]);
+	equal(reply.counts, { ready: 2, review: 2, update: 0, present: 1, blocked: 1 });
+	equal(left_keys(reply), [ 'printer:dhcp4 review', 'elsewhere:dhcp4 blocked', 'off:dhcp4 review' ]);
+	equal(reply.left[0], {
+		key: 'printer:dhcp4', source: 'printer', family: 'dhcp4', status: 'review', name: 'printer',
+		identifier: '02:00:00:00:00:ab', address: '192.168.1.78', subnet: '192.168.1.0/24',
+		notes: [ 'the per-host lease time is not carried over' ]
+	});
+	equal(reply.files.dhcp4.has_comments, true);
+	equal(fs.readfile(file4), rich4, 'nothing was written');
+	equal(fs.readfile(file6), rich6);
+});
+
+test('a run imports what is ready and reports what it left, as the files are now', () => {
+	reset();
+
+	let reply = importer.run(ctx, hosts, interfaces, {});
+
+	equal(reply.result, true);
+	equal(reply.mode, 'commit');
+	equal(reply.changed, true);
+	equal(reply.imported, 2);
+	equal(reply.selected, [ 'dual:dhcp4', 'dual:dhcp6' ]);
+	equal(reply.backups, { dhcp4: '20261111T163933Z', dhcp6: '20261111T163933Z' });
+	equal(reply.counts, { ready: 0, review: 2, update: 0, present: 3, blocked: 1 });
+	equal(left_keys(reply), [ 'printer:dhcp4 review', 'elsewhere:dhcp4 blocked', 'off:dhcp4 review' ]);
+	equal(reply.files.dhcp4.has_comments, false, 'the file was written without its comments');
+});
+
+test('a second run writes nothing and leaves the same', () => {
+	let written4 = fs.readfile(file4);
+	let reply = importer.run(ctx, hosts, interfaces, {});
+
+	equal({ ...reply, mode: null, selected: null, files: null, counts: null, left: null },
+		{ ...NOTHING_LEFT_TO_WRITE, mode: null, selected: null, files: null, counts: null, left: null });
+	equal(reply.selected, []);
+	equal(reply.counts, { ready: 0, review: 2, update: 0, present: 3, blocked: 1 });
+	equal(fs.readfile(file4), written4);
+});
+
+test('with --include-review the entries that lose a setting are imported too, an update never', () => {
+	reset();
+
+	// The static lease of a host Kea already has, with another address.
+	let moved = map(hosts, h => h['.name'] == 'known' ?
+		host('known', { name: 'storage', mac: [ '02:00:00:00:00:01' ], ip: '192.168.1.20' }) : h);
+	let reply = importer.run(ctx, moved, interfaces, { include_review: true });
+
+	equal(reply.result, true);
+	equal(reply.imported, 4);
+	equal(reply.updated, 0);
+	equal(reply.selected, [ 'dual:dhcp4', 'dual:dhcp6', 'printer:dhcp4', 'off:dhcp4' ]);
+	equal(left_keys(reply), [ 'known:dhcp4 update', 'elsewhere:dhcp4 blocked' ]);
+	equal(parse(fs.readfile(file4)).config.Dhcp4.subnet4[0].reservations[0]['ip-address'], '192.168.1.10',
+		'the reservation Kea had is unchanged');
+});
+
+test('a refused import writes nothing and says so', () => {
+	reset();
+	accept.dhcp6 = false;
+
+	let reply = importer.run(ctx, hosts, interfaces, {});
+
+	equal(reply.result, false);
+	equal(reply.error, 'the imported DHCPv6 configuration failed validation');
+	equal(reply.counts.ready, 2, 'the entries are still ready');
+	equal(fs.readfile(file4), rich4);
+	equal(fs.readfile(file6), rich6);
+});
+
+test('without any Kea DHCP configuration there is nothing to import into', () => {
+	reset();
+	fs.unlink(file4);
+	fs.writefile(file6, '{ broken');
+
+	for (let options in [ {}, { dry_run: true } ]) {
+		let reply = importer.run(ctx, hosts, interfaces, options);
+
+		equal(reply.result, false);
+		equal(reply.error, 'no Kea DHCP configuration to import into');
+		equal(reply.selected, []);
+		equal(reply.counts.blocked, 6);
+	}
+
+	equal(fs.access(file4), null, 'nothing was written');
+});
+
+test('with only one of the two files, the other protocol is left blocked', () => {
+	reset();
+	fs.unlink(file6);
+
+	let reply = importer.run(ctx, hosts, interfaces, {});
+
+	equal(reply.result, true);
+	equal(reply.imported, 1);
+	equal(reply.selected, [ 'dual:dhcp4' ]);
+	ok('dual:dhcp6 blocked' in left_keys(reply));
+	equal(fs.access(file6), null);
+});
+
 rm_rf(root);
 done();
