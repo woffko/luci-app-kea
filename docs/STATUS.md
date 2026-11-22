@@ -216,6 +216,12 @@ the router and six browser tests. By hand on that machine:
   and not after "enable". The call of the application returned in 0.01
   seconds each time.
 
+The package file of `v0.14.0` was built by the release workflow from the
+tagged commit and passed the 160 backend tests and seven browser tests in
+that run, on OpenWrt 25.12.6 under QEMU with Kea 3.0.4. It holds the same
+files as the package that was tested by hand before. It was not installed
+on the second machine.
+
 The package files of `v0.11.0`, `v0.12.0` and `v0.13.0` were built by the
 release workflow from their tagged commits and passed the tests in those
 runs, on OpenWrt 25.12.6 under QEMU with Kea 3.0.4: 152 backend tests and
