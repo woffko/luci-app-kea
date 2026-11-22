@@ -3,9 +3,9 @@
 Taken on OpenWrt 25.12.6 with Kea 3.0.4, using the test fixtures of this
 repository as configuration. The pictures of the leases, the raw editor and
 the import are from version `0.7.0`, where these pages look the same; those
-of the Services page, the DHCP pages and the warning are from `0.8.0`, the
-Overview page as a whole and the leases on the status overview of LuCI
-from `0.12.0`, the others from `0.9.0`. `test/browser/screenshots.js` regenerates them; see
+of the DHCP pages and the warning are from `0.8.0`, the Overview page as a
+whole and the leases on the status overview of LuCI from `0.12.0`, the
+Services page from `0.14.0`, the others from `0.9.0`. `test/browser/screenshots.js` regenerates them; see
 [DEVELOPMENT.md](DEVELOPMENT.md#screenshots).
 
 ## Overview
@@ -24,7 +24,9 @@ configuration files shipped with Kea do not.
 The Kea init service, the DHCP services of OpenWrt that would compete with
 Kea, and the Kea components with their enable switches. The middle table
 says what dnsmasq and odhcpd are configured to serve: here both still answer
-DHCP on `lan`, and dnsmasq is the DNS server as well.
+DHCP on `lan`, and dnsmasq is the DNS server as well. They can be restarted
+here, not stopped; the link leads to the settings of the interfaces, where
+their DHCP is switched off.
 
 ![Services page](images/services.png)
 

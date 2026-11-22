@@ -16,6 +16,14 @@ var callGetConfig = rpc.declare({
 	expect: { "": {} }
 });
 
+/* The same for a user who may change the file: its secrets are not masked. */
+var callGetConfigRaw = rpc.declare({
+	object: "luci.kea",
+	method: "getConfigRaw",
+	params: [ "name" ],
+	expect: { "": {} }
+});
+
 var callSaveConfig = rpc.declare({
 	object: "luci.kea",
 	method: "saveConfig",
@@ -112,8 +120,9 @@ var DAEMONS = {
 /* How long a daemon gets to come back after a reload before it is checked. */
 var RELOAD_SETTLE_MS = 2500;
 
+/* A string goes in as text, not markup: see text() in widgets.js. */
 function notify(message, kind) {
-	ui.addNotification(null, E("p", message), kind || "info");
+	ui.addNotification(null, E("p", {}, typeof message === "string" ? [ message ] : message), kind || "info");
 }
 
 /*
@@ -177,7 +186,7 @@ function warningText(warning) {
 /* One paragraph per warning; a list would take the colors of the theme. */
 function warningList(warnings) {
 	return E("div", {}, warnings.map(function(warning) {
-		return E("p", { "style": "margin: .25rem 0 .25rem 1rem" }, warningText(warning));
+		return E("p", { "style": "margin: .25rem 0 .25rem 1rem" }, [ warningText(warning) ]);
 	}));
 }
 
@@ -265,8 +274,16 @@ function describeDaemon(state) {
 }
 
 return baseclass.extend({
+	/*
+	 * A configuration file as the user may see it. Who may change it gets
+	 * it as it is; who may only read it gets its passwords and secrets
+	 * masked, and "masked" counts them. A text with a masked secret cannot
+	 * be saved.
+	 */
 	getConfig: function(name) {
-		return L.resolveDefault(callGetConfig(name), {});
+		return callGetConfigRaw(name).catch(function() {
+			return L.resolveDefault(callGetConfig(name), {});
+		});
 	},
 
 	getStatus: function() {
@@ -390,10 +407,10 @@ return baseclass.extend({
 		var output = result && (result.validation || result.detail);
 
 		ui.addNotification(null, E("div", {}, [
-			E("p", result && result.error ? result.error : fallback),
+			E("p", {}, [ result && result.error ? result.error : fallback ]),
 			output ? E("pre", {
 				"style": "white-space: pre-wrap; max-height: 18rem; overflow: auto"
-			}, output) : ""
+			}, [ output ]) : ""
 		]), "danger");
 	},
 
@@ -419,8 +436,8 @@ return baseclass.extend({
 	/* Tell the user that a file was written that Kea will not start with. */
 	notifyWarnings: function(name, warnings) {
 		ui.addNotification(null, E("div", { "class": "kea-start-warnings" }, [
-			E("p", {}, this.daemonName(name) + ": " +
-				_("the file is written. Kea accepts it when it checks it, but does not start with it:")),
+			E("p", {}, [ this.daemonName(name) + ": " +
+				_("the file is written. Kea accepts it when it checks it, but does not start with it:") ]),
 			warningList(warnings)
 		]), "warning");
 	},

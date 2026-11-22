@@ -40,7 +40,7 @@ main(async (page) => {
 		[ "192.168.1.100", "02:00:00:00:00:01", "nas", "01:02:00:00:00:00:01", "3", "Active" ],
 		[ "192.168.1.101", "02:00:00:00:00:aa", "laptop", "-", "3", "Active" ],
 		[ "192.168.1.120", "-", "-", "-", "3", "Declined" ],
-		[ "10.20.0.15", "02:00:00:00:00:15", "printer", "-", "7", "Active" ]
+		[ "10.20.0.15", "02:00:00:00:00:15", "<i>printer</i>", "-", "7", "Active" ]
 	]);
 	assert.match(await page.locator("#view h3", { hasText: "DHCPv4" }).innerText(), /^DHCPv4 \(4\)$/);
 	ok("DHCPv4: the leases in use are listed by subnet and address, the last row of a lease counts");
@@ -70,6 +70,22 @@ main(async (page) => {
 	await page.locator("#view button", { hasText: /^Refresh$/ }).click();
 	await page.locator("#view h3", { hasText: "Recent Log Messages" }).waitFor();
 	ok("Overview: the Kea version is shown and the log can be refreshed");
+
+	/* test/run-target-tests.sh writes a log line with markup, as a message of Kea could hold. */
+	const marked = page.locator("#view table.kea-log td", { hasText: "LUCI_APP_KEA_MARKUP" });
+
+	if (await marked.count()) {
+		assert.match(await marked.first().textContent(), /<i id="kea-markup">a tag in a log line<\/i>/);
+		assert.equal(await page.locator("#kea-markup").count(), 0);
+		ok("Overview: markup in a log line is shown as text");
+	}
+	else {
+		console.log("skipped - no log line with markup; test/run-target-tests.sh writes one");
+	}
+
+	await openPage(page, "leases", "Kea Leases");
+	assert.equal(await page.locator("#view table.kea-leases-dhcp4 i").count(), 0, "the host name with markup made no element");
+	ok("Leases: a host name with markup is shown as text");
 
 	console.log("all lease checks passed");
 });

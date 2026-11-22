@@ -7,6 +7,35 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-22: After the audit (`0.14.0-r1`)
+
+- An external audit of `v0.11.0` and `v0.13.0`, made for the image w0w6 of
+  the owner, was passed on by the `ha-cluster` project with the owner's go.
+  Each finding was checked against the code first.
+- CA-LUCIKEA-01 held in part. `getConfig` gave readers the secrets of the
+  files, and `saveConfig` let a writer have Kea, as root, read any file
+  through an include directive and probe paths through the run_script
+  hook. The point that a reader could have Kea check a text of their own
+  did not hold: `validate` takes no text.
+- CA-LUCIKEA-03 held and went further than the audit said: most pages,
+  not only the lease tables, put texts from the router into the page as
+  HTML. A real DHCP client that sent a host name with markup got it
+  stripped by Kea 3.0.4, so a client on the LAN could not have used it
+  with Kea's default settings.
+- CA-LUCIKEA-02 held. Stop and Disable are gone for dnsmasq and odhcpd.
+- Verified by hand over LuCI's JSON-RPC with a login that has the read
+  groups only, and as root.
+- For CA-HACLUSTER-01, the authentication of a Kea pair was measured with
+  two servers: basic-auth on the peers left a stranger's `dhcp-disable`
+  carried out, mutual TLS refused it. Kea 3.0.4 sets no authentication on
+  the listener of a pair; its basic-auth parameters are for the requests a
+  server sends. The results went to the `ha-cluster` project, which is to
+  bring the question of the certificate to the owner.
+- Two slips on the way, both found by the tests: an exported function of
+  ucode needs a semicolon after its body; and a test that linked to
+  `/etc/hostname`, which OpenWrt does not have. The second made the check
+  stricter: an include that is a link is refused wherever it points.
+
 ## 2026-11-22: Releases `v0.11.0`, `v0.12.0` and `v0.13.0`
 
 - The owner asked for the four open pull requests to be merged and

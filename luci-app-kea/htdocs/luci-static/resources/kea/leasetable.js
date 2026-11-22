@@ -35,6 +35,14 @@ function remaining(reply, lease) {
 	return left > 0 ? "%t".format(left) : E("em", {}, _("expired"));
 }
 
+/*
+ * A cell of LuCI's table: it puts a string into innerHTML, and takes a list
+ * as a sort key and a value. Everything a lease brings is text.
+ */
+function cell(value) {
+	return "%h".format(value == null || value === "" ? "-" : String(value));
+}
+
 /* The name the client sent, and the name the network knows it by if that differs. */
 function hostLabel(lease, hints) {
 	var name = lease.hostname || "";
@@ -64,8 +72,8 @@ function reserveDialog(family, lease, refresh) {
 	var name = E("input", { "class": "cbi-input-text kea-reserve-name", "type": "text", "value": lease.hostname || "" });
 
 	ui.showModal(_("Reserve IP"), [
-		E("p", {}, _("Kea is to give %s to %s every time. The reservation is added to the %s configuration, and a running Kea reads it again.")
-			.format(lease.address, identifier, family === "dhcp4" ? "DHCPv4" : "DHCPv6")),
+		E("p", {}, [ _("Kea is to give %s to %s every time. The reservation is added to the %s configuration, and a running Kea reads it again.")
+			.format(lease.address, identifier, family === "dhcp4" ? "DHCPv4" : "DHCPv6") ]),
 		E("div", { "class": "cbi-value" }, [
 			E("label", { "class": "cbi-value-title" }, _("Hostname")),
 			E("div", { "class": "cbi-value-field" }, name)
@@ -119,12 +127,12 @@ function table(reply, family, leases, hints, refresh) {
 	]);
 
 	cbi_update_table(node, leases.map(function(lease) {
-		var row = [ interfaceOf(reply, family, lease), "%h".format(hostLabel(lease, hints)), addressOf(lease) ];
+		var row = [ cell(interfaceOf(reply, family, lease)), cell(hostLabel(lease, hints)), cell(addressOf(lease)) ];
 
 		if (v4)
-			row.push(lease.hwaddr || "-");
+			row.push(cell(lease.hwaddr));
 		else
-			row.push(lease.duid || "-", String(lease.iaid));
+			row.push(cell(lease.duid), cell(lease.iaid));
 
 		row.push(remaining(reply, lease), reserveButton(family, lease, refresh));
 
@@ -167,7 +175,7 @@ return baseclass.extend({
 
 			if (shown.length < leases.length)
 				nodes.push(E("p", { "class": "kea-leases-more" },
-					_("The %d leases given out last of %d.").format(shown.length, leases.length)));
+					[ _("The %d leases given out last of %d.").format(shown.length, leases.length) ]));
 		});
 
 		return nodes.length ? E("div", { "class": "kea-lease-tables" }, nodes) : null;

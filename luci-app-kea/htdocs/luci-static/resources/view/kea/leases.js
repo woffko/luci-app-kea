@@ -90,7 +90,7 @@ function renderFamily(family, data, now) {
 
 	if (data.truncated)
 		nodes.push(E("div", { "class": "alert-message info" },
-			E("p", _("The first %d of %d leases are shown.").format(items.length, data.count))));
+			E("p", {}, [ _("The first %d of %d leases are shown.").format(items.length, data.count) ])));
 
 	if (items.length)
 		nodes.push(E("table", { "class": "table kea-leases-" + family }, [
@@ -99,13 +99,13 @@ function renderFamily(family, data, now) {
 			}))),
 			E("tbody", {}, items.map(function(lease) {
 				return E("tr", { "class": "tr" }, columns.map(function(column) {
-					return E("td", { "class": "td left" }, column[1](lease));
+					return E("td", { "class": "td left" }, [ column[1](lease) ]);
 				}));
 			}))
 		]));
 
 	if (data.file)
-		nodes.push(E("div", { "class": "cbi-section-descr" }, _("Lease file") + ": " + data.file));
+		nodes.push(E("div", { "class": "cbi-section-descr" }, [ _("Lease file") + ": " + data.file ]));
 
 	return E("div", { "class": "cbi-section" }, nodes);
 }

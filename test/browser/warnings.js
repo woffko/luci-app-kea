@@ -14,7 +14,7 @@
  *   warned about, and the two fields of the Global settings tab end that.
  * - Overview and Services say when a running daemon could not open a
  *   socket, and show the state of high availability.
- * - The Services page shows what dnsmasq serves and asks before stopping it.
+ * - The Services page shows what dnsmasq serves and offers no way to stop it.
  *
  * No daemon is started, stopped or reloaded: the test answers the calls
  * that would do so itself, and where a running daemon is needed it tells
@@ -318,19 +318,12 @@ main(async (page) => {
 		await screenshot(page, "warnings-services");
 		ok("the Services page says that dnsmasq serves DNS");
 
-		const stop = dnsmasq.locator("button", { hasText: /^Stop$/ });
-
-		if (await stop.count()) {
-			await stop.click();
-			await waitForModal(page);
-			assert.match(await page.locator(".modal").textContent(), /dnsmasq is the DNS server of this router/);
-			await page.locator(".modal button", { hasText: /^Cancel$/ }).click();
-			assert.deepEqual(state.blocked, [], "dnsmasq was not asked to stop");
-			ok("stopping dnsmasq is asked about first, and not done when the answer is no");
-		}
-		else {
-			console.log("skipped - dnsmasq is not running on the target, so there is no Stop button to try");
-		}
+		/* dnsmasq is the DNS server: its DHCP is switched off per interface, on LuCI's own page. */
+		assert.equal(await dnsmasq.locator("button", { hasText: /^(Stop|Disable autostart)$/ }).count(), 0);
+		assert.equal(await page.locator("#view table.kea-conflicts button", { hasText: /^(Stop|Disable autostart)$/ }).count(), 0);
+		assert.equal(await page.locator("#view a", { hasText: "Network > Interfaces" }).getAttribute("href"),
+			"/cgi-bin/luci/admin/network/network");
+		ok("the Services page offers no Stop or Disable for dnsmasq and odhcpd, and points to the DHCP settings of the interfaces");
 	}
 	finally {
 		state.running = false;

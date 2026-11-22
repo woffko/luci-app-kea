@@ -368,6 +368,12 @@ test("a peer URL needs an IP address; https needs TLS", () => {
 		"http://192.168.1.2:0/", "http://192.168.1.2:70000/" ])
 		assert.match(urlError(portless), /the URL needs a port/, portless);
 
+	/* ha-cluster opens the port in the firewall; a low one is a service of the router. */
+	for (const low of [ "http://192.168.1.2:22/", "http://192.168.1.2:80/", "http://192.168.1.2:443/", "http://192.168.1.2:1023/" ])
+		assert.match(urlError(low), /use a port from 1024 up/, low);
+
+	assert.equal(urlError("http://192.168.1.2:1024/"), null);
+
 	assert.match(urlError("http://router2.lan:8000/"), /IP address in the URL, not a host name/);
 	assert.match(urlError("http://[fd00::zz]:8000/"), /IP address/);
 	assert.match(urlError("http://300.1.1.1:8000/"), /IP address/);

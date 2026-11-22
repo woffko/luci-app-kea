@@ -71,8 +71,8 @@ function renderObjectTable(title, rows) {
 		E("h3", title),
 		E("table", { "class": "table" }, rows.map(function(row) {
 			return E("tr", { "class": "tr" }, [
-				E("td", { "class": "td left", "style": "width: 35%" }, row[0]),
-				E("td", { "class": "td left" }, row[1])
+				E("td", { "class": "td left", "style": "width: 35%" }, [ row[0] ]),
+				E("td", { "class": "td left" }, [ row[1] ])
 			]);
 		}))
 	]);
@@ -131,7 +131,7 @@ return view.extend({
 		if (notes.length)
 			nodes.push(E("div", { "class": "alert-message warning kea-log-outputs" }, [
 				E("ul", {}, notes.map(function(note) {
-					return E("li", {}, note);
+					return E("li", {}, [ note ]);
 				})),
 				E("p", {}, _("Messages appear here when the loggers of a daemon write to syslog. For the DHCP daemons that is the field Log Output on the Global settings tab of their page; for the others it is the output of the loggers on the Configuration page."))
 			]));
@@ -149,10 +149,10 @@ return view.extend({
 			}))),
 			E("tbody", {}, lines.map(function(line) {
 				return E("tr", { "class": "tr" }, [
-					E("td", { "class": "td left", "style": "white-space: nowrap" }, line.time),
-					E("td", { "class": "td left", "style": "white-space: nowrap" }, line.daemon),
-					E("td", { "class": "td left", "style": SEVERITY_STYLE[line.severity] || "" }, line.severity),
-					E("td", { "class": "td left", "style": "word-break: break-word" }, line.text)
+					E("td", { "class": "td left", "style": "white-space: nowrap" }, [ line.time ]),
+					E("td", { "class": "td left", "style": "white-space: nowrap" }, [ line.daemon ]),
+					E("td", { "class": "td left", "style": SEVERITY_STYLE[line.severity] || "" }, [ line.severity ]),
+					E("td", { "class": "td left", "style": "word-break: break-word" }, [ line.text ])
 				]);
 			}))
 		]));
@@ -192,7 +192,7 @@ return view.extend({
 					E("span", { "style": DAEMON_STYLE[described.level] || "" },
 						_("Running") + ", " + described.summary)
 				].concat(described.details.map(function(detail) {
-					return E("div", {}, E("small", {}, detail));
+					return E("div", {}, E("small", {}, [ detail ]));
 				})))
 			]);
 		});
@@ -212,7 +212,7 @@ return view.extend({
 					/* What Kea prints for a file it accepts is of interest only on demand. */
 					item.output ? E("details", { "open": item.valid ? null : "open" }, [
 						E("summary", { "style": "cursor: pointer" }, _("Output of the check")),
-						E("pre", { "style": "white-space: pre-wrap" }, item.output)
+						E("pre", { "style": "white-space: pre-wrap" }, [ item.output ])
 					]) : ""
 				])
 			]);
@@ -225,7 +225,7 @@ return view.extend({
 			deaf.length ? E("div", { "class": "alert-message danger kea-not-listening" }, [
 				E("p", {}, E("strong", {}, _("Kea is running, but does not serve everywhere it was told to. Clients on the interfaces named here get no answer."))),
 				E("div", {}, deaf.map(function(line) {
-					return E("p", { "style": "margin: .25rem 0 .25rem 1rem" }, line);
+					return E("p", { "style": "margin: .25rem 0 .25rem 1rem" }, [ line ]);
 				})),
 				E("p", {}, _("Restart Kea on the Services page to make it try again now; a reload does not. Where the reason is another DHCP server on the interface, switch off its DHCP there first: the Services page shows what dnsmasq and odhcpd serve. To make Kea wait for its interface at every boot, set Socket Retries on the Global settings tab of the DHCPv4 and DHCPv6 pages. An interface that has no address is reported like this as well, for example when Kea is told to listen on all interfaces; take it out of the list."))
 			]) : "",

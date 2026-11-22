@@ -478,6 +478,37 @@ Choosing an output sets it in every output option of every logger. Options
 that only matter for a file (`maxsize`, `maxver`, `flush`) stay; Kea accepts
 them with syslog. Without any logger the form adds one for the daemon.
 
+### Who may see and do what
+
+The ACL of the application has two groups. An external audit of `0.11.0`
+and `0.13.0` showed what that split did not cover; since `0.14.0`:
+
+- A reader gets the configuration files with the values of passwords and
+  secrets masked: any member named `password` or `secret`, or ending in
+  `-password` or `-secret`. The text is masked where it stands, so that
+  comments and layout stay. The pages that edit a file ask for it with the
+  write-level `getConfigRaw` first and fall back to the masked one; a text
+  with a masked secret is not saved, so a masked value cannot replace the
+  real one.
+- Kea checks a file as root, and its errors quote what it read. An include
+  directive would let a writer have Kea read any file of the router, and
+  the run_script hook looks at the path it is given before it checks the
+  directory. So a text may include only a `*.json` or `*.conf` file
+  directly in `/etc/kea`, which is no link, and may name only a script in
+  `/usr/share/kea/scripts`; both are refused before Kea sees the text.
+  `validate`, a read-level method, checks only the files on disk.
+- A writer may change the Kea files and run Kea; it may not stop the DNS
+  of the router. dnsmasq and odhcpd are therefore no longer stopped or
+  disabled from here. Their DHCP is switched off per interface in
+  `/etc/config/dhcp`, through LuCI's own page and its ACL.
+- Whatever comes from the router is shown as text. LuCI's `E()` puts a
+  string child into `innerHTML`; the pages give it a list, or for LuCI's
+  table helper a value escaped with `%h`.
+
+Not done yet: authentication of the high availability peers (Kea's
+basic-auth or TLS), which the same audit asks for (CA-HACLUSTER-01). It
+needs a secret shared by the nodes, which `ha-cluster` is to provide.
+
 ### Client names in DNS
 
 dnsmasq answers for the names of the clients it serves, from its own

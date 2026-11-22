@@ -27,6 +27,7 @@
 					"setService",
 					"setInitAction",
 					"setConflictAction",
+					"getConfigRaw",
 					"saveConfig",
 					"restoreBackup",
 					"reserveLease",

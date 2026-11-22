@@ -134,7 +134,7 @@ function createView(familyName) {
 			if (this.parseError) {
 				this.noticesNode.replaceChildren(notice("warning", [
 					E("p", page.unparsable),
-					E("pre", { "style": "white-space: pre-wrap" }, this.parseError)
+					E("pre", { "style": "white-space: pre-wrap" }, [ this.parseError ])
 				]));
 				return;
 			}
@@ -189,7 +189,7 @@ function createView(familyName) {
 						self.renderTabBar();
 						self.renderTab();
 					}
-				}, label));
+				}, [ label ]));
 			};
 			var entries = this.tabs.map(function(tab, index) {
 				return entry(index, tab.label, tab.removed);
@@ -423,7 +423,7 @@ function createView(familyName) {
 
 			if (tab.removed) {
 				this.editorNode.replaceChildren(E("div", { "class": "cbi-section" }, [
-					E("h3", tab.label),
+					E("h3", {}, [ tab.label ]),
 					notice("warning", [
 						E("p", _("This subnet will be removed from the Kea configuration when you save.")),
 						E("button", {
@@ -441,7 +441,7 @@ function createView(familyName) {
 			}
 
 			nodes = [
-				E("div", { "class": "cbi-section" }, [ E("h3", tab.label) ].concat(
+				E("div", { "class": "cbi-section" }, [ E("h3", {}, [ tab.label ]) ].concat(
 					this.renderFields(tab),
 					tab.source ? [ field("", E("button", {
 						"class": "btn cbi-button cbi-button-remove",
@@ -585,7 +585,7 @@ function createView(familyName) {
 			if (errors.length) {
 				ui.addNotification(null, E("pre", {
 					"style": "white-space: pre-wrap"
-				}, errors.join("\n")), "danger");
+				}, [ errors.join("\n") ]), "danger");
 				return null;
 			}
 

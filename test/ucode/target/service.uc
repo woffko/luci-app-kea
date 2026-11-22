@@ -199,12 +199,20 @@ test('only dnsmasq and odhcpd can be controlled as conflicting services', () => 
 	equal(service.conflict_action(ctx, 'rpcd', 'stop'), { result: false, error: 'invalid service name' });
 	equal(service.conflict_action(ctx, '../kea', 'stop'), { result: false, error: 'invalid service name' });
 	equal(service.conflict_action(ctx, 'dnsmasq', 'purge'), { result: false, error: 'invalid service action' });
-	equal(service.conflict_action(ctx, 'dnsmasq', 'stop'), { result: false, error: 'init script is not installed' });
+	equal(service.conflict_action(ctx, 'dnsmasq', 'restart'), { result: false, error: 'init script is not installed' });
 
 	fake_init('dnsmasq');
 
-	equal(service.conflict_action(ctx, 'dnsmasq', 'stop'), { result: true });
-	equal(init_log()[-1], 'dnsmasq stop');
+	equal(service.conflict_action(ctx, 'dnsmasq', 'restart'), { result: true });
+	equal(init_log()[-1], 'dnsmasq restart');
+
+	// dnsmasq is the DNS server, odhcpd sends router advertisements.
+	for (let name in [ 'dnsmasq', 'odhcpd' ])
+		for (let action in [ 'stop', 'disable' ])
+			equal(service.conflict_action(ctx, name, action), { result: false,
+				error: name + ' is not stopped or disabled from here: switch off its DHCP for the interface instead' }, name + ' ' + action);
+
+	equal(init_log()[-1], 'dnsmasq restart', 'nothing was run');
 });
 
 /* ---- ha-cluster follows the Kea files -------------------------------------- */
