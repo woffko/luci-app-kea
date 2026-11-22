@@ -61,9 +61,22 @@ main(async (page) => {
 		ok("Write puts the configuration in place of the example");
 
 		await openPage(page, "setup", "Kea Setup");
-		assert.match(await page.locator("#view .alert-message").first().textContent(), /has been changed, so it is not replaced from here/);
-		assert.equal(await page.locator("#view button.kea-setup-write").count(), 0, "no way to replace a changed file");
-		ok("a file that is not the example any more is not replaced from the page");
+		assert.match(await page.locator("#view .alert-message").first().textContent(), /has been changed/);
+		assert.equal(await page.locator("#view button.kea-setup-write").count(), 0, "no plain Write for a changed file");
+
+		/* Replacing a changed file needs a confirmation; Cancel changes nothing. */
+		const changed = await readRawConfig(page, "dhcp4");
+
+		await openPage(page, "setup", "Kea Setup");
+		await page.locator("#view button.kea-setup-replace").click();
+		await page.locator(".modal button", { hasText: /^Cancel$/ }).click();
+		assert.equal(await readRawConfig(page, "dhcp4"), changed);
+
+		await openPage(page, "setup", "Kea Setup");
+		await page.locator("#view button.kea-setup-replace").click();
+		await page.locator(".modal button", { hasText: /^Replace$/ }).click();
+		await expectNotification(page, "The DHCPv4 configuration is written");
+		ok("a changed file is replaced only after a confirmation");
 	}
 	finally {
 		if (await readRawConfig(page, "dhcp4") !== original)

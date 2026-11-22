@@ -16,8 +16,9 @@ import { text, uci_bool } from 'luci.kea.openwrt';
 // plan() is pure: it takes the sections of /etc/config/dhcp and
 // /etc/config/network, the reply of "ha-cluster nodes" if any, and which
 // hooks are installed. run() looks at the file, and writes it only when it
-// is missing or still the sample the Kea package installed; a file someone
-// has changed is never replaced.
+// is missing or still the sample the Kea package installed. A file someone
+// has changed is replaced only when the user of the Setup page asks for it
+// after a confirmation ("replace"); the command never does that.
 
 // dnsmasq's defaults on OpenWrt.
 const DEFAULT_START = 100;
@@ -458,10 +459,14 @@ export function unconfigured(ctx) {
 };
 
 // Make the configuration and write it if the file may be written.
-// options: { dry_run }. The reply: { result, written, reason, file, state,
-// backup, subnets, ha, left } and, for a dry run, "content" and "check"
-// (what Kea says about it). reason: "written", "dry-run", "own-config",
-// "nothing-to-set-up", or the error.
+// options: { dry_run, replace }; "replace" lets a file of the user's own be
+// replaced, which only the Setup page asks for, after a confirmation. The
+// file it replaces is kept as a backup either way.
+//
+// The reply: { result, written, reason, file, state, backup, subnets, ha,
+// left } and, for a dry run, "content" and "check" (what Kea says about
+// it). reason: "written", "dry-run", "own-config", "nothing-to-set-up", or
+// the error.
 export function run(ctx, input, options) {
 	let file = config.path(ctx, 'dhcp4');
 	let made = plan(input);
@@ -494,7 +499,7 @@ export function run(ctx, input, options) {
 	return config.locked(ctx, () => {
 		reply.state = file_state(ctx);
 
-		if (reply.state == 'own') {
+		if (reply.state == 'own' && !options?.replace) {
 			reply.reason = 'own-config';
 			return reply;
 		}

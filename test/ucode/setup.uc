@@ -178,6 +178,14 @@ test('only the sample or a missing file is written; the reply says what was done
 	equal([ own.result, own.written, own.reason, own.state ], [ true, false, 'own-config', 'own' ]);
 	equal(fs.readfile(file), before, 'a changed file is left alone');
 
+	let replaced = setup.run(ctx, input({ dhcp: [ input().dhcp[0] ] }), { replace: true });
+
+	equal([ replaced.result, replaced.written, replaced.reason, replaced.state ], [ true, true, 'written', 'own' ],
+		'the Setup page may replace a file of the user\'s own when asked');
+	equal(replaced.backup, '20261111T163833Z_2', 'the file it replaced is kept');
+	equal(parse(fs.readfile(ctx.backup_dir + '/kea-dhcp4.' + replaced.backup + '.conf')).config.Dhcp4.subnet4[1].subnet, '192.168.50.0/24');
+	equal(length(parse(fs.readfile(file)).config.Dhcp4.subnet4), 1);
+
 	let proposal = setup.run(ctx, input(), { dry_run: true });
 
 	equal([ proposal.reason, proposal.state, type(proposal.content) ], [ 'dry-run', 'own', 'string' ],

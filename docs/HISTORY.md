@@ -20,8 +20,9 @@ landed.
 - Tried with a real client: dnsmasq served it, the command wrote the
   configuration, Kea started, the lease moved, and the client got its
   address again from Kea.
-- On the owner's word as relayed, the page does not replace a changed
-  file: it shows what it would write.
+- The page first did not replace a changed file at all. Asked, the owner
+  decided, as relayed, that it may after an explicit confirmation, keeping
+  a backup; the command still never does.
 - Asked by the `ha-cluster` project, which moves the leases after it has
   switched dnsmasq's DHCP off: dnsmasq 2.93 restarted without any DHCPv4
   range kept its lease file. With dnsmasq sending router advertisements

@@ -25,8 +25,9 @@ For a router that moves its DHCPv4 service from dnsmasq to Kea.
   counterpart, and with ha-cluster a pair of Kea servers in hot standby.
   What does not translate is listed. The file is written only while it is
   missing or still the example the Kea package installed, checked by Kea
-  first, with the example kept as a backup; a file someone has changed is
-  never replaced, and the page shows what it would write instead.
+  first, with the example kept as a backup. A file someone has changed is
+  never replaced by the command; the page replaces it only after the user
+  confirmed it, and keeps it as a backup.
 - `import-dnsmasq --leases [--leases-file FILE]`, and a button on the Setup
   page: the leases dnsmasq has given out go into a running kea-dhcp4, so
   that its clients keep their addresses. `--leases-file` reads a copy of

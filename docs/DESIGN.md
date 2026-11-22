@@ -505,11 +505,14 @@ the timers of the bench of the `ha-cluster` project; with
 `kea-hook-run-script` and `kea-dnsmasq-hosts` the hook for client names
 in DNS.
 
-It writes only a file that is missing or still the example the Kea
-package installed: owned by the package in the database of apk, and not
-marked as changed by `apk audit --backup /etc/kea`. A file someone has
-changed is never replaced, by the command or by the page; the page shows
-what it would write so that the change can be made by hand. Writing goes
+It writes a file that is missing or still the example the Kea package
+installed: owned by the package in the database of apk, and not marked as
+changed by `apk audit --backup /etc/kea`. A file someone has changed is
+never replaced by the command, which `ha-cluster` runs on its own. The
+page shows what it would write, so that the change can be made by hand,
+and replaces the file only when the user asks for it and confirms that
+what the file holds beyond dnsmasq's settings goes; the file is kept as a
+backup. That is the owner's decision. Writing goes
 through the save of the pages: Kea checks the text with its hooks, the
 example is kept as a backup, and the lock is held.
 

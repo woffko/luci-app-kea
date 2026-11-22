@@ -2,20 +2,22 @@
 "require view";
 "require ui";
 "require kea.backend as backend";
+"require kea.dialogs as dialogs";
 
 /*
  * Make the DHCPv4 configuration of Kea from what dnsmasq is set up to
  * serve: the same as the command setup-from-dnsmasq, which ha-cluster runs
  * when a cluster moves to Kea. The page shows what would be written and
- * what is not carried over. It writes the file only while it is missing or
- * still the example the Kea package installed; a file someone has changed
- * is not replaced from here.
+ * what is not carried over. It writes the file while it is missing or still
+ * the example the Kea package installed; a file someone has changed only
+ * after the user confirmed it, with the file kept as a backup. The command
+ * never replaces such a file.
  */
 
 var STATES = {
 	missing: _("There is no DHCPv4 configuration file yet. The one below can be written."),
 	sample: _("The DHCPv4 configuration file is still the example the Kea package installed. It can be replaced by the one below; the example is kept as a backup."),
-	own: _("The DHCPv4 configuration file has been changed, so it is not replaced from here. Use what is shown below to change it on the DHCPv4 page or on the Configuration page.")
+	own: _("The DHCPv4 configuration file has been changed. Take what is shown below over by hand on the DHCPv4 page or on the Configuration page, or replace the file with it; the file is then kept as a backup.")
 };
 
 function cells(values) {
@@ -45,10 +47,22 @@ return view.extend({
 		});
 	},
 
-	handleWrite: function() {
+	/* A file of the user's own is replaced only after they confirmed it. */
+	handleReplace: function() {
 		var self = this;
 
-		return backend.setupFromDnsmasq(false, this.cluster).then(function(reply) {
+		return dialogs.ask(_("Replace the configuration"), [
+			E("p", {}, [ _("The DHCPv4 configuration file has been changed by hand or by another tool. It is replaced by the configuration shown on this page; what it holds now is kept as a backup, which the Configuration page can restore.") ]),
+			E("p", {}, [ _("Everything the file has beyond what dnsmasq is set up to serve is gone from the new one: reservations, other options, high availability set up by hand.") ])
+		], _("Replace")).then(function(confirmed) {
+			return confirmed ? self.handleWrite(true) : null;
+		});
+	},
+
+	handleWrite: function(replace) {
+		var self = this;
+
+		return backend.setupFromDnsmasq(false, this.cluster, replace === true).then(function(reply) {
 			if (!reply || !reply.result) {
 				backend.notifyFailure(reply ? { error: reply.reason, validation: reply.validation } : null,
 					_("The configuration was not written."));
@@ -104,7 +118,8 @@ return view.extend({
 		var subnets = reply.subnets || [];
 		var left = reply.left || [];
 		var check = reply.check || {};
-		var writable = reply.reason === "dry-run" && reply.state !== "own" && check.valid;
+		var writable = reply.reason === "dry-run" && check.valid;
+		var own = reply.state === "own";
 		var body;
 
 		this.cluster = data[2] || {};
@@ -138,10 +153,15 @@ return view.extend({
 					E("pre", { "class": "kea-setup-content", "style": "white-space: pre-wrap; max-height: 24rem; overflow: auto" },
 						[ reply.content || "" ])
 				]),
-				writable ? E("div", { "class": "right" }, E("button", {
-					"class": "btn cbi-button cbi-button-apply kea-setup-write",
-					"click": ui.createHandlerFn(this, "handleWrite")
-				}, [ _("Write the configuration") ])) : ""
+				writable ? E("div", { "class": "right" }, own ?
+					E("button", {
+						"class": "btn cbi-button cbi-button-negative kea-setup-replace",
+						"click": ui.createHandlerFn(this, "handleReplace")
+					}, [ _("Replace my configuration…") ]) :
+					E("button", {
+						"class": "btn cbi-button cbi-button-apply kea-setup-write",
+						"click": ui.createHandlerFn(this, "handleWrite", false)
+					}, [ _("Write the configuration") ])) : ""
 			]);
 
 		this.node = E("div", {}, [

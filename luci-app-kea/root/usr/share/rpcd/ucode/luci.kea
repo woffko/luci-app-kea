@@ -125,13 +125,14 @@ const methods = {
 	},
 
 	// The Setup page: what the configuration made from dnsmasq's settings
-	// would be, and writing it where the file is still the sample. The page
-	// passes the reply of "ha-cluster nodes" it got itself.
+	// would be, and writing it where the file is still the sample, or, with
+	// "replace" after the user confirmed it, over a file of their own. The
+	// page passes the reply of "ha-cluster nodes" it got itself.
 	setupFromDnsmasq: {
-		args: { dry_run: true, cluster: {} },
+		args: { dry_run: true, replace: false, cluster: {} },
 		call: function(request) {
 			return setup.run(ctx, service.setup_input(ctx, request.args.cluster),
-				{ dry_run: request.args.dry_run !== false });
+				{ dry_run: request.args.dry_run !== false, replace: request.args.replace === true });
 		}
 	},
 

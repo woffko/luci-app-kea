@@ -58,7 +58,8 @@ Menu location: **Services > Kea DHCP**.
   syntax check and restore from backup.
 - **Setup**: makes the DHCPv4 configuration of Kea from what dnsmasq is set
   up to serve, and moves the leases dnsmasq has given out into Kea. It
-  replaces only the example file of the Kea package. `ha-cluster` runs the
+  writes over the example file of the Kea package, and over a file of your
+  own only after you confirmed it, keeping a backup. `ha-cluster` runs the
   same as `/usr/libexec/luci-app-kea/setup-from-dnsmasq` when a cluster
   switches to Kea.
 - **Import dnsmasq**: turns the static leases of OpenWrt (`/etc/config/dhcp`)

@@ -59,7 +59,7 @@ var callReserveLease = rpc.declare({
 var callSetup = rpc.declare({
 	object: "luci.kea",
 	method: "setupFromDnsmasq",
-	params: [ "dry_run", "cluster" ],
+	params: [ "dry_run", "replace", "cluster" ],
 	expect: { "": {} }
 });
 
@@ -369,11 +369,12 @@ return baseclass.extend({
 
 	/*
 	 * The configuration made from dnsmasq's settings: with "dryRun" what it
-	 * would be, otherwise written where the file is still the sample.
-	 * "cluster" is the reply of ha-cluster about its nodes, or {}.
+	 * would be, otherwise written where the file is still the sample, or
+	 * with "replace" over a file of the user's own. "cluster" is the reply
+	 * of ha-cluster about its nodes, or {}.
 	 */
-	setupFromDnsmasq: function(dryRun, cluster) {
-		return L.resolveDefault(callSetup(dryRun !== false, cluster || {}), null);
+	setupFromDnsmasq: function(dryRun, cluster, replace) {
+		return L.resolveDefault(callSetup(dryRun !== false, replace === true, cluster || {}), null);
 	},
 
 	/* The Kea components of /etc/config/kea: { dhcp4: { enabled, running }, ... }. */

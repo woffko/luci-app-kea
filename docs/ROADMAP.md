@@ -357,8 +357,9 @@ Decided by the owner on 2026-11-22, as relayed by the `ha-cluster`
 project: the configuration is made from dnsmasq's settings by this
 application, `ha-cluster` runs it when a cluster switches to Kea, and a
 page does the same by hand; only the example file of the package is
-replaced automatically; the leases of dnsmasq are moved "if it is not
-hard". Done in `0.15.0`.
+replaced automatically, a file of the user's own on the page after a
+confirmation, with a backup; the leases of dnsmasq are moved "if it is
+not hard". Done in `0.15.0`.
 
 - [x] `setup-from-dnsmasq` and the Setup page, with the contract agreed
       with the `ha-cluster` project (arguments, JSON, exit statuses).

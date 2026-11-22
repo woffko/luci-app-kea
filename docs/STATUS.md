@@ -298,7 +298,7 @@ the `luci.kea.*` ucode modules:
 | `setInitAction` | write | `enable`, `disable`, `start`, `stop`, `restart`, `reload` for `/etc/init.d/kea`. After `start`, `restart`, `reload` and `stop` it sends the procd event `kea.service` with the action, whether the script succeeded or not. After `start`, `restart` and `reload` it runs `/etc/init.d/ha-cluster firewall` for an enabled `ha-cluster` that has Kea as its DHCP server, and the reply then has `cluster_firewall`, true when that command succeeded |
 | `setConflictAction` | write | `start`, `restart`, `reload` and `enable` for `dnsmasq` and `odhcpd`; not `stop` or `disable` |
 | `importDnsmasqCommit` | write | Write the selected entries (or all ready ones) to `kea-dhcp4.conf` and `kea-dhcp6.conf` |
-| `setupFromDnsmasq` | write | The DHCPv4 configuration made from dnsmasq's settings: what it would be (checked by Kea), or written while the file is missing or still the example of the package |
+| `setupFromDnsmasq` | write | The DHCPv4 configuration made from dnsmasq's settings: what it would be (checked by Kea), or written while the file is missing or still the example of the package, or with `replace` over a file of the user's own |
 | `moveDnsmasqLeases` | write | The leases of dnsmasq into a running kea-dhcp4, with lease4-add |
 
 Backups are kept in `/etc/kea/backups/` as `<config>.<UTC timestamp>.conf`,
@@ -359,9 +359,10 @@ that a hook failed to load.
 - **Setup** (`setup.js`): the DHCPv4 configuration made from what dnsmasq
   serves, with its subnets, the pair of high availability if any, what is
   not carried over, the answer of Kea's check and the file itself; Write
-  while the file is missing or still the example of the package; and the
-  move of the leases of dnsmasq into a running Kea. A changed file is not
-  replaced from here.
+  while the file is missing or still the example of the package, Replace
+  after a confirmation for a file someone has changed, the replaced file
+  kept as a backup; and the move of the leases of dnsmasq into a running
+  Kea.
 - **Services** (`services.js`): init service table with actions; Kea
   component table with staged enable/disable checkboxes committed by Save or
   Save & Apply; conflict table for dnsmasq and odhcpd with what each is
@@ -539,7 +540,7 @@ Kea, on OpenWrt.
 | `test/browser/ha.js` | Node.js + Playwright against a test target that has `kea-hook-ha` | The high availability tab end to end for both protocols, with Kea loading the hook on every save, including the peers filled in from a cluster. It answers the call for the nodes itself |
 | `test/browser/leases.js` | Node.js + Playwright against a test target that has the lease fixture | The Leases page for both protocols, and the version and log on Overview |
 | `test/browser/overview-leases.js` | Node.js + Playwright against a test target that has the lease fixture | The Kea leases on the status overview of LuCI and on Overview, and "Reserve IP" with a reservation written and one refused |
-| `test/browser/setup.js` | Node.js + Playwright against a test target whose DHCPv4 file is the example of the package | The note on Overview, the Setup page, Write over the example, and no way to replace a changed file |
+| `test/browser/setup.js` | Node.js + Playwright against a test target whose DHCPv4 file is the example of the package | The note on Overview, the Setup page, Write over the example, and Replace of a changed file only after a confirmation |
 | `test/browser/warnings.js` | Node.js + Playwright against a test target | The warnings for a file Kea does not start with on three pages, the question before a reload, the log file note and the Log Output field, the warning and the fields for the socket retries, what Overview and Services show for a daemon that does not listen and for a pair, and what the Services page says about dnsmasq. It answers the calls that would act on a service itself, and those for the state of a daemon |
 | `test/browser/import.js` | Node.js + Playwright against a test target that has the fixture static leases | The import page end to end for both protocols, including a second import |
 | `test/run-target-tests.sh` | A machine with Node.js and Playwright, against a test target; CI, against OpenWrt in QEMU | The on-target cases against the installed library and the eight browser tests in one run, with their fixtures loaded and removed |
