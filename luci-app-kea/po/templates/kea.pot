@@ -1,7 +1,7 @@
 msgid ""
 msgstr "Content-Type: text/plain; charset=UTF-8"
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:97
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:122
 msgid "%d leases of dnsmasq are now leases of Kea."
 msgstr ""
 
@@ -88,7 +88,7 @@ msgstr ""
 msgid "Address or prefix"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:136
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:164
 msgid "Address pool"
 msgstr ""
 
@@ -203,7 +203,7 @@ msgstr ""
 msgid "DHCPv4"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:170
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:198
 msgid "DHCPv4 configuration"
 msgstr ""
 
@@ -241,7 +241,7 @@ msgstr ""
 msgid "Delete"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:136
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:164
 msgid "Device"
 msgstr ""
 
@@ -298,7 +298,7 @@ msgid ""
 "partner reach it."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:56
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:81
 msgid ""
 "Everything the file has beyond what dnsmasq is set up to serve is gone from "
 "the new one: reservations, other options, high availability set up by hand."
@@ -371,11 +371,11 @@ msgid ""
 "partner %s is %s and was last seen in the state %s."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:141
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:169
 msgid "High availability: hot standby, this server %s, peers %s."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:142
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:170
 msgid "High availability: none; ha-cluster names no pair."
 msgstr ""
 
@@ -448,7 +448,7 @@ msgstr ""
 msgid "Import"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:175
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:203
 #: applications/luci-app-kea/root/usr/share/luci/menu.d/luci-app-kea.json:69
 msgid "Import dnsmasq"
 msgstr ""
@@ -500,7 +500,7 @@ msgstr ""
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/leasetable.js:121
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/leasetable.js:122
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:83
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:136
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:164
 msgid "Interface"
 msgstr ""
 
@@ -557,7 +557,7 @@ msgstr ""
 msgid "Kea Services"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:168
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:196
 msgid "Kea Setup"
 msgstr ""
 
@@ -566,7 +566,7 @@ msgid ""
 "Kea accepts this configuration when it checks it, but does not start with it:"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:149
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:177
 msgid "Kea accepts this configuration."
 msgstr ""
 
@@ -585,7 +585,7 @@ msgid ""
 "interfaces Kea serves instead, once the Kea configuration is ready:"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:149
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:177
 msgid "Kea does not accept this configuration:"
 msgstr ""
 
@@ -697,7 +697,7 @@ msgstr ""
 msgid "MAC address"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:169
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:197
 msgid ""
 "Makes the DHCPv4 configuration of Kea from what dnsmasq is set up to serve: "
 "a subnet with its address pool for every interface, the lease times, the "
@@ -747,7 +747,7 @@ msgstr ""
 msgid "Mode"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:182
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:210
 msgid "Move the leases of dnsmasq to Kea"
 msgstr ""
 
@@ -837,7 +837,7 @@ msgstr ""
 msgid "No validation results are available."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:144
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:172
 msgid "Not carried over"
 msgstr ""
 
@@ -1021,15 +1021,15 @@ msgid "Renew Timer"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:64
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:57
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:82
 msgid "Replace"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:160
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:188
 msgid "Replace my configuration…"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:54
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:79
 msgid "Replace the configuration"
 msgstr ""
 
@@ -1203,7 +1203,7 @@ msgstr ""
 msgid "Static Reservations"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:172
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:200
 msgid "Static leases and leases in use"
 msgstr ""
 
@@ -1222,7 +1222,7 @@ msgid "Stopped"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:84
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:136
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:164
 msgid "Subnet"
 msgstr ""
 
@@ -1266,7 +1266,7 @@ msgid ""
 "Configuration page to fix it."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:55
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:80
 msgid ""
 "The DHCPv4 configuration file has been changed by hand or by another tool. "
 "It is replaced by the configuration shown on this page; what it holds now is "
@@ -1287,7 +1287,7 @@ msgid ""
 "backup."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:79
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:104
 msgid ""
 "The DHCPv4 configuration is written. Next: import the static leases, switch "
 "the DHCP of dnsmasq off for these interfaces, and start kea-dhcp4 on the "
@@ -1317,11 +1317,11 @@ msgid ""
 "from its lease files. The list is refreshed every %d seconds."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:130
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:156
 msgid "The configuration could not be made: %s"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:152
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:180
 msgid "The configuration file"
 msgstr ""
 
@@ -1337,7 +1337,7 @@ msgid ""
 "package is not installed. Kea does not start in this state."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:68
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:93
 msgid "The configuration was not written."
 msgstr ""
 
@@ -1345,7 +1345,7 @@ msgstr ""
 msgid "The connection to the partner is interrupted."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:74
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:99
 msgid "The file has been changed meanwhile, so it was not replaced."
 msgstr ""
 
@@ -1393,7 +1393,7 @@ msgstr ""
 msgid "The lease file is too large to show here."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:92
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:117
 msgid "The leases were not moved: %s"
 msgstr ""
 
@@ -1420,7 +1420,7 @@ msgid ""
 "stores nothing: the list shows what an import would do right now."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:174
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:202
 msgid "The static leases of OpenWrt become reservations on the"
 msgstr ""
 
@@ -1453,7 +1453,7 @@ msgid ""
 "There is no DHCPv4 configuration file yet. The one below can be written."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:75
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:100
 msgid "There was nothing to write."
 msgstr ""
 
@@ -1584,7 +1584,7 @@ msgid ""
 "is restarted."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:164
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:192
 msgid "Write the configuration"
 msgstr ""
 
@@ -1670,7 +1670,7 @@ msgstr ""
 msgid "d"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:128
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:154
 msgid ""
 "dnsmasq serves DHCPv4 on no interface that has a static IPv4 address, so "
 "there is nothing to make a configuration from."
@@ -1693,6 +1693,13 @@ msgid ""
 "ha-cluster could not bring its firewall rules up to date. The ports of the "
 "peer URLs may be closed between the nodes: run /etc/init.d/ha-cluster "
 "firewall and look at the system log."
+msgstr ""
+
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:160
+msgid ""
+"ha-cluster is installed but did not answer about its nodes, so the "
+"configuration below has no pair of Kea servers and is not offered for "
+"writing. Reload the page in a moment."
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/hatab.js:55
@@ -1729,11 +1736,11 @@ msgstr ""
 msgid "it listens on no interface"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:91
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:116
 msgid "kea-dhcp4 does not answer: start it first."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:183
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:211
 msgid "kea-dhcp4 is not running."
 msgstr ""
 
@@ -1754,8 +1761,8 @@ msgid "must be a JSON object such as { \"sync-page-limit\": 5000 }"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/backend.js:327
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:92
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:130
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:117
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:156
 msgid "no answer"
 msgstr ""
 
@@ -1841,7 +1848,7 @@ msgstr ""
 msgid "or on the DHCPv4 page."
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:176
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:204
 msgid ""
 "page. The leases dnsmasq has given out can be handed to Kea once kea-dhcp4 "
 "runs, so that the clients keep their addresses."
@@ -1879,7 +1886,7 @@ msgstr ""
 msgid "state unknown: the package ucode-mod-socket is not installed"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:138
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/setup.js:166
 msgid "static leases only"
 msgstr ""
 
