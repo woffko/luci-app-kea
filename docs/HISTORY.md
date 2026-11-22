@@ -7,6 +7,36 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-22: From dnsmasq to Kea in one step (M12, `0.15.0-r1`)
+
+- Decided by the owner and passed on by the `ha-cluster` project, after a
+  router of the owner whose Kea configuration, made by hand, listened on
+  no interface. The contract of the command was agreed with that project
+  before the work.
+- apk keeps a checksum of every file of a package, and `apk audit
+  --backup` marks a changed configuration file with "U": that tells the
+  example of the Kea package from a file someone changed. OpenWrt has no
+  `sha1sum` to compare the checksum directly, so the audit is used.
+- Tried with a real client: dnsmasq served it, the command wrote the
+  configuration, Kea started, the lease moved, and the client got its
+  address again from Kea.
+- The bench of the `ha-cluster` project ran this version on its pair of
+  routers: the configuration written on both nodes, the pair in hot
+  standby, a static lease and two leases moved, the client keeping both
+  of its addresses and getting its renewals from Kea, its names in DNS.
+  It also saw `ha-cluster nodes` not answering for a moment after a
+  package was installed; the page and the command now ask again, and
+  write nothing without an answer.
+- The page first did not replace a changed file at all. Asked, the owner
+  decided, as relayed, that it may after an explicit confirmation, keeping
+  a backup; the command still never does.
+- Asked by the `ha-cluster` project, which moves the leases after it has
+  switched dnsmasq's DHCP off: dnsmasq 2.93 restarted without any DHCPv4
+  range kept its lease file. With dnsmasq sending router advertisements
+  instead of odhcpd the init script wrote no ra-only range on the test
+  machine, so that case was not measured; `--leases-file` lets a caller
+  pass a copy it saved before.
+
 ## 2026-11-22: Release `v0.14.0`
 
 - The owner asked for the pull request to be merged and released

@@ -478,6 +478,61 @@ Choosing an output sets it in every output option of every logger. Options
 that only matter for a file (`maxsize`, `maxver`, `flush`) stay; Kea accepts
 them with syslog. Without any logger the form adds one for the daemon.
 
+### Setting Kea up from dnsmasq
+
+A router that moves from dnsmasq to Kea, by hand or because `ha-cluster`
+switches a cluster, needs a Kea configuration that serves what dnsmasq
+served. On the test router of the owner, a configuration made by hand in
+the forms listened on no interface and had a subnet without a pool, and
+`ha-cluster` refused to switch four times. `setup.uc` makes one instead,
+and both the command `setup-from-dnsmasq` and the Setup page use it.
+
+What it reads: the pools of `/etc/config/dhcp` (or, with `ha-cluster`,
+the interfaces it names as the DHCP interfaces of the cluster, with their
+device and virtual addresses), the static IPv4 address of each interface
+in `/etc/config/network`, and the domain of dnsmasq. What it makes, for
+each interface: a subnet bound to the device, the pool as dnsmasq counts
+it (start and limit from the network address, ending before the
+broadcast address), the lease time with renewal at a half and rebinding
+at seven eighths of it, and the options. The options of the pool that
+have a Kea counterpart are taken over (router, DNS, domain, domain
+search, NTP, NetBIOS), 0.0.0.0 standing for the router itself as in
+dnsmasq; without them the clients get the router as gateway and DNS, the
+virtual address of a cluster where there is one. Tagged and vendor
+options and other numbers are listed as not carried over. With a cluster
+whose nodes have their Kea roles, a pair in hot standby is added, with
+the timers of the bench of the `ha-cluster` project; with
+`kea-hook-run-script` and `kea-dnsmasq-hosts` the hook for client names
+in DNS.
+
+It writes a file that is missing or still the example the Kea package
+installed: owned by the package in the database of apk, and not marked as
+changed by `apk audit --backup /etc/kea`. A file someone has changed is
+never replaced by the command, which `ha-cluster` runs on its own. The
+page shows what it would write, so that the change can be made by hand,
+and replaces the file only when the user asks for it and confirms that
+what the file holds beyond dnsmasq's settings goes; the file is kept as a
+backup. That is the owner's decision. Writing goes
+through the save of the pages: Kea checks the text with its hooks, the
+example is kept as a backup, and the lock is held.
+
+The command does not ask `ha-cluster` from inside rpcd. `ha-cluster`
+passes its reply with `--cluster -`; without it the command asks over
+ubus itself, which is safe outside rpcd. The page fetches the reply in
+the browser and passes it to the backend. rpcd, which answers for
+`ha-cluster`, reloads for a moment when a package is installed, as the
+bench of the `ha-cluster` project showed: both ask a second time after a
+pause, and while an installed `ha-cluster` still does not answer they
+write nothing, since the result would lack the pair.
+
+The leases dnsmasq has given out are handed to a running kea-dhcp4 with
+lease4-add, after it was started on the new file: each lease that has
+not run out and lies in a subnet of Kea. Kea refuses an address it has
+leased already, so a second run, or a run on both nodes of a pair, adds
+nothing twice. dnsmasq 2.93 kept its lease file when it was restarted
+without any DHCPv4 range (measured); a caller that wants to be sure can
+save a copy before and pass it with `--leases-file`.
+
 ### Who may see and do what
 
 The ACL of the application has two groups. An external audit of `0.11.0`

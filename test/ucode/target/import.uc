@@ -124,6 +124,77 @@ if (fs.access(COMMAND, 'x')) {
 		equal(type(reply.left), 'array');
 		equal(fs.readfile('/etc/kea/kea-dhcp4.conf'), before4);
 	});
+
+	test('the leases of dnsmasq are not moved while kea-dhcp4 does not run', () => {
+		if (system('pidof kea-dhcp4 >/dev/null') == 0)
+			return;
+
+		let run = command('--leases');
+
+		equal(run.status, 1);
+		equal(json(run.output), { result: false, reason: 'kea-not-running', added: 0, skipped: [] });
+		equal(command('--leases --dry-run').status, 2);
+		equal(command('--leases-file /tmp/x').status, 2, '--leases-file alone');
+
+		let missing = command('--leases --leases-file /nonexistent/dhcp.leases');
+
+		equal(missing.status, 1);
+		equal(json(missing.output).reason, 'cannot read /nonexistent/dhcp.leases');
+	});
+}
+
+/* ---- the configuration made from dnsmasq's settings ------------------------ */
+
+const SETUP = '/usr/libexec/luci-app-kea/setup-from-dnsmasq';
+
+function setup_command(args, input) {
+	let out = root + '/setup.out';
+	let feed = root + '/setup.in';
+
+	fs.writefile(feed, input ?? '');
+
+	let status = system(sprintf('%s %s <%s >%s 2>/dev/null', SETUP, args, feed, out));
+
+	return { status, output: trim(fs.readfile(out) ?? '') };
+}
+
+if (fs.access(SETUP, 'x')) {
+	test('the setup command makes a configuration the real Kea accepts, and writes nothing in a dry run', () => {
+		let before = fs.readfile('/etc/kea/kea-dhcp4.conf');
+		let run = setup_command('--dry-run --cluster -', '{}');
+		let reply = json(run.output);
+
+		equal(run.status, 0, run.output);
+		equal(reply.reason, 'dry-run');
+		ok(reply.state in [ 'sample', 'own', 'missing' ], reply.state);
+		equal(reply.check?.valid, true, reply.check?.output);
+		ok(length(reply.subnets) > 0, 'dnsmasq serves at least lan on a test machine');
+		equal(fs.readfile('/etc/kea/kea-dhcp4.conf'), before);
+	});
+
+	test('with a cluster, the pair of Kea servers it makes is accepted by Kea with its hooks', () => {
+		if (!fs.access('/usr/lib/kea/hooks/libdhcp_ha.so'))
+			return;
+
+		let cluster = {
+			dhcp_backend: 'kea',
+			node: { name: 'node-a', address: '192.168.1.1', kea_role: 'primary' },
+			peers: [ { name: 'node-b', address: '192.168.1.2', vrrp_only: false, kea_role: 'standby' } ],
+			dhcp_interfaces: [ { interface: 'lan', device: 'br-lan', vip4: [ '192.168.1.254' ] } ]
+		};
+		let reply = json(setup_command('--dry-run --cluster -', sprintf('%J', cluster)).output);
+
+		equal(reply.ha, { this: 'node-a', peers: [ 'node-a', 'node-b' ] });
+		equal(reply.check?.valid, true, reply.check?.output);
+		ok(index(reply.content, '"routers"') > 0 && index(reply.content, '192.168.1.254') > 0, 'the virtual address for the clients');
+	});
+
+	test('the setup command answers its arguments with the exit status it promises', () => {
+		equal(setup_command('--bogus').status, 2);
+		equal(setup_command('--cluster -', 'not json').status, 2);
+		equal(json(setup_command('--cluster -', 'not json').output).reason, 'the --cluster input is not a JSON object');
+		equal(setup_command('--help').status, 0);
+	});
 }
 
 rm_rf(root);

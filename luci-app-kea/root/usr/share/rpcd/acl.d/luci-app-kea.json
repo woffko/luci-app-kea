@@ -31,7 +31,9 @@
 					"saveConfig",
 					"restoreBackup",
 					"reserveLease",
-					"importDnsmasqCommit"
+					"importDnsmasqCommit",
+					"setupFromDnsmasq",
+					"moveDnsmasqLeases"
 				]
 			}
 		}

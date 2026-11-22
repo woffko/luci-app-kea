@@ -56,6 +56,19 @@ var callReserveLease = rpc.declare({
 	expect: { "": {} }
 });
 
+var callSetup = rpc.declare({
+	object: "luci.kea",
+	method: "setupFromDnsmasq",
+	params: [ "dry_run", "replace", "cluster" ],
+	expect: { "": {} }
+});
+
+var callMoveLeases = rpc.declare({
+	object: "luci.kea",
+	method: "moveDnsmasqLeases",
+	expect: { "": {} }
+});
+
 var callLog = rpc.declare({
 	object: "luci.kea",
 	method: "getLog",
@@ -164,6 +177,10 @@ function isRunning(services, name) {
  * a high availability pair cannot reach each other.
  */
 function warningText(warning) {
+	if (warning.code === "subnet-interface")
+		return _("The subnet %s is bound to the interface %s, which is not among the interfaces Kea listens on. Kea takes it and answers nobody there: switch listening on for that interface on its tab.")
+			.format(warning.value, warning.interface);
+
 	if (warning.code === "socket-retries")
 		return _("Kea is to listen on %s and does not try again when an interface is not ready. Started at boot before the interface is up, it opens no socket and stays that way. Set Socket Retries and Socket Retry Wait on the Global settings tab, for example 60 and 2000.")
 			.format(warning.value);
@@ -349,6 +366,54 @@ return baseclass.extend({
 	},
 
 	describeDaemon: describeDaemon,
+
+	/*
+	 * The configuration made from dnsmasq's settings: with "dryRun" what it
+	 * would be, otherwise written where the file is still the sample, or
+	 * with "replace" over a file of the user's own. "cluster" is the reply
+	 * of ha-cluster about its nodes, or {}.
+	 */
+	setupFromDnsmasq: function(dryRun, cluster, replace) {
+		return L.resolveDefault(callSetup(dryRun !== false, replace === true, cluster || {}), null);
+	},
+
+	/* The Kea components of /etc/config/kea: { dhcp4: { enabled, running }, ... }. */
+	getServices: function() {
+		return L.resolveDefault(callServices(), {});
+	},
+
+	/* Hand the leases of dnsmasq to a running kea-dhcp4. */
+	moveDnsmasqLeases: function() {
+		return L.resolveDefault(callMoveLeases(), null);
+	},
+
+	/*
+	 * A note for Overview and Services while the DHCPv4 server is not set
+	 * up yet, with the way to the Setup page; null when it is.
+	 */
+	setupNote: function(status) {
+		var reasons = ((status || {}).setup || {}).unconfigured || [];
+		var texts = {
+			"missing": _("there is no configuration file"),
+			"sample": _("the configuration file is still the example the Kea package installed"),
+			"no-interfaces": _("it listens on no interface"),
+			"no-subnets": _("it has no subnet")
+		};
+
+		if (!reasons.length)
+			return null;
+
+		return E("div", { "class": "alert-message notice kea-not-set-up" }, [
+			E("p", {}, [ _("The DHCPv4 server of Kea is not set up yet: %s.").format(reasons.map(function(reason) {
+				return texts[reason] || reason;
+			}).join(", ")) ]),
+			E("p", {}, [
+				E("a", { "href": L.url("admin/services/kea/setup") }, _("Set it up from the settings of dnsmasq")),
+				" ",
+				_("or on the DHCPv4 page.")
+			])
+		]);
+	},
 
 	clusterNote: clusterNote,
 

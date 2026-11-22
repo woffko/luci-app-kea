@@ -221,6 +221,7 @@ return view.extend({
 		return E("div", {}, [
 			E("h2", _("Kea DHCP")),
 			E("p", _("Manage ISC Kea DHCP services, configuration, reservations, and dnsmasq static lease imports.")),
+			backend.setupNote(status) || "",
 
 			deaf.length ? E("div", { "class": "alert-message danger kea-not-listening" }, [
 				E("p", {}, E("strong", {}, _("Kea is running, but does not serve everywhere it was told to. Clients on the interfaces named here get no answer."))),

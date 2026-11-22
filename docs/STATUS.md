@@ -1,6 +1,6 @@
 # Project Status
 
-Status date: 2026-11-22. Package version `0.14.0-r1`, alpha.
+Status date: 2026-11-22. Package version `0.15.0-r1`, alpha.
 
 This is a code-level inventory of what exists and what is missing. The work
 needed to close the gaps is ordered in [ROADMAP.md](ROADMAP.md). Packaging
@@ -11,7 +11,7 @@ issues are listed separately in [PACKAGING.md](PACKAGING.md).
 | Area | State |
 |------|-------|
 | Package skeleton, menu, ACL | Done |
-| rpcd backend (`luci.kea`, 19 methods) | Done, in ucode |
+| rpcd backend (`luci.kea`, 21 methods) | Done, in ucode |
 | Overview page | Done, with the Kea version, what the running DHCP daemons say about themselves, the recent log messages and where the daemons write their log |
 | Services page | Done, with what dnsmasq and odhcpd are configured to serve and whether a running Kea daemon listens |
 | Raw configuration editor | Done, with syntax check, change view, backups and restore |
@@ -155,6 +155,24 @@ button.
 
 `0.10.1-r1` was not installed on the second machine.
 
+`0.15.0-r1` was tested on the QEMU machine and by CI: 173 backend tests on
+the router, among them the setup command with the real Kea checking what
+it makes, also a pair of high availability, and eight browser tests. By
+hand on that machine, the whole move with a real client on a virtual
+interface:
+
+1. dnsmasq gave the client `mover` the address 10.66.0.57.
+2. `setup-from-dnsmasq` wrote the configuration over the example of the
+   package, with the example as a backup: the subnets of `lan` and of the
+   new interface, nothing left out. Run again, it answered with exit 3:
+   the file was its own now.
+3. With the DHCP of dnsmasq off on both interfaces, kea-dhcp4 started and
+   opened its sockets.
+4. `import-dnsmasq --leases` added the lease; run again, Kea refused it as
+   existing.
+5. The client asked for its address again and got 10.66.0.57 from Kea,
+   with its name.
+
 `0.14.0-r1` was tested on the QEMU machine and by CI: 160 backend tests on
 the router and seven browser tests, which now check that a host name and a
 log line with markup are shown as text and that the Services page has no
@@ -253,8 +271,9 @@ the `luci.kea.*` ucode modules:
 | `service.uc` | Component and service state from procd, init actions, runtime files |
 | `openwrt.uc` | What dnsmasq and odhcpd are configured to serve, from the sections of `/etc/config/dhcp` |
 | `cluster.uc` | Whether `ha-cluster` follows the Kea files, and whether its init script has a command |
+| `setup.uc` | The DHCPv4 configuration made from dnsmasq's settings, whether the file is the example of the package, and whether the server is set up |
 | `runtime.uc` | Kea version, Kea messages of the system log, leases from the lease files, and a client for the control socket of a daemon |
-| `importer.uc` | Static lease classification against the Kea configuration, import, and the import command |
+| `importer.uc` | Static lease classification against the Kea configuration, import, the import command, and the move of the leases of dnsmasq |
 | `jsonc.uc` | JSON with `//`, `#` and `/* */` comments |
 | `net.uc` | IPv4 helpers |
 
@@ -279,6 +298,8 @@ the `luci.kea.*` ucode modules:
 | `setInitAction` | write | `enable`, `disable`, `start`, `stop`, `restart`, `reload` for `/etc/init.d/kea`. After `start`, `restart`, `reload` and `stop` it sends the procd event `kea.service` with the action, whether the script succeeded or not. After `start`, `restart` and `reload` it runs `/etc/init.d/ha-cluster firewall` for an enabled `ha-cluster` that has Kea as its DHCP server, and the reply then has `cluster_firewall`, true when that command succeeded |
 | `setConflictAction` | write | `start`, `restart`, `reload` and `enable` for `dnsmasq` and `odhcpd`; not `stop` or `disable` |
 | `importDnsmasqCommit` | write | Write the selected entries (or all ready ones) to `kea-dhcp4.conf` and `kea-dhcp6.conf` |
+| `setupFromDnsmasq` | write | The DHCPv4 configuration made from dnsmasq's settings: what it would be (checked by Kea), or written while the file is missing or still the example of the package, or with `replace` over a file of the user's own |
+| `moveDnsmasqLeases` | write | The leases of dnsmasq into a running kea-dhcp4, with lease4-add |
 
 Backups are kept in `/etc/kea/backups/` as `<config>.<UTC timestamp>.conf`,
 readable by root only. The ten newest per config file are kept. Every write
@@ -335,6 +356,13 @@ that a hook failed to load.
 - **Leases** (`leases.js`): the DHCPv4 and DHCPv6 leases in use, with
   address or delegated prefix, MAC address, client ID or DUID, hostname,
   subnet, remaining time and state. Refreshed every ten seconds.
+- **Setup** (`setup.js`): the DHCPv4 configuration made from what dnsmasq
+  serves, with its subnets, the pair of high availability if any, what is
+  not carried over, the answer of Kea's check and the file itself; Write
+  while the file is missing or still the example of the package, Replace
+  after a confirmation for a file someone has changed, the replaced file
+  kept as a backup; and the move of the leases of dnsmasq into a running
+  Kea.
 - **Services** (`services.js`): init service table with actions; Kea
   component table with staged enable/disable checkboxes committed by Save or
   Save & Apply; conflict table for dnsmasq and odhcpd with what each is
@@ -505,16 +533,17 @@ Kea, on OpenWrt.
 | Test | Runs on | Covers |
 |------|---------|--------|
 | `node --test "test/js/*.test.js"` | Any machine with Node.js | The configuration model (56 cases, plus the stock Kea configs when `KEA_STOCK_DIR` is set) and the high availability model (28 cases), with what `ha-cluster` says about its nodes; one case reads the backend sources and fails when they call a ubus object that rpcd serves |
-| `test/run-ucode-tests.sh` | Any machine with a ucode interpreter | The backend library with a stand-in for the Kea binary: comment stripping, JSON writing, IPv4 and IPv6 helpers, save, backups, restore, retention, how the Kea binary is called and its refusal reported, import classification and commit, lease files, log lines, version, the settings Kea does not start with, log outputs, what dnsmasq and odhcpd serve, the client of the control socket against a stand-in server, the state of a daemon, when `ha-cluster` follows the Kea files, the lock around changes of a file, the import command, the subnets of a lease, reserving a lease, masked secrets, the includes and run_script paths that are refused (120 cases) |
-| `test/run-ucode-tests.sh --target` | OpenWrt with the Kea daemons | The same plus 40 cases with the real Kea binaries, UCI and procd: validation, a hook checking its parameters (needs `kea-hook-ha`), that Kea accepts a lease file and a log file in a wrong directory, service state, init actions and the event after them, the call of `ha-cluster` with a stand-in for its init script, API password, import from a UCI fixture, the installed import command with a dry run on the system's own files, version and system log. Uses a temporary root, except that one test line is written to the system log |
+| `test/run-ucode-tests.sh` | Any machine with a ucode interpreter | The backend library with a stand-in for the Kea binary: comment stripping, JSON writing, IPv4 and IPv6 helpers, save, backups, restore, retention, how the Kea binary is called and its refusal reported, import classification and commit, lease files, log lines, version, the settings Kea does not start with, log outputs, what dnsmasq and odhcpd serve, the client of the control socket against a stand-in server, the state of a daemon, when `ha-cluster` follows the Kea files, the lock around changes of a file, the import command, the subnets of a lease, reserving a lease, masked secrets, the includes and run_script paths that are refused, the configuration made from dnsmasq's settings and when it is written, the move of the leases of dnsmasq (129 cases) |
+| `test/run-ucode-tests.sh --target` | OpenWrt with the Kea daemons | The same plus 44 cases with the real Kea binaries, UCI and procd: validation, a hook checking its parameters (needs `kea-hook-ha`), that Kea accepts a lease file and a log file in a wrong directory, service state, init actions and the event after them, the call of `ha-cluster` with a stand-in for its init script, API password, import from a UCI fixture, the installed import command with a dry run on the system's own files, the setup command with Kea checking what it makes, version and system log. Uses a temporary root, except that one test line is written to the system log |
 | `test/browser/smoke.js` | Node.js + Playwright against a target | Every page renders without JavaScript errors |
 | `test/browser/editor.js` | Node.js + Playwright against a test target | Editors (pools, options, global settings, shared networks, input checks, change view), raw editor, backups and example removal end to end, with Kea validating every save |
 | `test/browser/ha.js` | Node.js + Playwright against a test target that has `kea-hook-ha` | The high availability tab end to end for both protocols, with Kea loading the hook on every save, including the peers filled in from a cluster. It answers the call for the nodes itself |
 | `test/browser/leases.js` | Node.js + Playwright against a test target that has the lease fixture | The Leases page for both protocols, and the version and log on Overview |
 | `test/browser/overview-leases.js` | Node.js + Playwright against a test target that has the lease fixture | The Kea leases on the status overview of LuCI and on Overview, and "Reserve IP" with a reservation written and one refused |
+| `test/browser/setup.js` | Node.js + Playwright against a test target whose DHCPv4 file is the example of the package | The note on Overview, the Setup page, Write over the example, and Replace of a changed file only after a confirmation |
 | `test/browser/warnings.js` | Node.js + Playwright against a test target | The warnings for a file Kea does not start with on three pages, the question before a reload, the log file note and the Log Output field, the warning and the fields for the socket retries, what Overview and Services show for a daemon that does not listen and for a pair, and what the Services page says about dnsmasq. It answers the calls that would act on a service itself, and those for the state of a daemon |
 | `test/browser/import.js` | Node.js + Playwright against a test target that has the fixture static leases | The import page end to end for both protocols, including a second import |
-| `test/run-target-tests.sh` | A machine with Node.js and Playwright, against a test target; CI, against OpenWrt in QEMU | The on-target cases against the installed library and the seven browser tests in one run, with their fixtures loaded and removed |
+| `test/run-target-tests.sh` | A machine with Node.js and Playwright, against a test target; CI, against OpenWrt in QEMU | The on-target cases against the installed library and the eight browser tests in one run, with their fixtures loaded and removed |
 
 ## Known defects and limits
 

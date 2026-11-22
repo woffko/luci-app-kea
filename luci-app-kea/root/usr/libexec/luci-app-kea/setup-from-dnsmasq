@@ -1,0 +1,104 @@
+#!/usr/bin/ucode
+// SPDX-License-Identifier: Apache-2.0
+//
+// Make /etc/kea/kea-dhcp4.conf from what dnsmasq is set up to serve, for a
+// router that moves from dnsmasq to Kea; ha-cluster runs it when a cluster
+// switches to Kea.
+//
+//   setup-from-dnsmasq [--dry-run] [--cluster FILE|-]
+//
+// The file is written only when it is missing or is still the sample the
+// Kea package installed; a file someone has changed is left alone. It is
+// checked by Kea before it is written, and the file it replaces is kept in
+// /etc/kea/backups. Kea is not restarted.
+//
+// --cluster gives the reply of "ubus call ha-cluster nodes", from a file or
+// from standard input ("-"); without it the command asks ha-cluster itself,
+// a second time after a pause, and writes nothing when an installed
+// ha-cluster does not answer.
+// With a cluster, the interfaces are those it names and a pair of Kea
+// servers in hot standby is set up.
+//
+// Writes one JSON object to standard output: see run() in
+// /usr/share/ucode/luci/kea/setup.uc. Exit status:
+//   0  written, or the dry run done
+//   1  nothing written: an error, or Kea refused the result
+//   2  wrong arguments, or a --cluster that is not JSON
+//   3  not written: the file is someone's own
+//   4  nothing to set up: no interface can be served
+
+'use strict';
+
+import * as fs from 'fs';
+import { connect } from 'ubus';
+import * as config from 'luci.kea.config';
+import * as service from 'luci.kea.service';
+import * as setup from 'luci.kea.setup';
+
+const USAGE = 'usage: setup-from-dnsmasq [--dry-run] [--cluster FILE|-]\n';
+
+function fail(code, error) {
+	warn(USAGE);
+	printf('%J\n', { result: false, written: false, reason: error });
+	exit(code);
+}
+
+let dry_run = false;
+let source = null;
+
+for (let i = 0; i < length(ARGV); i++) {
+	if (ARGV[i] == '--dry-run')
+		dry_run = true;
+	else if (ARGV[i] == '--cluster' && i + 1 < length(ARGV))
+		source = ARGV[++i];
+	else if (ARGV[i] in [ '-h', '--help' ]) {
+		print(USAGE);
+		exit(0);
+	}
+	else
+		fail(2, 'unknown argument: ' + ARGV[i]);
+}
+
+let cluster = null;
+
+if (source != null) {
+	let content = source == '-' ? fs.stdin.read('all') : fs.readfile(source);
+
+	try {
+		cluster = json(content ?? '');
+	}
+	catch (e) {
+		cluster = null;
+	}
+
+	if (type(cluster) != 'object')
+		fail(2, 'the --cluster input is not a JSON object');
+}
+else {
+	// Outside rpcd it is safe to ask; without ha-cluster the answer is null.
+	// rpcd answers for ha-cluster, and reloads for a moment when a package
+	// is installed.
+	let installed = !!fs.access('/etc/init.d/ha-cluster', 'x');
+
+	cluster = connect()?.call('ha-cluster', 'nodes', {});
+
+	if (installed && type(cluster?.node) != 'object') {
+		sleep(2000);
+		cluster = connect()?.call('ha-cluster', 'nodes', {});
+	}
+
+	if (installed && type(cluster?.node) != 'object') {
+		printf('%J\n', { result: false, written: false, reason: 'ha-cluster is installed but did not answer about its nodes; pass them with --cluster' });
+		exit(1);
+	}
+}
+
+let ctx = config.context();
+let reply = setup.run(ctx, service.setup_input(ctx, cluster), { dry_run });
+
+printf('%J\n', reply);
+
+if (!reply.result)
+	exit(1);
+
+exit(({ 'own-config': 3, 'nothing-to-set-up': 4 })[reply.reason] ?? 0);

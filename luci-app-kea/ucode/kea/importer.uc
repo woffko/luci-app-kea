@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import { parse, stringify, has_comments } from 'luci.kea.jsonc';
 import * as config from 'luci.kea.config';
 import * as net from 'luci.kea.net';
+import * as runtime from 'luci.kea.runtime';
 
 // Import of OpenWrt static leases into Kea reservations.
 //
@@ -721,21 +722,33 @@ export function commit(ctx, hosts, interfaces, keys) {
 const STATUSES = [ 'ready', 'review', 'update', 'present', 'blocked' ];
 const LEFT_FIELDS = [ 'key', 'source', 'family', 'status', 'name', 'identifier', 'address', 'subnet', 'notes' ];
 
-// The arguments of the command: { dry_run, include_review, help }, or
-// { error } for one it does not know.
+// The arguments of the command: { dry_run, include_review, leases,
+// leases_file, help }, or { error } for one it does not know.
+// "--leases-file FILE" names a copy of dnsmasq's lease file, for a caller
+// that saved it before dnsmasq was restarted without DHCP.
 export function command_options(args) {
-	let options = { dry_run: false, include_review: false, help: false };
+	let options = { dry_run: false, include_review: false, leases: false, leases_file: null, help: false };
+	let list = type(args) == 'array' ? args : [];
 
-	for (let arg in (type(args) == 'array' ? args : [])) {
+	for (let i = 0; i < length(list); i++) {
+		let arg = list[i];
+
 		if (arg == '--dry-run')
 			options.dry_run = true;
 		else if (arg == '--include-review')
 			options.include_review = true;
+		else if (arg == '--leases')
+			options.leases = true;
+		else if (arg == '--leases-file' && i + 1 < length(list))
+			options.leases_file = list[++i];
 		else if (arg in [ '-h', '--help' ])
 			options.help = true;
 		else
 			return { error: 'unknown argument: ' + arg };
 	}
+
+	if (options.leases_file != null && !options.leases)
+		return { error: '--leases-file is used with --leases' };
 
 	return options;
 };
@@ -890,4 +903,87 @@ export function reserve(ctx, interfaces, request) {
 			warnings: config.warnings(ctx, family, fs.readfile(config.path(ctx, family)) ?? '')
 		};
 	});
+};
+
+/* ---- the leases of dnsmasq ------------------------------------------------- */
+
+// Hand the leases dnsmasq has given out to a running kea-dhcp4, so that its
+// clients keep their addresses when Kea takes over. "content" is the text
+// of dnsmasq's lease file: one lease per line, "expiry mac ip hostname
+// client-id", "*" for an unknown name or client ID, expiry 0 for a lease
+// without end. "now" is the time to count from.
+//
+// Each lease that has not run out and whose address is in a DHCPv4 subnet
+// of Kea goes in with lease4-add, which needs the lease commands hook. Kea
+// refuses an address it has leased already; that lease is skipped with its
+// answer.
+//
+// Returns { result, added, skipped: [ { address, reason } ] } or, when Kea
+// does not answer, { result: false, reason: "kea-not-running" }.
+export function move_leases(ctx, content, now) {
+	let status = runtime.control(ctx, 'dhcp4', 'status-get');
+
+	if (status.error || status.result != 0)
+		return { result: false, reason: 'kea-not-running', added: 0, skipped: [] };
+
+	let root = parse(fs.readfile(config.path(ctx, 'dhcp4')) ?? '').config?.Dhcp4;
+	let subnets = [ ...subnets_of({ Dhcp4: root }, 'dhcp4') ];
+
+	for (let network in (type(root?.['shared-networks']) == 'array' ? root['shared-networks'] : []))
+		for (let subnet in (type(network?.subnet4) == 'array' ? network.subnet4 : []))
+			if (type(subnet) == 'object')
+				push(subnets, subnet);
+
+	let reply = { result: true, added: 0, skipped: [] };
+
+	for (let line in split(content ?? '', '\n')) {
+		let fields = split(trim(line), /[ \t]+/);
+
+		if (length(fields) < 3 || trim(line) == '' || net.ipv4_to_int(fields[2]) == null)
+			continue;
+
+		let expiry = +fields[0];
+		let address = fields[2];
+		let subnet = filter(subnets, candidate => net.ip_in_subnet(address, text(candidate.subnet)))[0];
+
+		if (!(expiry > now)) {
+			push(reply.skipped, { address, reason: expiry == 0 ? 'the lease has no end; Kea is given none such' : 'the lease has run out' });
+			continue;
+		}
+
+		if (!subnet || subnet.id == null) {
+			push(reply.skipped, { address, reason: 'the address is in no DHCPv4 subnet of Kea' });
+			continue;
+		}
+
+		let lease = {
+			'ip-address': address,
+			'hw-address': lc(fields[1]),
+			'subnet-id': subnet.id,
+			'valid-lft': expiry - now,
+			expire: expiry
+		};
+
+		if (fields[3] != null && fields[3] != '*')
+			lease.hostname = fields[3];
+
+		if (fields[4] != null && fields[4] != '*')
+			lease['client-id'] = lc(fields[4]);
+
+		let answer = runtime.control(ctx, 'dhcp4', { command: 'lease4-add', arguments: lease });
+
+		if (answer.result == 0) {
+			reply.added++;
+		}
+		else if (answer.result == 2) {
+			reply.result = false;
+			reply.reason = 'the lease commands hook of Kea is not loaded';
+			break;
+		}
+		else {
+			push(reply.skipped, { address, reason: text(answer.text) || text(answer.error) || 'refused by Kea' });
+		}
+	}
+
+	return reply;
 };

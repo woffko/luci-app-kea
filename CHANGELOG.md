@@ -9,6 +9,36 @@ Released versions are tagged `vX.Y.Z` and have their package on the
 [Releases page](https://github.com/woffko/luci-app-kea/releases). All
 versions are alpha.
 
+## 0.15.0-r1 (2026-11-22)
+
+For a router that moves its DHCPv4 service from dnsmasq to Kea.
+
+### Added
+
+- The Setup page, and the command
+  `/usr/libexec/luci-app-kea/setup-from-dnsmasq [--dry-run] [--cluster FILE|-]`
+  that ha-cluster runs when a cluster switches to Kea. Both make the
+  DHCPv4 configuration of Kea from what dnsmasq is set up to serve: a
+  subnet with its address pool for every interface, the lease time, the
+  router, DNS server and domain the clients get (the virtual address of a
+  cluster where there is one), the options of the pool that have a Kea
+  counterpart, and with ha-cluster a pair of Kea servers in hot standby.
+  What does not translate is listed. The file is written only while it is
+  missing or still the example the Kea package installed, checked by Kea
+  first, with the example kept as a backup. A file someone has changed is
+  never replaced by the command; the page replaces it only after the user
+  confirmed it, and keeps it as a backup.
+- `import-dnsmasq --leases [--leases-file FILE]`, and a button on the Setup
+  page: the leases dnsmasq has given out go into a running kea-dhcp4, so
+  that its clients keep their addresses. `--leases-file` reads a copy of
+  dnsmasq's lease file that a caller saved before switching dnsmasq's DHCP
+  off.
+- A note on Overview and Services while the DHCPv4 server of Kea is not
+  set up: no file, the example of the package, no interface to listen on,
+  or no subnet.
+- A warning for a subnet bound to an interface that Kea does not listen
+  on: Kea takes such a file and answers nobody there.
+
 ## 0.14.0-r1 (2026-11-22)
 
 After an external audit of `0.11.0` and `0.13.0` (findings CA-LUCIKEA-01
