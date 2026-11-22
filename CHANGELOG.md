@@ -9,6 +9,21 @@ Released versions are tagged `vX.Y.Z` and have their package on the
 [Releases page](https://github.com/woffko/luci-app-kea/releases). All
 versions are alpha.
 
+## 0.13.0-r1 (2026-11-22)
+
+### Added
+
+- The switch "Client names in DNS" on the Global settings tab of the DHCPv4
+  and DHCPv6 pages, for routers that have the packages
+  `kea-hook-run-script` and `kea-dnsmasq-hosts`. Under dnsmasq the names of
+  DHCP clients answer in the local DNS; under Kea nothing gave them to
+  dnsmasq. With the switch on, Kea tells `kea-dnsmasq-hosts` about every
+  lease through its run_script hook, and that package keeps a hosts file
+  for dnsmasq. The switch writes or removes that one hook entry and leaves
+  any other alone. It is shown only when both packages are installed, or
+  when the file has the entry without them, so that it can be switched
+  off. Kea loads the hook when it restarts, which Save & Apply does.
+
 ## 0.12.0-r1 (2026-11-22)
 
 ### Added

@@ -4,7 +4,7 @@
 
 LuCI application for managing the ISC Kea DHCP server on OpenWrt.
 
-> **Status: alpha (0.12.0).** Usable for testing on a lab router. Not ready to
+> **Status: alpha (0.13.0).** Usable for testing on a lab router. Not ready to
 > replace a production dnsmasq/odhcpd setup yet: see
 > [Known limitations](#known-limitations).
 
@@ -37,7 +37,9 @@ Menu location: **Services > Kea DHCP**.
   pools, gateway, DNS servers, domain, timers, any other DHCP option, and
   reservations by MAC address, client ID, DUID, circuit ID or flex ID. A
   last tab holds the global timers, the lease file cleanup interval, the
-  log output, the retries for the sockets and the options for all subnets.
+  log output, the retries for the sockets and the options for all subnets,
+  and, with `kea-hook-run-script` and `kea-dnsmasq-hosts` installed, a
+  switch that gives the names of the clients to the local DNS of dnsmasq.
 - **DHCPv6**: the same with prefix delegation pools and reservations by
   DUID, MAC address or flex ID.
 - **High availability**: a tab of the DHCPv4 and DHCPv6 pages when

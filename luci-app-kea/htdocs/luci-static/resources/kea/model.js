@@ -93,8 +93,28 @@ var LABELS = {
 	lfcInterval: _("Lease File Cleanup"),
 	logOutput: _("Log Output"),
 	socketRetries: _("Socket Retries"),
-	socketRetryWait: _("Socket Retry Wait")
+	socketRetryWait: _("Socket Retry Wait"),
+	dnsNames: _("Client names in DNS")
 };
+
+/*
+ * The names of DHCP clients in the local DNS. dnsmasq knows them from its
+ * own leases; Kea gives them to nobody. The kea-dnsmasq-hosts package
+ * writes a hosts file for dnsmasq from the lease files of Kea, and learns
+ * that a lease changed through the run_script hook of Kea, packaged as
+ * kea-hook-run-script. The switch on the Global settings tab writes, or
+ * removes, this one entry of "hooks-libraries":
+ *
+ *   { "library": "<hooks dir>/libdhcp_run_script.so",
+ *     "parameters": { "name": DNS_HOSTS_SCRIPT, "sync": false } }
+ *
+ * An entry of the same library with another script is left alone. Kea 3
+ * runs a script from /usr/share/kea/scripts only: with any other path the
+ * hook does not load, and the check of Kea refuses the file.
+ */
+var RUN_SCRIPT_LIBRARY = "libdhcp_run_script.so";
+var DNS_HOSTS_SCRIPT = "/usr/share/kea/scripts/kea-dnsmasq-hosts";
+var DEFAULT_HOOKS_DIR = "/usr/lib/kea/hooks";
 
 /*
  * Kea opens its sockets once, when it starts, unless it is told to try
@@ -1369,6 +1389,51 @@ function setLogOutput(family, root, output) {
 	}
 }
 
+function isRunScript(hook) {
+	return isObject(hook) && text(hook.library).replace(/^.*\//, "") === RUN_SCRIPT_LIBRARY;
+}
+
+function isDnsHosts(hook) {
+	return isRunScript(hook) && isObject(hook.parameters) && hook.parameters.name === DNS_HOSTS_SCRIPT;
+}
+
+/*
+ * Whether the configuration gives client names to the local DNS: "on",
+ * "off", or "other" when the run_script hook runs another script. "other"
+ * also tells the script.
+ */
+function dnsNames(root) {
+	var hooks = array(root["hooks-libraries"]);
+	var other = null;
+
+	for (var i = 0; i < hooks.length; i++) {
+		if (isDnsHosts(hooks[i]))
+			return { state: "on" };
+
+		if (isRunScript(hooks[i]) && other === null)
+			other = isObject(hooks[i].parameters) ? text(hooks[i].parameters.name) : "";
+	}
+
+	return other === null ? { state: "off" } : { state: "other", script: other };
+}
+
+function setDnsNames(root, enabled, hooksDir) {
+	var hooks = array(root["hooks-libraries"]).filter(function(hook) {
+		return !isDnsHosts(hook);
+	});
+
+	if (enabled)
+		hooks.push({
+			library: (hooksDir || DEFAULT_HOOKS_DIR) + "/" + RUN_SCRIPT_LIBRARY,
+			parameters: { name: DNS_HOSTS_SCRIPT, sync: false }
+		});
+
+	if (hooks.length)
+		root["hooks-libraries"] = hooks;
+	else
+		delete root["hooks-libraries"];
+}
+
 function buildGlobal(family, config) {
 	var root = isObject(config) && isObject(config[family.root]) ? config[family.root] : {};
 	var database = isObject(root["lease-database"]) ? root["lease-database"] : {};
@@ -1377,9 +1442,15 @@ function buildGlobal(family, config) {
 		lfcInterval: text(database["lfc-interval"]),
 		leaseType: text(database.type),
 		logOutput: logOutput(root),
+		dnsNames: false,
+		dnsNamesState: dnsNames(root),
+		/* Where a new hook entry points; the page sets it from the backend. */
+		hooksDir: DEFAULT_HOOKS_DIR,
 		options: loadOptionRows(root, null)
 	};
 	var field;
+
+	global.dnsNames = global.dnsNamesState.state === "on";
 
 	for (field in family.timers)
 		global[field] = text(root[family.timers[field]]);
@@ -1388,7 +1459,7 @@ function buildGlobal(family, config) {
 		global[field] = text(listen[SOCKET_RETRIES[field].key]);
 
 	global.initial = snapshot(global, Object.keys(family.timers).concat(
-		[ "lfcInterval", "logOutput" ], Object.keys(SOCKET_RETRIES)));
+		[ "lfcInterval", "logOutput", "dnsNames" ], Object.keys(SOCKET_RETRIES)));
 
 	return global;
 }
@@ -1456,6 +1527,9 @@ function applyGlobal(family, root, global, errors) {
 	/* Only the outputs the form offers are written; anything else stays. */
 	if (changed("logOutput") && LOG_OUTPUTS.indexOf(global.logOutput) >= 0)
 		setLogOutput(family, root, global.logOutput);
+
+	if (changed("dnsNames") && global.dnsNamesState.state !== "other")
+		setDnsNames(root, !!global.dnsNames, global.hooksDir);
 
 	applyOptionRows(root, global.options, null, label, errors);
 }
@@ -1850,6 +1924,8 @@ return baseclass.extend({
 
 	MIXED_OUTPUTS: MIXED_OUTPUTS,
 	LOG_OUTPUTS: LOG_OUTPUTS,
+	RUN_SCRIPT_LIBRARY: RUN_SCRIPT_LIBRARY,
+	DNS_HOSTS_SCRIPT: DNS_HOSTS_SCRIPT,
 
 	stripJsonComments: stripJsonComments,
 	deepEqual: deepEqual,

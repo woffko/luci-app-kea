@@ -447,6 +447,84 @@ test("the log output of the loggers is one field", () => {
 	] } }).logOutput, model.MIXED_OUTPUTS, "the older spelling of the list is read as well");
 });
 
+/* ---- client names in DNS ---------------------------------------------- */
+
+const DNS_ENTRY = {
+	library: "/usr/lib/kea/hooks/libdhcp_run_script.so",
+	parameters: { name: "/usr/share/kea/scripts/kea-dnsmasq-hosts", sync: false }
+};
+const HA_HOOKS = [
+	{ library: "/usr/lib/kea/hooks/libdhcp_lease_cmds.so" },
+	{ library: "/usr/lib/kea/hooks/libdhcp_ha.so", parameters: { "high-availability": [ { mode: "hot-standby" } ] } }
+];
+
+test("the switch for client names in DNS reads the hook entry of the file", () => {
+	assert.deepEqual(model.buildGlobal("dhcp4", { Dhcp4: {} }).dnsNamesState, { state: "off" });
+	assert.equal(model.buildGlobal("dhcp4", { Dhcp4: {} }).dnsNames, false);
+
+	const on = model.buildGlobal("dhcp6", { Dhcp6: { "hooks-libraries": [ ...HA_HOOKS, DNS_ENTRY ] } });
+
+	assert.deepEqual(on.dnsNamesState, { state: "on" });
+	assert.equal(on.dnsNames, true);
+
+	assert.equal(model.buildGlobal("dhcp4", { Dhcp4: { "hooks-libraries": [
+		{ library: "libdhcp_run_script.so", parameters: { name: "/usr/share/kea/scripts/kea-dnsmasq-hosts" } }
+	] } }).dnsNames, true, "a library given by its name alone");
+
+	assert.deepEqual(model.buildGlobal("dhcp4", { Dhcp4: { "hooks-libraries": [
+		{ library: "/usr/lib/kea/hooks/libdhcp_run_script.so", parameters: { name: "/etc/kea/my-script" } }
+	] } }).dnsNamesState, { state: "other", script: "/etc/kea/my-script" });
+});
+
+test("switching client names on adds the one entry, after the others", () => {
+	const config = { Dhcp4: { "hooks-libraries": HA_HOOKS } };
+	const result = roundTrip("dhcp4", config, (tabs, settings) => {
+		settings.dnsNames = true;
+	});
+
+	assert.deepEqual(result.config.Dhcp4["hooks-libraries"], [ ...HA_HOOKS, DNS_ENTRY ]);
+	assert.deepEqual(diffPaths(config, result.config), [ "/Dhcp4/hooks-libraries/2" ]);
+
+	const bare = roundTrip("dhcp6", { Dhcp6: {} }, (tabs, settings) => {
+		settings.dnsNames = true;
+		settings.hooksDir = "/opt/kea/hooks";
+	});
+
+	assert.deepEqual(bare.config.Dhcp6["hooks-libraries"], [
+		{ library: "/opt/kea/hooks/libdhcp_run_script.so", parameters: DNS_ENTRY.parameters }
+	], "the library is put in the hooks directory the backend names");
+});
+
+test("switching client names off removes that entry only", () => {
+	const config = { Dhcp4: { "hooks-libraries": [ HA_HOOKS[0], DNS_ENTRY, HA_HOOKS[1] ] } };
+	const result = roundTrip("dhcp4", config, (tabs, settings) => {
+		settings.dnsNames = false;
+	});
+
+	assert.deepEqual(result.config.Dhcp4["hooks-libraries"], HA_HOOKS);
+
+	const alone = roundTrip("dhcp4", { Dhcp4: { "hooks-libraries": [ DNS_ENTRY ] } }, (tabs, settings) => {
+		settings.dnsNames = false;
+	});
+
+	assert.equal("hooks-libraries" in alone.config.Dhcp4, false, "an empty list goes");
+});
+
+test("the switch leaves the file alone when it was not touched, or when another script runs", () => {
+	const config = { Dhcp4: { "hooks-libraries": [ DNS_ENTRY ] } };
+
+	assert.deepEqual(roundTrip("dhcp4", config, () => {}).config, config);
+
+	const other = { Dhcp4: { "hooks-libraries": [
+		{ library: "/usr/lib/kea/hooks/libdhcp_run_script.so", parameters: { name: "/etc/kea/my-script" } }
+	] } };
+	const result = roundTrip("dhcp4", other, (tabs, settings) => {
+		settings.dnsNames = true;
+	});
+
+	assert.deepEqual(result.config, other);
+});
+
 test("choosing the system log changes the output and nothing else", () => {
 	const config = stockLoggers();
 	const result = roundTrip("dhcp4", config, (tabs, settings) => {

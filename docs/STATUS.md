@@ -1,6 +1,6 @@
 # Project Status
 
-Status date: 2026-11-22. Package version `0.12.0-r1`, alpha.
+Status date: 2026-11-22. Package version `0.13.0-r1`, alpha.
 
 This is a code-level inventory of what exists and what is missing. The work
 needed to close the gaps is ordered in [ROADMAP.md](ROADMAP.md). Packaging
@@ -155,6 +155,26 @@ button.
 
 `0.10.1-r1` was not installed on the second machine.
 
+`0.13.0-r1` was tested on the QEMU machine and by CI, and by hand with the
+packages `kea-hook-run-script` 3.0.4-r2 and `kea-dnsmasq-hosts` 1.0.0-r1
+built by the `ha-cluster` project, installed with the Kea 3.0.4-r2 they
+were built with:
+
+- As built, `kea-dnsmasq-hosts` put its script in
+  `/usr/lib/kea-dnsmasq-hosts/`. Kea 3.0.4 refuses that: "invalid path
+  specified: '/usr/lib/kea-dnsmasq-hosts', supported path is
+  '/usr/share/kea/scripts'". The check of Kea refused the file, and the
+  application wrote nothing. The switch now names
+  `/usr/share/kea/scripts/kea-dnsmasq-hosts`, and that package is to
+  install its script there.
+- With the script copied to that path: the switch was shown, Save & Apply
+  wrote the hook entry and restarted Kea, a client on a virtual interface
+  took 10.77.0.100 with the name `browser-client`, the name was in the
+  hosts file of dnsmasq a few seconds later, and dnsmasq answered for it.
+  Switched off, the entry was gone and Kea ran on.
+- Not yet with a build of `kea-dnsmasq-hosts` that installs the script in
+  the new place.
+
 `0.12.0-r1` was tested on the QEMU machine and by CI: 156 backend tests on
 the router and seven browser tests, the new one for the lease tables on
 the status overview of LuCI and on Overview and for "Reserve IP". It was
@@ -307,8 +327,8 @@ that a hook failed to load.
     (DHCPv4) and DUID, MAC address or flex ID (DHCPv6). A reservation that is
     not enabled is kept in the subnet's `user-context` and ignored by Kea.
   - Global settings: timers and lifetimes, the lease file cleanup interval,
-    the output of the loggers, the retries for the sockets, and the options
-    sent to every subnet. The log output can be set to the system log or the
+    the output of the loggers, the retries for the sockets, the switch for
+    client names in DNS, and the options sent to every subnet. The log output can be set to the system log or the
     standard output; a log file that the file already names is shown and
     left alone.
   - When the page makes Kea listen on an interface it did not listen on,

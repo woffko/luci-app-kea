@@ -127,6 +127,14 @@ a client refused because it found it taken.
 
 ![Leases page](images/leases.png)
 
+## Client names in DNS
+
+The end of the Global settings tab of the DHCPv4 page on a router that has
+`kea-hook-run-script` and `kea-dnsmasq-hosts`: the switch that gives the
+names of the clients to dnsmasq.
+
+![Global settings with the switch for client names in DNS](images/dns-names.png)
+
 ## Leases on the status overview of LuCI
 
 The section "Kea DHCP Leases" under Status, Overview, next to the section

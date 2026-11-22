@@ -36,7 +36,7 @@ const path = require("node:path");
 
 const {
 	openPage, screenshot, waitForModal, main, footerButton, expectNotification, openRawEditor,
-	readRawConfig, writeRawConfig, fieldInput, tableRows, tableValues, addRow, openTab
+	readRawConfig, writeRawConfig, fieldRow, fieldInput, tableRows, tableValues, addRow, openTab
 } = require("./lib.js");
 const { loadModule } = require("../js/luci-loader.js");
 
@@ -269,6 +269,8 @@ async function testCompleteness(page, scenario) {
 	await openTab(page, "Global settings");
 	assert.deepEqual(await tableValues(page, "kea-options"),
 		[ [ name === "dhcp4" ? "domain-name-servers" : "dns-servers", name === "dhcp4" ? "192.168.1.1" : "fd00:1::1" ] ]);
+	/* Without kea-hook-run-script and kea-dnsmasq-hosts there is no such switch. */
+	assert.equal(await fieldRow(page, "Client names in DNS").count(), 0);
 	await fieldInput(page, "Valid Lifetime").fill(scenario.globalLifetime);
 	await fieldInput(page, "Lease File Cleanup").fill("1800");
 	await addRow(page, "kea-options", "Add Option",
