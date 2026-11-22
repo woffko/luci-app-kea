@@ -519,7 +519,11 @@ example is kept as a backup, and the lock is held.
 The command does not ask `ha-cluster` from inside rpcd. `ha-cluster`
 passes its reply with `--cluster -`; without it the command asks over
 ubus itself, which is safe outside rpcd. The page fetches the reply in
-the browser and passes it to the backend.
+the browser and passes it to the backend. rpcd, which answers for
+`ha-cluster`, reloads for a moment when a package is installed, as the
+bench of the `ha-cluster` project showed: both ask a second time after a
+pause, and while an installed `ha-cluster` still does not answer they
+write nothing, since the result would lack the pair.
 
 The leases dnsmasq has given out are handed to a running kea-dhcp4 with
 lease4-add, after it was started on the new file: each lease that has

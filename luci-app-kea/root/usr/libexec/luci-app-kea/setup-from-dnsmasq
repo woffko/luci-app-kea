@@ -13,7 +13,9 @@
 // /etc/kea/backups. Kea is not restarted.
 //
 // --cluster gives the reply of "ubus call ha-cluster nodes", from a file or
-// from standard input ("-"); without it the command asks ha-cluster itself.
+// from standard input ("-"); without it the command asks ha-cluster itself,
+// a second time after a pause, and writes nothing when an installed
+// ha-cluster does not answer.
 // With a cluster, the interfaces are those it names and a pair of Kea
 // servers in hot standby is set up.
 //
@@ -74,7 +76,21 @@ if (source != null) {
 }
 else {
 	// Outside rpcd it is safe to ask; without ha-cluster the answer is null.
+	// rpcd answers for ha-cluster, and reloads for a moment when a package
+	// is installed.
+	let installed = !!fs.access('/etc/init.d/ha-cluster', 'x');
+
 	cluster = connect()?.call('ha-cluster', 'nodes', {});
+
+	if (installed && type(cluster?.node) != 'object') {
+		sleep(2000);
+		cluster = connect()?.call('ha-cluster', 'nodes', {});
+	}
+
+	if (installed && type(cluster?.node) != 'object') {
+		printf('%J\n', { result: false, written: false, reason: 'ha-cluster is installed but did not answer about its nodes; pass them with --cluster' });
+		exit(1);
+	}
 }
 
 let ctx = config.context();

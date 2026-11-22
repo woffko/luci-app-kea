@@ -20,6 +20,13 @@ landed.
 - Tried with a real client: dnsmasq served it, the command wrote the
   configuration, Kea started, the lease moved, and the client got its
   address again from Kea.
+- The bench of the `ha-cluster` project ran this version on its pair of
+  routers: the configuration written on both nodes, the pair in hot
+  standby, a static lease and two leases moved, the client keeping both
+  of its addresses and getting its renewals from Kea, its names in DNS.
+  It also saw `ha-cluster nodes` not answering for a moment after a
+  package was installed; the page and the command now ask again, and
+  write nothing without an answer.
 - The page first did not replace a changed file at all. Asked, the owner
   decided, as relayed, that it may after an explicit confirmation, keeping
   a backup; the command still never does.

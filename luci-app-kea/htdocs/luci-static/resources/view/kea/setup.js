@@ -37,13 +37,38 @@ return view.extend({
 	handleSaveApply: null,
 	handleReset: null,
 
-	load: function() {
+	/*
+	 * ha-cluster answers through rpcd, which reloads for a moment when a
+	 * package is installed; ask once more after a pause before taking no
+	 * answer for no cluster.
+	 */
+	nodes: function(installed) {
 		return backend.getHaNodes().then(function(cluster) {
-			return Promise.all([
-				backend.setupFromDnsmasq(true, cluster),
-				backend.getServices(),
-				cluster
-			]);
+			if (!installed || (cluster && cluster.node))
+				return cluster;
+
+			return new Promise(function(resolve) {
+				window.setTimeout(resolve, 2000);
+			}).then(function() {
+				return backend.getHaNodes();
+			});
+		});
+	},
+
+	load: function() {
+		var self = this;
+
+		return backend.getStatus().then(function(status) {
+			var installed = !!(status && status.ha_cluster);
+
+			return self.nodes(installed).then(function(cluster) {
+				return Promise.all([
+					backend.setupFromDnsmasq(true, cluster),
+					backend.getServices(),
+					cluster,
+					installed && !(cluster && cluster.node)
+				]);
+			});
 		});
 	},
 
@@ -118,7 +143,8 @@ return view.extend({
 		var subnets = reply.subnets || [];
 		var left = reply.left || [];
 		var check = reply.check || {};
-		var writable = reply.reason === "dry-run" && check.valid;
+		var silent = !!data[3];
+		var writable = reply.reason === "dry-run" && check.valid && !silent;
 		var own = reply.state === "own";
 		var body;
 
@@ -130,6 +156,8 @@ return view.extend({
 			body = E("p", {}, [ _("The configuration could not be made: %s").format(reply.reason || _("no answer")) ]);
 		else
 			body = E("div", {}, [
+				silent ? E("div", { "class": "alert-message warning kea-setup-no-cluster" }, [
+					_("ha-cluster is installed but did not answer about its nodes, so the configuration below has no pair of Kea servers and is not offered for writing. Reload the page in a moment.") ]) : "",
 				E("div", { "class": reply.state === "own" ? "alert-message warning" : "alert-message notice" },
 					[ STATES[reply.state] || "" ]),
 				E("table", { "class": "table kea-setup-subnets" }, [

@@ -359,7 +359,10 @@ export function status(ctx) {
 		configs,
 		conflicts,
 		// Whether the DHCPv4 server is set up: see setup.unconfigured()
-		setup: { state: setup.file_state(ctx), unconfigured: setup.unconfigured(ctx) }
+		setup: { state: setup.file_state(ctx), unconfigured: setup.unconfigured(ctx) },
+		// Whether ha-cluster is installed: a page that asks it for its nodes
+		// then knows that no answer is a failure, not the absence of a cluster
+		ha_cluster: init_installed(ctx, 'ha-cluster')
 	};
 };
 
