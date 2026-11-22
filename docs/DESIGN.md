@@ -522,7 +522,9 @@ The leases dnsmasq has given out are handed to a running kea-dhcp4 with
 lease4-add, after it was started on the new file: each lease that has
 not run out and lies in a subnet of Kea. Kea refuses an address it has
 leased already, so a second run, or a run on both nodes of a pair, adds
-nothing twice.
+nothing twice. dnsmasq 2.93 kept its lease file when it was restarted
+without any DHCPv4 range (measured); a caller that wants to be sure can
+save a copy before and pass it with `--leases-file`.
 
 ### Who may see and do what
 

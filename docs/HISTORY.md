@@ -22,6 +22,12 @@ landed.
   address again from Kea.
 - On the owner's word as relayed, the page does not replace a changed
   file: it shows what it would write.
+- Asked by the `ha-cluster` project, which moves the leases after it has
+  switched dnsmasq's DHCP off: dnsmasq 2.93 restarted without any DHCPv4
+  range kept its lease file. With dnsmasq sending router advertisements
+  instead of odhcpd the init script wrote no ra-only range on the test
+  machine, so that case was not measured; `--leases-file` lets a caller
+  pass a copy it saved before.
 
 ## 2026-11-22: Release `v0.14.0`
 

@@ -134,6 +134,12 @@ if (fs.access(COMMAND, 'x')) {
 		equal(run.status, 1);
 		equal(json(run.output), { result: false, reason: 'kea-not-running', added: 0, skipped: [] });
 		equal(command('--leases --dry-run').status, 2);
+		equal(command('--leases-file /tmp/x').status, 2, '--leases-file alone');
+
+		let missing = command('--leases --leases-file /nonexistent/dhcp.leases');
+
+		equal(missing.status, 1);
+		equal(json(missing.output).reason, 'cannot read /nonexistent/dhcp.leases');
 	});
 }
 

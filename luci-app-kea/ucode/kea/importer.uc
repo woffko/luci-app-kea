@@ -722,23 +722,33 @@ export function commit(ctx, hosts, interfaces, keys) {
 const STATUSES = [ 'ready', 'review', 'update', 'present', 'blocked' ];
 const LEFT_FIELDS = [ 'key', 'source', 'family', 'status', 'name', 'identifier', 'address', 'subnet', 'notes' ];
 
-// The arguments of the command: { dry_run, include_review, leases, help },
-// or { error } for one it does not know.
+// The arguments of the command: { dry_run, include_review, leases,
+// leases_file, help }, or { error } for one it does not know.
+// "--leases-file FILE" names a copy of dnsmasq's lease file, for a caller
+// that saved it before dnsmasq was restarted without DHCP.
 export function command_options(args) {
-	let options = { dry_run: false, include_review: false, leases: false, help: false };
+	let options = { dry_run: false, include_review: false, leases: false, leases_file: null, help: false };
+	let list = type(args) == 'array' ? args : [];
 
-	for (let arg in (type(args) == 'array' ? args : [])) {
+	for (let i = 0; i < length(list); i++) {
+		let arg = list[i];
+
 		if (arg == '--dry-run')
 			options.dry_run = true;
 		else if (arg == '--include-review')
 			options.include_review = true;
 		else if (arg == '--leases')
 			options.leases = true;
+		else if (arg == '--leases-file' && i + 1 < length(list))
+			options.leases_file = list[++i];
 		else if (arg in [ '-h', '--help' ])
 			options.help = true;
 		else
 			return { error: 'unknown argument: ' + arg };
 	}
+
+	if (options.leases_file != null && !options.leases)
+		return { error: '--leases-file is used with --leases' };
 
 	return options;
 };

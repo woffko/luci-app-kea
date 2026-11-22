@@ -6,7 +6,7 @@
 // another package that switches a router from dnsmasq to Kea.
 //
 //   import-dnsmasq [--dry-run] [--include-review]
-//   import-dnsmasq --leases
+//   import-dnsmasq --leases [--leases-file FILE]
 //
 // Without arguments the static leases that are ready are imported; with
 // --include-review also those that lose a setting Kea cannot express
@@ -18,6 +18,8 @@
 // so that its clients keep their addresses: see move_leases() in
 // importer.uc. It needs the lease commands hook loaded in Kea, and prints
 // { result, added, skipped }, or "reason": "kea-not-running" with exit 1.
+// --leases-file reads a copy of dnsmasq's lease file instead of the file
+// itself, for a caller that saved it before dnsmasq lost its DHCP.
 //
 // Writes one JSON object to standard output: see run() in
 // /usr/share/ucode/luci/kea/importer.uc. Exit status:
@@ -38,7 +40,7 @@ import * as config from 'luci.kea.config';
 import * as service from 'luci.kea.service';
 import * as importer from 'luci.kea.importer';
 
-const USAGE = 'usage: import-dnsmasq [--dry-run] [--include-review] | --leases\n';
+const USAGE = 'usage: import-dnsmasq [--dry-run] [--include-review] | --leases [--leases-file FILE]\n';
 
 let options = importer.command_options(ARGV);
 
@@ -62,7 +64,15 @@ if (options.leases) {
 		exit(2);
 	}
 
-	let moved = importer.move_leases(ctx, fs.readfile(service.dnsmasq_lease_file(ctx)) ?? '', time());
+	let file = options.leases_file ?? service.dnsmasq_lease_file(ctx);
+	let content = fs.readfile(file);
+
+	if (content == null && options.leases_file != null) {
+		printf('%J\n', { result: false, reason: 'cannot read ' + file, added: 0, skipped: [] });
+		exit(1);
+	}
+
+	let moved = importer.move_leases(ctx, content ?? '', time());
 
 	printf('%J\n', moved);
 	exit(moved.result ? 0 : 1);

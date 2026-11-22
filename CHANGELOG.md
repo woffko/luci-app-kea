@@ -27,9 +27,11 @@ For a router that moves its DHCPv4 service from dnsmasq to Kea.
   missing or still the example the Kea package installed, checked by Kea
   first, with the example kept as a backup; a file someone has changed is
   never replaced, and the page shows what it would write instead.
-- `import-dnsmasq --leases`, and a button on the Setup page: the leases
-  dnsmasq has given out go into a running kea-dhcp4, so that its clients
-  keep their addresses.
+- `import-dnsmasq --leases [--leases-file FILE]`, and a button on the Setup
+  page: the leases dnsmasq has given out go into a running kea-dhcp4, so
+  that its clients keep their addresses. `--leases-file` reads a copy of
+  dnsmasq's lease file that a caller saved before switching dnsmasq's DHCP
+  off.
 - A note on Overview and Services while the DHCPv4 server of Kea is not
   set up: no file, the example of the package, no interface to listen on,
   or no subnet.

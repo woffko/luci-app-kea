@@ -569,11 +569,14 @@ test('a lease that Kea reserves already, or cannot hold, is refused with the rea
 /* ---- the import command ---------------------------------------------------- */
 
 test('the command knows its arguments, and no others', () => {
-	equal(importer.command_options([]), { dry_run: false, include_review: false, leases: false, help: false });
-	equal(importer.command_options(null), { dry_run: false, include_review: false, leases: false, help: false });
+	equal(importer.command_options([]), { dry_run: false, include_review: false, leases: false, leases_file: null, help: false });
+	equal(importer.command_options(null), { dry_run: false, include_review: false, leases: false, leases_file: null, help: false });
 	equal(importer.command_options([ '--dry-run', '--include-review' ]),
-		{ dry_run: true, include_review: true, leases: false, help: false });
+		{ dry_run: true, include_review: true, leases: false, leases_file: null, help: false });
 	equal(importer.command_options([ '--leases' ]).leases, true);
+	equal(importer.command_options([ '--leases', '--leases-file', '/tmp/saved.leases' ]).leases_file, '/tmp/saved.leases');
+	equal(importer.command_options([ '--leases-file', '/tmp/x' ]), { error: '--leases-file is used with --leases' });
+	equal(importer.command_options([ '--leases', '--leases-file' ]), { error: 'unknown argument: --leases-file' });
 	equal(importer.command_options([ '-h' ]).help, true);
 	equal(importer.command_options([ '--help' ]).help, true);
 	equal(importer.command_options([ '--dry-run', '--all' ]), { error: 'unknown argument: --all' });
