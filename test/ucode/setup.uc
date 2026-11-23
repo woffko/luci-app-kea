@@ -42,7 +42,8 @@ test('every pool dnsmasq serves becomes a subnet, with its pool, lease time and 
 		{ subnet: '192.168.1.0/24', interface: 'lan', device: 'br-lan', pool: '192.168.1.100 - 192.168.1.249' },
 		{ subnet: '192.168.50.0/24', interface: 'guest', device: 'br-guest', pool: '192.168.50.10 - 192.168.50.254' }
 	]);
-	equal(root['interfaces-config'], { interfaces: [ 'br-lan', 'br-guest' ], 'service-sockets-max-retries': 60, 'service-sockets-retry-wait-time': 2000 });
+	equal(root['interfaces-config'], { interfaces: [ 'br-lan/192.168.1.1', 'br-guest/192.168.50.1' ], 'service-sockets-max-retries': 60, 'service-sockets-retry-wait-time': 2000 },
+		'each device with the address of the router, so that Kea opens one socket on it');
 	equal(root.subnet4[0], {
 		id: 1, subnet: '192.168.1.0/24', interface: 'br-lan',
 		'valid-lifetime': 43200, 'renew-timer': 21600, 'rebind-timer': 37800,
@@ -81,7 +82,7 @@ test('a cluster names the interfaces, the address clients are sent to, and the p
 	equal(made.subnets, [ { subnet: '10.0.87.0/24', interface: 'iot', device: 'bond0.87', pool: '10.0.87.100 - 10.0.87.249' } ],
 		'the interface ha-cluster names, also with dhcpv4 off, on the device it names');
 	equal(root.subnet4[0]['option-data'][0], { name: 'routers', data: '10.0.87.5' }, 'the virtual address');
-	equal(root['interfaces-config'].interfaces, [ 'bond0.87' ]);
+	equal(root['interfaces-config'].interfaces, [ 'bond0.87/10.0.87.1' ], 'the address of the node, not the virtual one');
 	equal(made.ha, { this: 'ha-10-0-87-2', peers: [ 'ha-10-0-87-2', 'ha-10-0-87-3' ] });
 	equal(root['hooks-libraries'][1], { library: '/usr/lib/kea/hooks/libdhcp_ha.so', parameters: { 'high-availability': [ {
 		'this-server-name': 'ha-10-0-87-2', mode: 'hot-standby',
@@ -95,6 +96,17 @@ test('a cluster names the interfaces, the address clients are sent to, and the p
 
 	cluster.peers[0].kea_role = '';
 	equal(setup.plan(input({ cluster })).ha, null, 'no pair without the roles');
+});
+
+test('an interface with several addresses of its own is served from the first, as dnsmasq does', () => {
+	// As on a router of the owner: lan with 10.0.77.1/24 and 10.0.90.1/24.
+	let made = setup.plan(input({
+		dhcp: [ { '.name': 'lan', interface: 'lan', start: '10', limit: '11' } ],
+		network: [ { '.name': 'lan', proto: 'static', device: 'br-lan', ipaddr: [ '10.0.77.1/24', '10.0.90.1/24' ] } ]
+	}));
+
+	equal(made.subnets, [ { subnet: '10.0.77.0/24', interface: 'lan', device: 'br-lan', pool: '10.0.77.10 - 10.0.77.20' } ]);
+	equal(made.config.Dhcp4['interfaces-config'].interfaces, [ 'br-lan/10.0.77.1' ]);
 });
 
 test('what cannot be served is named with the reason, and nothing is made without a subnet', () => {

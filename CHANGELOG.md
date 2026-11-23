@@ -9,6 +9,20 @@ Released versions are tagged `vX.Y.Z` and have their package on the
 [Releases page](https://github.com/woffko/luci-app-kea/releases). All
 versions are alpha.
 
+## 0.15.1-r1 (2026-11-23)
+
+### Fixed
+
+- The configuration made from dnsmasq's settings listed each interface by
+  its device alone, such as `br-lan`. Kea then opens a socket for every
+  IPv4 address of the device, and on a node of a cluster the virtual
+  addresses are among them: with three addresses, each request of a client
+  was taken three times and answered up to three times (Kea warns with
+  DHCPSRV_MULTIPLE_RAW_SOCKETS_PER_IFACE). It now lists the device with the
+  router's own address, such as `br-lan/192.168.1.1`. A file written by
+  `0.15.0` is not changed by this; change the entries on the Configuration
+  page.
+
 ## 0.15.0-r1 (2026-11-22)
 
 For a router that moves its DHCPv4 service from dnsmasq to Kea.

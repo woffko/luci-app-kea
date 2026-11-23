@@ -7,6 +7,25 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-23: One socket per device (`0.15.1-r1`)
+
+- The two test routers of the owner were switched to Kea through
+  `ha-cluster`, with the configuration made by `0.15.0`: both pairs in hot
+  standby, 36 reservations and 27 leases moved. Kea warned at start with
+  DHCPSRV_MULTIPLE_RAW_SOCKETS_PER_IFACE, since `br-lan` carried the
+  address of the node and virtual addresses, as the `ha-cluster` project
+  reported.
+- The sources of Kea say why (`cfg_iface.cc`): a device named alone has
+  all its IPv4 addresses active, and with raw sockets each address gets a
+  socket that receives the broadcasts. Measured on the test machine with
+  three addresses: three DISCOVERs, two OFFERs, three REQUESTs and three
+  ACKs for one exchange; with `device/address`, one of each.
+- The generator now writes the device with the router's own address. The
+  files already written are left alone, as always.
+- Also from those routers: static leases the import leaves for review
+  (a lease time of its own) or blocks (no IPv4 address), which
+  `ha-cluster` lists and points to the Import page for.
+
 ## 2026-11-22: Release `v0.15.0`
 
 - The owner said to merge and release when ready. The tag is on the merge

@@ -315,8 +315,16 @@ export function plan(input) {
 		push(subnets, subnet);
 		push(served, { subnet: ipv4.network, interface: label, device, pool: pool.pool });
 
-		if (!(device in devices))
-			push(devices, device);
+		// Kea listens on the device with this address only. Named without an
+		// address, it opens a socket for every IPv4 address of the device,
+		// and on a node of a cluster the virtual addresses are among them:
+		// measured with three addresses, each request of a client was taken
+		// three times and the ACK sent three times. The address is the
+		// node's own, from /etc/config/network, which stays on the node.
+		let listen = device + '/' + ipv4.address;
+
+		if (!(listen in devices))
+			push(devices, listen);
 	}
 
 	let hooks = input.hooks ?? {};
