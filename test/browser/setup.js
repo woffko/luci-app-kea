@@ -56,7 +56,7 @@ main(async (page) => {
 
 		const written = JSON.parse(await readRawConfig(page, "dhcp4"));
 
-		assert.deepEqual(written.Dhcp4["interfaces-config"].interfaces, [ "br-lan" ]);
+		assert.deepEqual(written.Dhcp4["interfaces-config"].interfaces, [ "br-lan/192.168.1.1" ]);
 		assert.equal(written.Dhcp4.subnet4[0].subnet, "192.168.1.0/24");
 		ok("Write puts the configuration in place of the example");
 

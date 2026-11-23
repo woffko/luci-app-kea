@@ -1,6 +1,6 @@
 # Project Status
 
-Status date: 2026-11-22. Package version `0.15.0-r1`, alpha.
+Status date: 2026-11-23. Package version `0.15.1-r1`, alpha.
 
 This is a code-level inventory of what exists and what is missing. The work
 needed to close the gaps is ordered in [ROADMAP.md](ROADMAP.md). Packaging
@@ -154,6 +154,16 @@ On a machine without `ha-cluster` the pages show neither an error nor the
 button.
 
 `0.10.1-r1` was not installed on the second machine.
+
+`0.15.1-r1`, one fix of the configuration made from dnsmasq's settings,
+was tested on the QEMU machine and by CI. The reason for it, measured on
+that machine with an interface that had three IPv4 addresses and one
+client:
+
+| `interfaces` | Kea's warning | DISCOVER taken | OFFER sent | REQUEST taken | ACK sent |
+|--------------|---------------|----------------|------------|---------------|----------|
+| `kea-t0` | DHCPSRV_MULTIPLE_RAW_SOCKETS_PER_IFACE | 3 | 2 | 3 | 3 |
+| `kea-t0/10.66.0.1` | none | 1 | 1 | 1 | 1 |
 
 `0.15.0-r1` was tested on the QEMU machine and by CI: 173 backend tests on
 the router, among them the setup command with the real Kea checking what

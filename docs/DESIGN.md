@@ -491,7 +491,11 @@ What it reads: the pools of `/etc/config/dhcp` (or, with `ha-cluster`,
 the interfaces it names as the DHCP interfaces of the cluster, with their
 device and virtual addresses), the static IPv4 address of each interface
 in `/etc/config/network`, and the domain of dnsmasq. What it makes, for
-each interface: a subnet bound to the device, the pool as dnsmasq counts
+each interface: a subnet bound to the device, the device with the
+router's own address in the list Kea listens on (named alone, the device
+makes Kea open a socket for each of its IPv4 addresses, the virtual ones
+of a cluster too, and take each request once per address), the pool as
+dnsmasq counts
 it (start and limit from the network address, ending before the
 broadcast address), the lease time with renewal at a half and rebinding
 at seven eighths of it, and the options. The options of the pool that
