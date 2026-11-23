@@ -98,6 +98,17 @@ test('a cluster names the interfaces, the address clients are sent to, and the p
 	equal(setup.plan(input({ cluster })).ha, null, 'no pair without the roles');
 });
 
+test('an interface with several addresses of its own is served from the first, as dnsmasq does', () => {
+	// As on a router of the owner: lan with 10.0.77.1/24 and 10.0.90.1/24.
+	let made = setup.plan(input({
+		dhcp: [ { '.name': 'lan', interface: 'lan', start: '10', limit: '11' } ],
+		network: [ { '.name': 'lan', proto: 'static', device: 'br-lan', ipaddr: [ '10.0.77.1/24', '10.0.90.1/24' ] } ]
+	}));
+
+	equal(made.subnets, [ { subnet: '10.0.77.0/24', interface: 'lan', device: 'br-lan', pool: '10.0.77.10 - 10.0.77.20' } ]);
+	equal(made.config.Dhcp4['interfaces-config'].interfaces, [ 'br-lan/10.0.77.1' ]);
+});
+
 test('what cannot be served is named with the reason, and nothing is made without a subnet', () => {
 	let made = setup.plan(input({
 		dhcp: [
