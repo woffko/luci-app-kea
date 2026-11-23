@@ -7,6 +7,21 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-23: Release `v0.15.1`
+
+- The owner said to merge and release. The tag is on the merge commit on
+  `main`.
+- The release workflow passed, with 174 backend tests and eight browser
+  tests. The attached file holds the same files as a package built from
+  the merged `main` by hand (compared with `apk adbdump`); its checksum is
+  in the release text and matched the public download. Published as a
+  pre-release.
+- On the owner's two test routers, which have the files written by
+  `0.15.0`, the `ha-cluster` project changed the entries of the interfaces
+  by hand, on the owner's word. There, `br-lan` carried four addresses,
+  and one exchange with a client was taken twelve times and answered
+  eight times.
+
 ## 2026-11-23: One socket per device (`0.15.1-r1`)
 
 - The two test routers of the owner were switched to Kea through
