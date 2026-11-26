@@ -79,10 +79,10 @@ function renderFamily(family, data, now) {
 		[ _("State"), function(lease) { return STATE_LABELS[lease.state] || lease.state; } ]
 	]);
 	var items = data.items || [];
-	var nodes = [ E("h3", TITLES[family] + " (" + (data.count || 0) + ")") ];
+	var nodes = [ E("h3", [ TITLES[family] + " (" + (data.count || 0) + ")" ]) ];
 
 	if (data.note)
-		nodes.push(E("p", {}, NOTES[data.note] || data.note));
+		nodes.push(E("p", {}, [ NOTES[data.note] || data.note ]));
 	else if (!data.exists)
 		nodes.push(E("p", {}, _("No lease file yet. Kea creates it when the daemon is started for the first time.")));
 	else if (!items.length)
@@ -95,7 +95,7 @@ function renderFamily(family, data, now) {
 	if (items.length)
 		nodes.push(E("table", { "class": "table kea-leases-" + family }, [
 			E("thead", {}, E("tr", { "class": "tr table-titles" }, columns.map(function(column) {
-				return E("th", { "class": "th left" }, column[0]);
+				return E("th", { "class": "th left" }, [ column[0] ]);
 			}))),
 			E("tbody", {}, items.map(function(lease) {
 				return E("tr", { "class": "tr" }, columns.map(function(column) {

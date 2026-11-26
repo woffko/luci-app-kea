@@ -32,7 +32,7 @@ function backupLabel(backup) {
  * than JSON: a file that uses its include directive is left to Kea itself.
  */
 function syntaxError(content) {
-	if (/<\?include\b/.test(content))
+	if (/<\?\s*include\b/.test(content))
 		return null;
 
 	return model.parseConfig(content).error;
@@ -145,7 +145,7 @@ return view.extend({
 			"class": "cbi-input-select",
 			"style": "min-width: 24em"
 		}, backups.map(function(backup) {
-			return E("option", { "value": backup.id }, backupLabel(backup));
+			return E("option", { "value": backup.id }, [ backupLabel(backup) ]);
 		}));
 
 		return E("div", { "class": "cbi-section" }, [
@@ -175,7 +175,7 @@ return view.extend({
 
 		this.textarea.classList.toggle("cbi-input-invalid", !!error);
 		this.syntaxNode.replaceChildren(error ?
-			E("div", { "class": "alert-message warning" }, _("JSON syntax error") + ": " + error) : "");
+			E("div", { "class": "alert-message warning" }, [ _("JSON syntax error") + ": " + error ]) : "");
 	},
 
 	renderEditor: function() {
@@ -189,11 +189,14 @@ return view.extend({
 			"input": function() {
 				self.renderSyntax();
 			}
-		}, config.content || "");
+		});
+
+		/* As text: a child would be read as HTML and "&amp;" become "&". */
+		this.textarea.value = config.content || "";
 
 		this.editorNode.replaceChildren(
 			E("div", { "class": "cbi-section" }, [
-				E("h3", config.path || this.currentName),
+				E("h3", [ config.path || this.currentName ]),
 				this.textarea,
 				this.syntaxNode,
 				E("div", { "class": "right", "style": "margin-top: .5rem" }, E("button", {

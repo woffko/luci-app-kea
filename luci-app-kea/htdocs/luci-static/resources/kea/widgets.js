@@ -134,7 +134,7 @@ function rowTable(options) {
 				if (options.changed)
 					options.changed();
 			}
-		}, options.add))
+		}, [ options.add ]))
 	]);
 }
 
@@ -160,13 +160,13 @@ function select(object, key, choices, onChange) {
 		return E("option", {
 			"value": choice[0],
 			"selected": object[key] === choice[0] ? "selected" : null
-		}, choice[1]);
+		}, [ choice[1] ]);
 	}));
 }
 
 /* A multi-line text bound to object[key], for JSON. */
 function textArea(object, key, placeholder, check) {
-	return E("textarea", {
+	var area = E("textarea", {
 		"class": "cbi-input-textarea",
 		"style": "width: 100%; min-height: 9rem; font-family: monospace",
 		"spellcheck": "false",
@@ -177,7 +177,12 @@ function textArea(object, key, placeholder, check) {
 			if (check)
 				mark(ev.target, check());
 		}
-	}, object[key]);
+	});
+
+	/* As text: a child would be read as HTML and "&amp;" become "&". */
+	area.value = object[key] == null ? "" : String(object[key]);
+
+	return area;
 }
 
 return baseclass.extend({
