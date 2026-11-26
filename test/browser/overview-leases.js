@@ -134,8 +134,18 @@ main(async (page) => {
 		await writeRawConfig(page, "dhcp4", FIXTURES.dhcp4.replace(/"10\.20\.0\.0\/24"/, "\"10.30.0.0/24\"")
 			.replace(/10\.20\.0\.10 - 10\.20\.0\.50/, "10.30.0.10 - 10.30.0.50"));
 		await openStatus(page);
+
+		/* Its name is markup, which Kea would hand to the clients and to DNS as it is. */
 		await page.locator("table.kea-active-leases-dhcp4 tr", { hasText: "printer" }).locator("button.kea-reserve").click();
 		await waitForModal(page);
+		assert.equal(await page.locator(".modal input.kea-reserve-name").inputValue(), "<i>printer</i>");
+		await page.locator(".modal button", { hasText: /^Reserve$/ }).click();
+		await expectNotification(page, "the address was not reserved: the hostname is not a valid host name");
+		ok("a lease whose name is not a host name is not reserved with it");
+
+		await page.locator("table.kea-active-leases-dhcp4 tr", { hasText: "printer" }).locator("button.kea-reserve").click();
+		await waitForModal(page);
+		await page.locator(".modal input.kea-reserve-name").fill("printer");
 		await page.locator(".modal button", { hasText: /^Reserve$/ }).click();
 		await expectNotification(page, "the address was not reserved: the address is outside every Kea DHCPv4 subnet");
 		ok("a lease Kea cannot reserve is refused with the reason, and nothing is written");

@@ -538,6 +538,37 @@ test('reserving a lease writes a reservation the way the import does', () => {
 		{ duid: '00:03:00:01:02:00:00:00:00:77', 'ip-addresses': [ 'fd00:1::200' ] });
 });
 
+// Kea hands a reserved name to the clients and to DNS as it is written, and
+// a name taken from a lease may come from anywhere: another server of a
+// high availability pair passes on what it is sent.
+test('a host name is a name of letters, digits, "-" and "_" joined by dots', () => {
+	for (let name in [ 'nas', 'printer-1', 'my_pc', 'host.lan', 'host.lan.', 'a' ])
+		equal(importer.valid_hostname(name), true, name);
+
+	for (let name in [ '', '<img src=x onerror=alert(1)>', 'two words', 'a..b', '.lan', 'tab\there', null,
+	                   'a' + sprintf('%064d', 0) ])
+		equal(importer.valid_hostname(name), false, `${name}`);
+
+	let entries = importer.classify_all([ { '.name': 'bad', name: '"><b>x</b>', mac: '02:00:00:00:00:42', ip: '192.168.1.42' } ], {});
+
+	equal(entries[0].status, 'blocked');
+	equal(entries[0].notes[0], 'the hostname is not a valid host name: letters, digits, "-" and "_", joined by dots');
+});
+
+test('a lease with a name that is not a host name is not reserved', () => {
+	reset();
+
+	let before = fs.readfile(file4);
+
+	equal(importer.reserve(ctx, interfaces,
+		{ family: 'dhcp4', identifier: '02:00:00:00:00:AB', address: '192.168.1.102', hostname: '<img src=x onerror=alert(1)>' }),
+		{ result: false, error: 'the hostname is not a valid host name: letters, digits, "-" and "_", joined by dots' });
+	equal(fs.readfile(file4), before, 'nothing was written');
+	equal(importer.reserve(ctx, interfaces,
+		{ family: 'dhcp4', identifier: '02:00:00:00:00:AB', address: '192.168.1.102', hostname: '' }).result, true,
+		'without a name it is');
+});
+
 test('a lease that Kea reserves already, or cannot hold, is refused with the reason', () => {
 	reset();
 
@@ -740,6 +771,41 @@ test('the leases of dnsmasq go to Kea with lease4-add, each once, inside a Kea s
 		{ address: '172.16.9.9', reason: 'the address is in no DHCPv4 subnet of Kea' },
 		{ address: '192.168.1.140', reason: 'the lease has no end; Kea is given none such' }
 	]);
+});
+
+test('a name in the lease file of dnsmasq that is not a host name is left out', () => {
+	reset();
+
+	let sent = [];
+	let lctx = config.context({
+		root, run_dir: root + '/run', clock: () => now,
+		control: (name, command) => {
+			if (command != 'status-get')
+				push(sent, command);
+
+			return { result: 0, arguments: {} };
+		}
+	});
+
+	equal(importer.move_leases(lctx, sprintf('%d 02:00:00:00:00:AA 192.168.1.101 <b>x</b> *', now + 600), now).added, 1);
+	equal(sent[0].arguments.hostname, null);
+});
+
+test('the lease file of dnsmasq is read only when it is a plain file of a sensible size', () => {
+	let leases = root + '/dhcp.leases';
+
+	equal(importer.read_lease_file(root + '/none'), { content: null });
+	fs.writefile(leases, '1 02:00:00:00:00:aa 192.168.1.101 laptop *\n');
+	equal(importer.read_lease_file(leases), { content: '1 02:00:00:00:00:aa 192.168.1.101 laptop *\n' });
+	equal(importer.read_lease_file(root), { error: root + ' is not a plain file' });
+
+	let big = fs.open(leases, 'w');
+
+	big.seek(4 * 1024 * 1024);
+	big.write('x');
+	big.close();
+	equal(importer.read_lease_file(leases), { error: leases + ' is larger than 4194304 bytes' });
+	fs.unlink(leases);
 });
 
 test('without a running Kea, or without its lease commands, no lease moves', () => {

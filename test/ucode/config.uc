@@ -500,6 +500,36 @@ test('a text with a masked secret is not written back', () => {
 	equal(fs.readfile(file), before, 'nothing was written');
 });
 
+// Kea's lexer allows comments between a name and its colon, and escapes in
+// a name; a secret written so is a secret all the same.
+test('a secret is masked also behind comments and escapes', () => {
+	let text = '{ "DhcpDdns": { "tsig-keys": [ {\n' +
+		'\t"name": "k",\n' +
+		'\t"secret" /* the key */ : "c2VjcmV0",\n' +
+		'\t"\\u0070assword": # the name is escaped\n\t\t"hunter2",\n' +
+		'\t"user-password"\n\t// a line comment\n\t: "p4ss",\n' +
+		'\t"comment": "\\"password\\": text in a value is not a member"\n' +
+		'} ] } }\n' +
+		'// "password": "old-one", left in a comment\n';
+	let masked = config.mask_secrets(text);
+
+	equal(masked.masked, 3);
+
+	for (let secret in [ 'c2VjcmV0', 'hunter2', 'p4ss', 'old-one' ])
+		equal(index(masked.content, secret), -1, secret);
+
+	ok(index(masked.content, '"secret" /* the key */ : "' + config.MASK + '"') > 0, 'the layout and comments stay');
+	ok(index(masked.content, '// "password": "' + config.MASK + '", left in a comment') > 0, 'a member in a comment is masked');
+	ok(index(masked.content, 'text in a value is not a member') > 0);
+	equal(config.forbidden(ctx, 'dhcp_ddns', masked.content),
+		'a secret in this text is masked; open the page with write access to change the file');
+	equal(config.forbidden(ctx, 'dhcp_ddns', text), null);
+	equal(config.forbidden(ctx, 'dhcp_ddns', '{ "DhcpDdns": {} } // "secret": "' + config.MASK + '"'),
+		'a secret in this text is masked; open the page with write access to change the file',
+		'also a mask in a comment is not written back');
+	equal(config.mask_secrets('{ "secret": "unterminated'), { content: '{ "secret": "' + config.MASK + '"', masked: 1 });
+});
+
 test('an include is allowed only of a *.json or *.conf file directly in the configuration directory', () => {
 	const include = path => sprintf('{ "Dhcp4": { <?include "%s"?> } }', path);
 	const refused = path => sprintf('the include of %s: only a *.json or *.conf file directly in %s can be included', path, ctx.conf_dir);
@@ -544,10 +574,38 @@ test('the run_script hook may run a script of Kea\'s script directory only', () 
 	equal(config.forbidden(ctx, 'dhcp4', hook('/root/x') + ' // other hooks are not looked at: libdhcp_ha.so'), refused);
 });
 
+// Kea's lexer (dhcp4_lexer.ll) takes "<?" for the start of a directive and
+// skips blanks and line ends inside it.
+test('an include is checked however Kea allows it to be written', () => {
+	const refused = sprintf('the include of /etc/shadow: only a *.json or *.conf file directly in %s can be included', ctx.conf_dir);
+
+	for (let text in [
+		'{ <? include "/etc/shadow" ?> }',
+		'{ <?\ninclude\t"/etc/shadow"\r\n?> }',
+		'{ <?include"/etc/shadow"?> }',
+		'{ "Dhcp4": {} } // <? include "/etc/shadow" ?> also in a comment'
+	])
+		equal(config.forbidden(ctx, 'dhcp4', text), refused, text);
+
+	equal(config.forbidden(ctx, 'dhcp4', sprintf('{ "Dhcp4": { <? include "%s/a.json" ?> } }', ctx.conf_dir)), null);
+	equal(config.forbidden(ctx, 'dhcp4', '{ <? inclde "/etc/kea/a.json" ?> }'), 'an include directive that the application cannot read');
+	equal(config.forbidden(ctx, 'dhcp4', '{ "Dhcp4": { "comment": "<?" } }'), 'an include directive that the application cannot read',
+		'any "<?" is taken for a directive');
+});
+
+test('an escape does not hide the run_script hook', () => {
+	const hook = '{ "library": "/usr/lib/kea/hooks/libdhcp_run_scr\\u0069pt.so", "parameters": { "name": "/root/x" } }';
+
+	equal(config.forbidden(ctx, 'dhcp4', '{ "Dhcp4": { "hooks-libraries": [ ' + hook + ' ] } }'),
+		'the script of the run_script hook: Kea runs scripts from /usr/share/kea/scripts only', 'in a text that parses');
+	equal(config.forbidden(ctx, 'dhcp4', sprintf('{ "Dhcp4": { <?include "%s/a.json"?>, "hooks-libraries": [ %s ] } }', ctx.conf_dir, hook)),
+		'the run_script hook in a file the application cannot read', 'in a text with an include');
+});
+
 /* ---- the lock around changes of a file ------------------------------------ */
 
 test('the lock is taken for a save and given back afterwards', () => {
-	equal(ctx.lock_file, root + '/var/lock/luci-app-kea.lock');
+	equal(ctx.lock_file, root + '/var/run/luci-app-kea/config.lock');
 
 	let inner = null;
 
@@ -569,6 +627,20 @@ test('the lock is taken for a save and given back afterwards', () => {
 	equal(after.lock('xn'), true, 'and given back');
 	after.lock('u');
 	after.close();
+});
+
+// In a directory anyone can write to, another user could take the lock
+// first or put a pipe in its place.
+test('the lock is kept in a directory only its owner can change', () => {
+	equal(mode(root + '/var/run/luci-app-kea'), '700', 'made for its owner alone');
+
+	config.mkdir_p(root + '/var/shared', 0o755);
+	fs.chmod(root + '/var/shared', 0o1777);
+	fs.symlink(root + '/var/run/luci-app-kea', root + '/var/linked');
+
+	for (let dir in [ root + '/var/shared', root + '/var/linked' ])
+		equal(config.locked(config.context({ ...ctx, lock_file: dir + '/config.lock' }), () => 'held'),
+			{ result: false, error: 'the lock directory ' + dir + ' is not a directory only its owner can change' }, dir);
 });
 
 test('a save waits for another holder of the lock, and gives up', () => {

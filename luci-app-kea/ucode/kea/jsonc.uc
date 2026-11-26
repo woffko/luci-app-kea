@@ -59,6 +59,51 @@ export function strip_comments(text) {
 	return join('', out);
 };
 
+const BLANKS = [ 32, 9, 13, NEWLINE ];
+
+// The text of a configuration file as Kea's lexer splits it: a string as
+// { string: true, start, end } ("end" is past its closing quote), a comment
+// as { comment: true, start, end }, and every other character that is not
+// a blank as { char, start }. Blanks are left out.
+export function tokens(text) {
+	let list = [];
+	let len = length(text ?? '');
+
+	for (let i = 0; i < len; i++) {
+		let ch = ord(text, i);
+		let start = i;
+
+		if (ch == QUOTE) {
+			i++;
+
+			while (i < len && ord(text, i) != QUOTE)
+				i += ord(text, i) == BACKSLASH ? 2 : 1;
+
+			push(list, { string: true, start, end: min(i + 1, len) });
+		}
+		else if (ch == HASH || (ch == SLASH && ord(text, i + 1) == SLASH)) {
+			while (i + 1 < len && ord(text, i + 1) != NEWLINE)
+				i++;
+
+			push(list, { comment: true, start, end: i + 1 });
+		}
+		else if (ch == SLASH && ord(text, i + 1) == STAR) {
+			i += 2;
+
+			while (i < len && !(ord(text, i) == STAR && ord(text, i + 1) == SLASH))
+				i++;
+
+			i = min(i + 1, len - 1);
+			push(list, { comment: true, start, end: i + 1 });
+		}
+		else if (!(ch in BLANKS)) {
+			push(list, { char: ch, start });
+		}
+	}
+
+	return list;
+};
+
 // Parse a Kea configuration file. Returns { config, error }.
 export function parse(text) {
 	try {

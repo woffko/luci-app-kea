@@ -402,7 +402,8 @@ function owned_by_package(ctx) {
 
 // What "apk audit --backup" says about the configuration directory: a line
 // "U etc/kea/kea-dhcp4.conf" for a file that differs from the one the
-// package installed.
+// package installed. Null when apk failed: it then prints nothing, which
+// would read as "unchanged".
 function audit(ctx) {
 	if (ctx.apk_audit)
 		return ctx.apk_audit();
@@ -414,9 +415,7 @@ function audit(ctx) {
 
 	let output = handle.read('all');
 
-	handle.close();
-
-	return output;
+	return handle.close() == 0 ? output : null;
 }
 
 // "missing", "sample" (the file the Kea package installed, unchanged) or

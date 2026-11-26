@@ -153,8 +153,18 @@ function interface_of(interfaces, address) {
 	return null;
 }
 
+// A host name Kea can hand out and DNS can carry: labels of letters,
+// digits, "-" and "_" (which dnsmasq takes too) of up to 63 characters,
+// joined by dots, 253 characters at most. Kea writes a reserved name to
+// the clients and to DNS as it is, so nothing else goes into a
+// reservation.
+export function valid_hostname(name) {
+	return type(name) == 'string' && length(name) <= 253 &&
+		match(name, /^[A-Za-z0-9_-]{1,63}(\.[A-Za-z0-9_-]{1,63})*\.?$/) != null;
+};
+
 function new_entry(host, family) {
-	return {
+	let entry = {
 		key: host['.name'] + ':' + family,
 		source: text(host['.name']),
 		family,
@@ -173,6 +183,11 @@ function new_entry(host, family) {
 		target: null,
 		existing: null
 	};
+
+	if (entry.name != '' && !valid_hostname(entry.name))
+		push(entry.blocked, 'the hostname is not a valid host name: letters, digits, "-" and "_", joined by dots');
+
+	return entry;
 }
 
 // Compare the entry with what the target subnet already holds.
@@ -907,6 +922,36 @@ export function reserve(ctx, interfaces, request) {
 
 /* ---- the leases of dnsmasq ------------------------------------------------- */
 
+// A lease file of dnsmasq larger than this is not read: it would hold
+// rpcd for long. dnsmasq writes well under 1 KiB per lease.
+const MAX_LEASE_FILE = 4 * 1024 * 1024;
+
+// The text of a lease file of dnsmasq: { content }, null when there is no
+// such file, or { error } for one that is not a plain file (a pipe would
+// block the reader) or is too large.
+export function read_lease_file(path) {
+	let stat = fs.stat(path);
+
+	if (!stat)
+		return { content: null };
+
+	if (stat.type != 'file')
+		return { error: path + ' is not a plain file' };
+
+	let too_large = sprintf('%s is larger than %d bytes', path, MAX_LEASE_FILE);
+
+	if (stat.size > MAX_LEASE_FILE)
+		return { error: too_large };
+
+	// Read one byte more than allowed: the file may have grown meanwhile.
+	let content = fs.readfile(path, MAX_LEASE_FILE + 1);
+
+	if (content == null)
+		return { error: 'cannot read ' + path };
+
+	return length(content) > MAX_LEASE_FILE ? { error: too_large } : { content };
+};
+
 // Hand the leases dnsmasq has given out to a running kea-dhcp4, so that its
 // clients keep their addresses when Kea takes over. "content" is the text
 // of dnsmasq's lease file: one lease per line, "expiry mac ip hostname
@@ -964,7 +1009,7 @@ export function move_leases(ctx, content, now) {
 			expire: expiry
 		};
 
-		if (fields[3] != null && fields[3] != '*')
+		if (fields[3] != null && fields[3] != '*' && valid_hostname(fields[3]))
 			lease.hostname = fields[3];
 
 		if (fields[4] != null && fields[4] != '*')
