@@ -9,6 +9,53 @@ Released versions are tagged `vX.Y.Z` and have their package on the
 [Releases page](https://github.com/woffko/luci-app-kea/releases). All
 versions are alpha.
 
+## 0.15.2-r1 (2026-11-26)
+
+After an external audit of `0.15.1` (findings F-LUCIKEA-01 to 04), each
+finding checked against the code and against Kea 3.0.4 first.
+
+### Security
+
+- The lines of a configuration shown under "Show changes" went into the
+  page as HTML. A host name with markup in a reservation, taken over from
+  a lease with "Reserve IP", could therefore run as script in the page of
+  the administrator who looked at the changes. Kea 3.0.4 strips markup
+  from the name a client sends, but not from a lease another server of a
+  high availability pair passes on. These lines, and a few more texts, are
+  now shown as text, and a test checks every page for a string given to
+  LuCI as HTML.
+- "Reserve IP" and the import of static leases refuse a host name that is
+  not one: letters, digits, `-` and `_`, joined by dots. Moving the leases
+  of dnsmasq leaves such a name out.
+- An include directive written with blanks or line ends inside it, such as
+  `<? include "/etc/shadow" ?>`, was not checked; Kea accepts it. Every
+  `<?` of a text is now checked as a directive. An escape such as `\u0069`
+  no longer hides the run_script hook in a text with an include.
+- A reader got a secret unmasked when a comment stood between its name and
+  the colon, or when its name was written with escapes. The masking now
+  reads the text as Kea's lexer does, and also masks secrets written out
+  in comments.
+- The lock around changes of the Kea files is now
+  `/var/run/luci-app-kea/config.lock`, in a directory only root can
+  change. In `/var/lock`, which anyone can write to, another user could
+  hold it or put a pipe in its place, and every save would wait.
+
+### Fixed
+
+- The raw editor and the JSON fields of the editors turned entities in the
+  text into characters, so `&amp;` was saved as `&`. They now take the text
+  as it is.
+- The Setup page and `setup-from-dnsmasq` took a file for the unchanged
+  example when `apk audit` failed, since it then prints nothing. A failure
+  now counts as a file of the user's own, which is not replaced.
+- The lease file of dnsmasq is read only when it is a plain file of at
+  most 4 MiB, so that a pipe or a huge file in its place cannot block
+  rpcd.
+- The DHCPv4 editor listed an interface it newly makes Kea listen on by its
+  device alone, like the generator before `0.15.1`. It now lists it with
+  the interface's own address, such as `br-lan/192.168.1.1`. Entries
+  already in the file stay as they are written.
+
 ## 0.15.1-r1 (2026-11-23)
 
 ### Fixed

@@ -7,6 +7,42 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-26: After the audit of `0.15.1` (`0.15.2-r1`)
+
+- An external audit of `0.15.1`, made for the image w0w6 of the owner, was
+  passed on by the `ha-cluster` project with the owner's go, together with
+  that project's own check of each finding against the code and the
+  sources of Kea 3.0.4. Each point was checked here again.
+- F-LUCIKEA-01 held in part. "Show changes" put the lines of a file into
+  the page as HTML, and the raw editor and the JSON fields put their text
+  in as HTML too, which decodes entities. The way in the audit named, a
+  LAN client sending a host name with markup, did not hold: Kea 3.0.4
+  replaces every character but letters, digits, dots and hyphens in the
+  name a client sends. What remains is a lease that another server of a
+  pair passes on with any name, reserved and then shown in a diff. Fixed
+  on the pages, with a check of all pages for such strings
+  (`test/js/children.test.js`), and in the backend: a reservation gets
+  only a host name.
+- F-LUCIKEA-02 held. Kea's lexer reads `<? include "x" ?>`, with blanks,
+  tabs and line ends inside, or with none (tried with `kea-dhcp4 -t`); the
+  check looked for `<?include` only. Every `<?` is now checked. The
+  masking for readers missed a secret behind a comment before the colon
+  or with an escaped name; it now reads the text as the lexer does.
+- F-LUCIKEA-03 held in part. A new file is created with mode 0600 and
+  existing ones keep theirs until the chmod, so the window for other
+  readers that the audit named did not exist. The lock in `/var/lock`,
+  which anyone can write to, the exit code of `apk audit` that was not
+  looked at, and the read of the lease file without a limit held.
+- F-LUCIKEA-04 held in part. The backend of the services reads no JSON.
+  The editor kept the entries of the interfaces it found, but wrote a
+  device it newly listened on by its name alone; it now writes it with
+  the interface's own address, as the generator does since `0.15.1`. The
+  missing reload trigger is in the init script of the Kea package of the
+  image, which the `ha-cluster` project maintains.
+- Not done: the audit's advice to write `hostname-char-set` into the
+  configuration the generator makes. Kea 3.0.4 uses that set by default
+  already.
+
 ## 2026-11-23: Release `v0.15.1`
 
 - The owner said to merge and release. The tag is on the merge commit on
