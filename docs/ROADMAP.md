@@ -219,7 +219,7 @@ are no longer in use.
       hand with the package of its CI run attached. `v0.8.0` followed on
       2026-11-20, `v0.9.0`, `v0.10.0` and `v0.10.1` on 2026-11-21,
       `v0.11.0`, `v0.12.0`, `v0.13.0`, `v0.14.0` and `v0.15.0` on
-      2026-11-22, `v0.15.1` on 2026-11-23.
+      2026-11-22, `v0.15.1` on 2026-11-23, `v0.15.2` on 2026-11-27.
 - [x] Document installation of the package that CI builds.
 - [x] Run the on-target and browser tests in CI against an OpenWrt root
       filesystem or virtual machine. Done with the official image under
