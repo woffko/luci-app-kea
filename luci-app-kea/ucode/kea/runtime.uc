@@ -159,6 +159,9 @@ export function log(ctx, count) {
 		pipe.close();
 	}
 
+	// Kea logs what it could not read in its configuration, also a password.
+	text = config.mask_known(ctx, text);
+
 	let lines = filter(split(text, '\n'), line => line != '' && match(line, regexp(LOG_PATTERN)));
 
 	return {

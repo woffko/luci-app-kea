@@ -2,7 +2,7 @@
 
 import * as fs from 'fs';
 import { test, equal, ok, fixture, done } from './lib.uc';
-import { strip_comments, parse, stringify, has_comments } from 'luci.kea.jsonc';
+import { strip_comments, parse, stringify, has_comments, tokens } from 'luci.kea.jsonc';
 
 test('line comments are removed and their newline is kept', () => {
 	equal(strip_comments("{ // one\n\"a\": 1 # two\n}"), "{ \n\"a\": 1 \n}");
@@ -89,6 +89,20 @@ test('has_comments tells whether a rewrite would drop comments', () => {
 	equal(has_comments('{ "a": "# not a comment" }'), false);
 	equal(has_comments(fs.readfile(fixture('kea-dhcp4-rich.conf'))), true);
 	equal(has_comments(null), false);
+});
+
+test('the text is split into strings, comments and other characters as Kea reads it', () => {
+	let text = '{ "a\\"b" /* c "d" */ : # e\n "f" // g\n}';
+	let kinds = map(tokens(text), token =>
+		token.string || token.comment ? [ token.string ? 'string' : 'comment', substr(text, token.start, token.end - token.start) ] :
+		[ 'char', chr(token.char) ]);
+
+	equal(kinds, [
+		[ 'char', '{' ], [ 'string', '"a\\"b"' ], [ 'comment', '/* c "d" */' ], [ 'char', ':' ],
+		[ 'comment', '# e' ], [ 'string', '"f"' ], [ 'comment', '// g' ], [ 'char', '}' ]
+	]);
+	equal(map(tokens('"open'), token => [ token.start, token.end ]), [ [ 0, 5 ] ], 'a string without its end');
+	equal(map(tokens('/* open'), token => [ token.start, token.end ]), [ [ 0, 7 ] ], 'a comment without its end');
 });
 
 done();

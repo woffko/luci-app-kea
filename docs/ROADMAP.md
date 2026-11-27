@@ -369,6 +369,27 @@ not hard". Done in `0.15.0`.
       warning for a subnet on an interface Kea does not listen on.
 - [ ] DHCPv6, and the TLS of a pair, in the same generator.
 
+## M13: After the audit of `0.15.1`
+
+An external audit of `0.15.1` for the image w0w6 of the owner, passed on
+by the `ha-cluster` project on 2026-11-26 with the owner's go. All in
+`0.15.2`.
+
+- [x] F-LUCIKEA-01: show the lines of "Show changes" and the text of the
+      editors as text; refuse a host name that is not one in a
+      reservation.
+- [x] F-LUCIKEA-02: check include directives as Kea's lexer reads them;
+      mask secrets behind comments and escapes.
+- [x] F-LUCIKEA-03: the lock in a directory of root's own; a failure of
+      `apk audit` counts as a changed file; a limit for the lease file of
+      dnsmasq.
+- [x] F-LUCIKEA-04, the part of this application: a device newly listened
+      on is written with its own address.
+- [x] R-LUCIKEA-01, the second reading of these fixes: the library path
+      trimmed as Kea trims it; Kea's quotes of secrets masked in the
+      check output and the log; only a lease file of root's own; every
+      entry of a device kept by the editor.
+
 ## Decisions
 
 Made by the project owner.

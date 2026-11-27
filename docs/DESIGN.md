@@ -511,7 +511,8 @@ in DNS.
 
 It writes a file that is missing or still the example the Kea package
 installed: owned by the package in the database of apk, and not marked as
-changed by `apk audit --backup /etc/kea`. A file someone has changed is
+changed by `apk audit --backup /etc/kea`. When `apk audit` fails it prints
+nothing, so its exit code is checked: a failure counts as a changed file. A file someone has changed is
 never replaced by the command, which `ha-cluster` runs on its own. The
 page shows what it would write, so that the change can be made by hand,
 and replaces the file only when the user asks for it and confirms that
@@ -535,7 +536,12 @@ not run out and lies in a subnet of Kea. Kea refuses an address it has
 leased already, so a second run, or a run on both nodes of a pair, adds
 nothing twice. dnsmasq 2.93 kept its lease file when it was restarted
 without any DHCPv4 range (measured); a caller that wants to be sure can
-save a copy before and pass it with `--leases-file`.
+save a copy before and pass it with `--leases-file`. The lease file is
+read only when it is a plain file of root's own, no link, of at most
+4 MiB: it lies in `/tmp`, where a pipe in its place would block rpcd. The
+init script of dnsmasq creates it as root, and in `/tmp` a file of root's
+can be replaced by root alone, so it cannot become a pipe between the
+check and the read.
 
 ### Who may see and do what
 
@@ -545,16 +551,32 @@ and `0.13.0` showed what that split did not cover; since `0.14.0`:
 - A reader gets the configuration files with the values of passwords and
   secrets masked: any member named `password` or `secret`, or ending in
   `-password` or `-secret`. The text is masked where it stands, so that
-  comments and layout stay. The pages that edit a file ask for it with the
-  write-level `getConfigRaw` first and fall back to the masked one; a text
-  with a masked secret is not saved, so a masked value cannot replace the
-  real one.
+  comments and layout stay. Since `0.15.2` it is read as Kea's lexer reads
+  it: a comment between a name and its colon, or a name written with
+  escapes (`"\u0070assword"`), does not hide a secret, and a secret
+  written out in a comment is masked too. The pages that edit a file ask
+  for it with the write-level `getConfigRaw` first and fall back to the
+  masked one; a text with a masked secret is not saved, so a masked value
+  cannot replace the real one.
 - Kea checks a file as root, and its errors quote what it read. An include
   directive would let a writer have Kea read any file of the router, and
   the run_script hook looks at the path it is given before it checks the
   directory. So a text may include only a `*.json` or `*.conf` file
   directly in `/etc/kea`, which is no link, and may name only a script in
   `/usr/share/kea/scripts`; both are refused before Kea sees the text.
+  Kea's lexer allows blanks and line ends inside a directive
+  (`<? include "x" ?>`), so every `<?` of a text is checked as one, also
+  within a string or a comment. That refuses a text with a `<?` that Kea
+  would not take for a directive; a string can write it `\u003c?`. It is
+  kept so, because any difference between this check and Kea's lexer in
+  telling strings and comments apart would open the hole again. In a text
+  with an include, which is not JSON, the run_script hook is looked for
+  with escapes decoded, and the path of a library is trimmed as Kea trims
+  it.
+- Kea's check and its log quote a string they cannot read as it is
+  written, a password too ("Bad escape in ..."). What `getConfig`,
+  `validate` and `getLog` return has every secret of the files in
+  `/etc/kea` that can be included replaced by the mask.
   `validate`, a read-level method, checks only the files on disk.
 - A writer may change the Kea files and run Kea; it may not stop the DNS
   of the router. dnsmasq and odhcpd are therefore no longer stopped or
@@ -562,7 +584,14 @@ and `0.13.0` showed what that split did not cover; since `0.14.0`:
   `/etc/config/dhcp`, through LuCI's own page and its ACL.
 - Whatever comes from the router is shown as text. LuCI's `E()` puts a
   string child into `innerHTML`; the pages give it a list, or for LuCI's
-  table helper a value escaped with `%h`.
+  table helper a value escaped with `%h`. `test/js/children.test.js`
+  refuses a child that builds or picks a string outside a list. A text
+  area gets its text as its value: as a child, its entities would be
+  decoded.
+- A host name goes into a reservation only when it is one (letters,
+  digits, `-` and `_`, joined by dots): Kea hands it to the clients and to
+  DNS as it is written, and a name in a lease may come from another server
+  of a pair, which passes on what it is sent.
 
 Not done yet: authentication of the high availability peers (Kea's
 basic-auth or TLS), which the same audit asks for (CA-HACLUSTER-01). It
@@ -654,10 +683,13 @@ Since the import command there are two writers of the Kea files: rpcd,
 which runs one call at a time, and that command. Both read a file, change
 it, check it with the Kea binary and rename a temporary file into place,
 under the same name. Every change therefore runs under an exclusive lock
-on `/var/lock/luci-app-kea.lock`: a save, a restore, and an import from
-reading the files to writing the last one. The lock is the kernel's
+on `/var/run/luci-app-kea/config.lock`: a save, a restore, and an import
+from reading the files to writing the last one. The lock is the kernel's
 (`flock`), so it goes with a process that dies; a holder waits up to ten
-seconds for another one, then gives up and writes nothing.
+seconds for another one, then gives up and writes nothing. Its directory
+is made for root alone and nothing is locked when it is not such a
+directory: in `/var/lock`, where it was before `0.15.2` and anyone can
+write, another user could take the lock first or put a pipe in its place.
 
 It does not cover a page that loaded a file before an import and saves it
 afterwards: that save is a change of its own and replaces what the import

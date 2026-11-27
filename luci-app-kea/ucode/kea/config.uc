@@ -100,7 +100,7 @@ export function context(options) {
 		// How long a command of ha-cluster may take, in milliseconds
 		cluster_timeout: options?.cluster_timeout ?? 15000,
 		// Held while a Kea configuration file is changed; see locked()
-		lock_file: options?.lock_file ?? root + '/var/lock/luci-app-kea.lock',
+		lock_file: options?.lock_file ?? root + '/var/run/luci-app-kea/config.lock',
 		// The package database of apk, and a stand-in for "apk audit"
 		// (tests); see setup.file_state()
 		apk_db: options?.apk_db ?? root + '/lib/apk/db/installed',
@@ -482,6 +482,166 @@ export function log_outputs(ctx, name, content) {
 	return result;
 };
 
+// ---- what a reader sees, and what a writer may write ------------------------
+
+// The value that stands for a secret in what a user with read access gets.
+export const MASK = '********';
+
+// Members whose value is a secret: "password", "secret" and any name that
+// ends in "-password" or "-secret" (the TSIG keys of kea-dhcp-ddns, the
+// clients of the control agent, the peers of high availability, database
+// connections). A name ending in "-file" is a path and stays.
+function secret_member(name) {
+	return match(name, /(^|-)(password|secret)$/) != null;
+}
+
+// What Kea reads from a string token of the text: its escapes decoded.
+function string_value(content, token) {
+	let literal = substr(content, token.start, token.end - token.start);
+
+	try {
+		return `${json(literal)}`;
+	}
+	catch (e) {
+		return substr(literal, 1, length(literal) - 2);
+	}
+}
+
+// The secrets of a configuration file, as the places of their values in
+// its text: a string token whose value names a secret, ":" and a string
+// token, with only blanks and comments between them, as Kea's lexer reads
+// them. A name written with escapes ("\u0070assword") is a secret too.
+// "tokens" is what jsonc.tokens() made of the text.
+function secret_values(content, tokens) {
+	let list = filter(tokens, token => !token.comment);
+	let found = [];
+
+	for (let i = 0; i + 2 < length(list); i++)
+		if (list[i].string && list[i + 1].char == 58 && list[i + 2].string &&
+		    secret_member(string_value(content, list[i])))
+			push(found, list[i + 2]);
+
+	return found;
+}
+
+// A member written out in a comment: its name, the space around the colon,
+// and the value.
+const COMMENTED_MEMBER = /"([A-Za-z0-9_-]+)"([ \t\r\n]*):([ \t\r\n]*)"((\\.|[^"\\])*)"/g;
+
+// The comments of a configuration file that write out a secret member, as
+// { start, end, text, held }: "text" is the comment with the value of each
+// such member replaced by MASK, "held" whether one of them is MASK already.
+function secret_comments(content, tokens) {
+	let found = [];
+
+	for (let token in tokens) {
+		if (!token.comment)
+			continue;
+
+		let secrets = 0;
+		let held = false;
+		let text = replace(substr(content, token.start, token.end - token.start), COMMENTED_MEMBER,
+			(all, name, before, after, value) => {
+				if (!secret_member(name))
+					return all;
+
+				secrets++;
+
+				if (value == MASK)
+					held = true;
+
+				return sprintf('"%s"%s:%s"%s"', name, before, after, MASK);
+			});
+
+		if (secrets > 0)
+			push(found, { start: token.start, end: token.end, text, held });
+	}
+
+	return found;
+}
+
+// The text of a configuration file with the value of every secret member
+// replaced by MASK: { content, masked }, "masked" counting the values. The
+// text keeps its comments and layout; only string values are replaced,
+// also those of secret members written out in comments.
+export function mask_secrets(content) {
+	let text = `${content ?? ''}`;
+	let tokens = jsonc.tokens(text);
+	let values = secret_values(text, tokens);
+	let places = secret_comments(text, tokens);
+	let out = [];
+	let at = 0;
+
+	for (let token in values)
+		push(places, { start: token.start, end: token.end, text: '"' + MASK + '"' });
+
+	for (let place in sort(places, (a, b) => a.start - b.start)) {
+		push(out, substr(text, at, place.start - at), place.text);
+		at = place.end;
+	}
+
+	push(out, substr(text, at));
+
+	return { content: join('', out), masked: length(values) };
+};
+
+// Whether a secret member of the text, also one written out in a comment,
+// has MASK as its value.
+function holds_mask(content) {
+	let tokens = jsonc.tokens(content);
+
+	for (let token in secret_values(content, tokens))
+		if (string_value(content, token) == MASK)
+			return true;
+
+	for (let comment in secret_comments(content, tokens))
+		if (comment.held)
+			return true;
+
+	return false;
+}
+
+// The values of the secrets of a configuration text, as written between
+// their quotes and as Kea reads them. An error of Kea's lexer quotes a
+// string as it is written ("Bad escape in ..."), other messages as read.
+function secret_texts(content) {
+	let found = [];
+
+	for (let token in secret_values(content, jsonc.tokens(content))) {
+		push(found, substr(content, token.start + 1, max(0, token.end - token.start - 2)));
+		push(found, string_value(content, token));
+	}
+
+	return found;
+}
+
+// A text from Kea, its check or its log, with every value of a secret of
+// the files Kea may read (those in the configuration directory that can be
+// included) replaced by MASK. What Kea quotes there, a user with read
+// access must not see either.
+export function mask_known(ctx, text) {
+	let secrets = [];
+
+	if (type(text) != 'string' || text == '')
+		return text;
+
+	for (let entry in (fs.lsdir(ctx.conf_dir) ?? [])) {
+		let file = ctx.conf_dir + '/' + entry;
+
+		if (match(entry, /\.(json|conf)$/) && fs.lstat(file)?.type == 'file')
+			for (let secret in secret_texts(fs.readfile(file) ?? ''))
+				push(secrets, secret);
+	}
+
+	// The longest first, so that a secret that holds another one goes whole.
+	for (let secret in sort(uniq(filter(secrets, s => s != '' && s != MASK)), (a, b) => length(b) - length(a)))
+		text = join(MASK, split(text, secret));
+
+	return text;
+};
+
+// ---- checking and reading the files -----------------------------------------
+
 export function validate_all(ctx) {
 	let result = {};
 
@@ -494,12 +654,13 @@ export function validate_all(ctx) {
 			validate_file(ctx, name, file) :
 			{ valid: false, output: 'binary or config file is missing' };
 
+		// A method for readers: what Kea quotes from the files is masked.
 		result[name] = {
 			config: file,
 			installed,
 			exists,
 			valid: check.valid,
-			output: check.output,
+			output: mask_known(ctx, check.output),
 			warnings: check.valid ? warnings(ctx, name, fs.readfile(file)) : []
 		};
 	}
@@ -549,56 +710,9 @@ export function read(ctx, name) {
 	};
 };
 
-// ---- what a reader sees, and what a writer may write ------------------------
-
-// The value that stands for a secret in what a user with read access gets.
-export const MASK = '********';
-
-// Members whose value is a secret: "password", "secret" and any name that
-// ends in "-password" or "-secret" (the TSIG keys of kea-dhcp-ddns, the
-// clients of the control agent, the peers of high availability, database
-// connections). A name ending in "-file" is a path and stays.
-function secret_member(name) {
-	return match(name, /(^|-)(password|secret)$/) != null;
-}
-
-// A member with a string value in the text of a JSON file: its name, the
-// space around the colon, and the value as written.
-const STRING_MEMBER = /"([A-Za-z0-9_-]+)"([ \t\r\n]*):([ \t\r\n]*)"((\\.|[^"\\])*)"/g;
-
-// The text of a configuration file with the value of every secret member
-// replaced by MASK: { content, masked }, "masked" counting the values. The
-// text keeps its comments and layout; only string values are replaced.
-export function mask_secrets(content) {
-	let masked = 0;
-	let text = replace(`${content ?? ''}`, STRING_MEMBER, (all, name, before, after, value) => {
-		if (!secret_member(name))
-			return all;
-
-		masked++;
-
-		return sprintf('"%s"%s:%s"%s"', name, before, after, MASK);
-	});
-
-	return { content: text, masked };
-};
-
-// Whether a secret member of the text has MASK as its value.
-function holds_mask(content) {
-	let found = false;
-
-	replace(content, STRING_MEMBER, (all, name, before, after, value) => {
-		if (secret_member(name) && value == MASK)
-			found = true;
-
-		return all;
-	});
-
-	return found;
-}
-
 // What read() returns to a user who may read the Kea pages but not change
-// them: the same, with the secrets masked.
+// them: the same, with the secrets masked, also in the output of Kea's
+// check.
 export function read_masked(ctx, name) {
 	let reply = read(ctx, name);
 
@@ -607,6 +721,7 @@ export function read_masked(ctx, name) {
 
 		reply.content = masked.content;
 		reply.masked = masked.masked;
+		reply.validation = mask_known(ctx, reply.validation);
 	}
 
 	return reply;
@@ -624,13 +739,26 @@ export function read_masked(ctx, name) {
 //   directory, so its error says whether a path exists. Only a script in
 //   ctx.scripts_dir is passed on.
 // - A secret that a reader got masked must not be written back as MASK.
+//
+// Kea's lexer takes "<?" for the start of a directive and allows blanks and
+// line ends around "include" and the file name: "<? include \"x\" ?>". Every
+// "<?" of the text is checked as one, also within a string or a comment,
+// so that no way of writing a directive is missed.
+const DIRECTIVE = /^<\?[ \t\r\n]*include[ \t\r\n]*"([^"\n]*)"[ \t\r\n]*\?>/;
+
+// The text with every "\uXXXX" escape decoded, for a search in a text that
+// is not JSON, so that an escape cannot hide a name.
+function unescape(content) {
+	return replace(content, /\\u([0-9A-Fa-f]{4})/g, (all, code) => chr(hex(code)));
+}
+
 export function forbidden(ctx, name, content) {
 	let at = 0;
 
-	for (let start = index(content, '<?include'); start >= 0; start = index(substr(content, at), '<?include')) {
+	for (let start = index(content, '<?'); start >= 0; start = index(substr(content, at), '<?')) {
 		start += at;
 
-		let directive = match(substr(content, start), /^<\?include[ \t]+"([^"]*)"[ \t]*\?>/);
+		let directive = match(substr(content, start), DIRECTIVE);
 		let file = directive?.[1];
 
 		if (!file)
@@ -649,11 +777,13 @@ export function forbidden(ctx, name, content) {
 	let parsed = jsonc.parse(content);
 	let root = type(parsed.config) == 'object' ? parsed.config[CONFIGS[name]?.root] : null;
 
-	if (parsed.error && index(content, 'libdhcp_run_script') >= 0)
+	if (parsed.error && index(unescape(content), 'libdhcp_run_script') >= 0)
 		return 'the run_script hook in a file the application cannot read';
 
 	for (let hook in (type(root?.['hooks-libraries']) == 'array' ? root['hooks-libraries'] : [])) {
-		if (type(hook) != 'object' || !match(`${hook.library ?? ''}`, /(^|\/)libdhcp_run_script\.so$/))
+		// Kea trims blanks, tabs and line ends off the path of a library
+		// (PathChecker::validatePath()), and so does this check.
+		if (type(hook) != 'object' || !match(trim(`${hook.library ?? ''}`, ' \t\r\n'), /(^|\/)libdhcp_run_script\.so$/))
 			continue;
 
 		let script = hook.parameters?.name;
@@ -841,7 +971,18 @@ export function locked(ctx, fn) {
 	if (lock_depth > 0)
 		return run_locked(fn);
 
-	mkdir_p(fs.dirname(ctx.lock_file), 0o755);
+	// The lock file is kept in a directory of its own that only its owner
+	// can change: in a directory anyone can write to, such as /var/lock,
+	// another user could take the lock first or put a pipe in its place,
+	// and every change would wait for them.
+	let dir = fs.dirname(ctx.lock_file);
+
+	mkdir_p(dir, 0o700);
+
+	let kind = fs.lstat(dir);
+
+	if (kind?.type != 'directory' || (kind.mode & 0o022) != 0)
+		return { result: false, error: 'the lock directory ' + dir + ' is not a directory only its owner can change' };
 
 	let handle = fs.open(ctx.lock_file, 'a');
 

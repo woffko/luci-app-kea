@@ -38,6 +38,21 @@ test('Kea rejects an invalid config and nothing changes', () => {
 	equal(fs.lsdir(ctx.conf_dir), [ 'kea-dhcp-ddns.conf' ]);
 });
 
+// Kea's lexer quotes a string it cannot read as it is written.
+test('what Kea quotes of a secret it cannot read reaches a reader masked', () => {
+	fs.writefile(file, '{ "DhcpDdns": { "tsig-keys": [ { "name": "k", "algorithm": "HMAC-SHA256", "secret": "c2Vj\\qcmV0" } ] } }');
+
+	let raw = config.read(ctx, 'dhcp_ddns');
+	let masked = config.read_masked(ctx, 'dhcp_ddns');
+
+	equal(raw.valid, false);
+	ok(index(raw.validation, 'c2Vj') >= 0, 'Kea quotes the secret: ' + raw.validation);
+	equal(masked.valid, false);
+	equal(index(masked.validation, 'c2Vj'), -1, masked.validation);
+	equal(index(config.validate_all(ctx).dhcp_ddns.output, 'c2Vj'), -1, 'in validate');
+	fs.writefile(file, ddns(53001));
+});
+
 test('a backup Kea rejects is not restored', () => {
 	config.save(ctx, 'dhcp_ddns', ddns(53002));
 

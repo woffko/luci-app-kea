@@ -44,7 +44,7 @@ function badge(status) {
 
 	return E("span", {
 		"style": "display: inline-block; min-width: 7.5em; white-space: nowrap; text-align: center; padding: .15rem .45rem; border-radius: .35rem; font-weight: 600; color: " + style.color + "; background: " + style.background
-	}, style.label);
+	}, [ style.label ]);
 }
 
 function notice(kind, text) {
@@ -232,7 +232,7 @@ return view.extend({
 					ev.preventDefault();
 					self.commit();
 				}
-			}, _("Import selected") + " (" + count + ")"),
+			}, [ _("Import selected") + " (" + count + ")" ]),
 			" ",
 			E("button", {
 				"class": "btn cbi-button cbi-button-reload",

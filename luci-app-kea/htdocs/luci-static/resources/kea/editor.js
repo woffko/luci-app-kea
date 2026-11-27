@@ -133,7 +133,7 @@ function createView(familyName) {
 
 			if (this.parseError) {
 				this.noticesNode.replaceChildren(notice("warning", [
-					E("p", page.unparsable),
+					E("p", [ page.unparsable ]),
 					E("pre", { "style": "white-space: pre-wrap" }, [ this.parseError ])
 				]));
 				return;
@@ -395,7 +395,7 @@ function createView(familyName) {
 								return E("option", {
 									"value": type,
 									"selected": row.type === type ? "selected" : null
-								}, ID_TYPE_LABELS[type]);
+								}, [ ID_TYPE_LABELS[type] ]);
 							})),
 							" ",
 							identity
@@ -671,7 +671,7 @@ function createView(familyName) {
 			this.redraw();
 
 			return E("div", {}, [
-				E("h2", page.title),
+				E("h2", [ page.title ]),
 				this.noticesNode,
 				this.tabBarNode,
 				this.editorNode

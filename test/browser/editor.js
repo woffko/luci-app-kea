@@ -340,6 +340,27 @@ async function testRawEditor(page, scenario) {
 	assert.match(await changes.innerText(), /-\s+"renew-timer": 900,\n\+\s+"renew-timer": 901,/);
 	await page.locator(".modal button", { hasText: /^Close$/ }).click();
 	ok("raw editor: the changes are shown before saving");
+
+	/* Markup and entities in a file are text: a changed line is shown as it
+	 * is written, and the editor keeps "&amp;" and "&copy" as they are. */
+	const marked = before.replace("\"renew-timer\": 900,",
+		"\"renew-timer\": 900, \"user-context\": { \"note\": \"<img src=x onerror=window.keaInjected=1> &amp; &copy\" },");
+
+	assert.notEqual(marked, before);
+	await textarea.fill(marked);
+	await page.locator("#view button", { hasText: /^Show changes$/ }).click();
+	await changes.waitFor();
+	assert.match(await changes.innerText(), /<img src=x onerror=window\.keaInjected=1> &amp; &copy/);
+	assert.equal(await changes.locator("img").count(), 0);
+	await page.locator(".modal button", { hasText: /^Close$/ }).click();
+	assert.equal(await page.evaluate(() => globalThis.keaInjected), undefined);
+	ok("raw editor: a line with markup is shown as text in the changes");
+
+	await footerButton(page, "Save").click();
+	await expectNotification(page, "configuration saved");
+	assert.equal(await readRawConfig(page, scenario.family), marked);
+	await writeRawConfig(page, scenario.family, before);
+	ok("raw editor: entities in the file are kept as they are written");
 }
 
 async function testExampleRemoval(page, scenario) {

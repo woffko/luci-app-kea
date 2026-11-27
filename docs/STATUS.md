@@ -1,6 +1,6 @@
 # Project Status
 
-Status date: 2026-11-23. Package version `0.15.1-r1`, alpha.
+Status date: 2026-11-26. Package version `0.15.2-r1`, alpha.
 
 This is a code-level inventory of what exists and what is missing. The work
 needed to close the gaps is ordered in [ROADMAP.md](ROADMAP.md). Packaging
@@ -154,6 +154,25 @@ On a machine without `ha-cluster` the pages show neither an error nor the
 button.
 
 `0.10.1-r1` was not installed on the second machine.
+
+`0.15.2-r1`, the fixes after the audit of `0.15.1`, was tested on the
+QEMU machine and by CI: 187 backend tests on the router and the browser
+tests. By hand on that machine:
+
+| Check | Result |
+|-------|--------|
+| `kea-dhcp4 -t` with `<? include "x" ?>`, with line ends and tabs inside, and with no blank at all | all three accepted by Kea 3.0.4, all three now checked by the application |
+| `setup-from-dnsmasq` with an `apk` that exits with 99 | the example counts as the user's own (`own`) and is not written (exit code 3); with `0.15.1` it counted as the example |
+| A pipe in place of `/tmp/dhcp.leases`, then `moveDnsmasqLeases` | refused at once: "is not a plain file" |
+| The lock | `/var/run/luci-app-kea/config.lock`, its directory `drwx------` root |
+| A run_script hook whose library path ends in a blank, with the name `/etc/shadow` | refused before Kea sees it |
+
+On the bench of the `ha-cluster` project, two nodes in hot standby with
+the CI package of the first round of fixes: the cluster's own switch to
+Kea wrote both subnets with the pair and moved the leases on each node;
+the lock directory was `drwx------` root; "Reserve IP" on the standby
+refused a name with markup and wrote one without; a pipe as the lease
+file was refused at once.
 
 `0.15.1-r1`, one fix of the configuration made from dnsmasq's settings,
 was tested on the QEMU machine and by CI. The reason for it, measured on

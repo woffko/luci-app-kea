@@ -166,7 +166,7 @@ msgstr ""
 msgid "Component"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:247
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:250
 #: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/services.js:481
 msgid "Config"
 msgstr ""
@@ -528,7 +528,7 @@ msgstr ""
 msgid "Kea Components"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:244
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:247
 msgid "Kea Configuration"
 msgstr ""
 
@@ -682,7 +682,7 @@ msgstr ""
 msgid "Load balancing"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:237
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:240
 msgid "Loading..."
 msgstr ""
 
@@ -771,7 +771,7 @@ msgstr ""
 msgid "No"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:238
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:241
 msgid "No Kea config files were found."
 msgstr ""
 
@@ -1155,7 +1155,7 @@ msgid "Severity"
 msgstr ""
 
 #: applications/luci-app-kea/htdocs/luci-static/resources/kea/editor.js:212
-#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:205
+#: applications/luci-app-kea/htdocs/luci-static/resources/view/kea/configuration.js:208
 msgid "Show changes"
 msgstr ""
 
@@ -1435,7 +1435,7 @@ msgstr ""
 msgid "The text is not valid JSON, nothing was saved"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:1849
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:1865
 msgid "The texts are too large to compare line by line."
 msgstr ""
 

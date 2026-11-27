@@ -192,7 +192,7 @@ function serviceRow(serviceDef, services, status, self) {
 		E("td", { "class": "td left" }, [
 			E("strong", {}, _(serviceDef.title)),
 			E("br"),
-			E("small", {}, serviceDef.process)
+			E("small", {}, [ serviceDef.process ])
 		]),
 		E("td", { "class": "td left" }, binary.installed ? badge(true, _("Installed"), _("Missing")) : badge(false, _("Installed"), _("Missing"))),
 		E("td", { "class": "td left" }, config.exists ? badge(true, _("Present"), _("Missing")) : badge(false, _("Present"), _("Missing"))),
@@ -329,7 +329,7 @@ return view.extend({
 				return;
 			}
 
-			ui.addNotification(null, E("p", _("Kea init action completed.") + backend.clusterNote(result)), "info");
+			ui.addNotification(null, E("p", [ _("Kea init action completed.") + backend.clusterNote(result) ]), "info");
 			return self.refresh();
 		});
 	},
@@ -432,9 +432,9 @@ return view.extend({
 
 			return E("tr", { "class": "tr" }, [
 				E("td", { "class": "td left" }, [
-					E("strong", {}, serviceDef.title),
+					E("strong", {}, [ serviceDef.title ]),
 					E("br"),
-					E("small", {}, serviceDef.description)
+					E("small", {}, [ serviceDef.description ])
 				]),
 				E("td", { "class": "td left" }, installed ? badge(true, _("Installed"), _("Missing")) : badge(false, _("Installed"), _("Missing"))),
 				E("td", { "class": "td left" }, enabled ? badge(true, _("Enabled"), _("Disabled")) : badge(false, _("Enabled"), _("Disabled"))),

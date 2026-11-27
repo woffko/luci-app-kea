@@ -1665,19 +1665,34 @@ function checkDuplicateSubnets(family, tabs, errors) {
 }
 
 /*
+ * The entry for a device Kea is to listen on from now on. For DHCPv4 it
+ * names the first address of the interface as well, "br-lan/192.168.1.1":
+ * with the device alone Kea opens a socket for each address the device
+ * has, and with more than one it answers every request more than once.
+ * DHCPv6 takes the device alone; an address there would mean unicast.
+ */
+function listenEntry(family, tab) {
+	var address = (splitList(tab.address)[0] || "").split("/")[0];
+
+	return family.version === 4 && parseIPv4(address) !== null ? tab.device + "/" + address : tab.device;
+}
+
+/*
  * Rewrite interfaces-config.interfaces for the devices shown as tabs and
  * leave every other entry ("*", "eth0/192.0.2.1", unknown devices) alone.
+ * An entry kept for a device stays as it is written.
  *
  * When the form makes Kea listen on a device it did not listen on, and the
  * file says nothing about retries for the sockets, the form adds them: see
  * SOCKET_RETRIES. It does not when the user has just set or cleared one of
  * the two fields, which is then the user's choice.
  */
-function applyInterfaces(root, tabs, global) {
+function applyInterfaces(family, root, tabs, global) {
 	var config = root["interfaces-config"];
 	var current = array(isObject(config) ? config.interfaces : null);
 	var managed = {};
 	var wanted = {};
+	var listed = {};
 	var result, added, untouched;
 
 	tabs.forEach(function(tab) {
@@ -1691,6 +1706,7 @@ function applyInterfaces(root, tabs, global) {
 			wanted[tab.device] = true;
 	});
 
+	/* Every entry of a wanted device stays, "br-lan/a" and "br-lan/b" alike. */
 	result = current.filter(function(entry) {
 		var name = text(entry).split("/")[0];
 
@@ -1700,14 +1716,14 @@ function applyInterfaces(root, tabs, global) {
 		if (!wanted[name])
 			return false;
 
-		delete wanted[name];
+		listed[name] = true;
 		return true;
 	});
 
 	tabs.forEach(function(tab) {
-		if (wanted[tab.device]) {
-			result.push(tab.device);
-			delete wanted[tab.device];
+		if (wanted[tab.device] && !listed[tab.device]) {
+			result.push(listenEntry(family, tab));
+			listed[tab.device] = true;
 		}
 	});
 
@@ -1784,7 +1800,7 @@ function applyTabs(family, config, tabs, global) {
 	if (top.length || hasOwn(root, family.subnets))
 		root[family.subnets] = top;
 
-	applyInterfaces(root, tabs, global);
+	applyInterfaces(family, root, tabs, global);
 
 	return { config: out };
 }

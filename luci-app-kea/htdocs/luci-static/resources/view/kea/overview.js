@@ -190,7 +190,7 @@ return view.extend({
 				backend.daemonName(name),
 				E("div", { "class": "kea-daemon-state kea-daemon-" + described.level }, [
 					E("span", { "style": DAEMON_STYLE[described.level] || "" },
-						_("Running") + ", " + described.summary)
+						[ _("Running") + ", " + described.summary ])
 				].concat(described.details.map(function(detail) {
 					return E("div", {}, E("small", {}, [ detail ]));
 				})))

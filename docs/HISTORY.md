@@ -7,6 +7,65 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-26: After the audit of `0.15.1` (`0.15.2-r1`)
+
+- An external audit of `0.15.1`, made for the image w0w6 of the owner, was
+  passed on by the `ha-cluster` project with the owner's go, together with
+  that project's own check of each finding against the code and the
+  sources of Kea 3.0.4. Each point was checked here again.
+- F-LUCIKEA-01 held in part. "Show changes" put the lines of a file into
+  the page as HTML, and the raw editor and the JSON fields put their text
+  in as HTML too, which decodes entities. The way in the audit named, a
+  LAN client sending a host name with markup, did not hold: Kea 3.0.4
+  replaces every character but letters, digits, dots and hyphens in the
+  name a client sends. What remains is a lease that another server of a
+  pair passes on with any name, reserved and then shown in a diff. Fixed
+  on the pages, with a check of all pages for such strings
+  (`test/js/children.test.js`), and in the backend: a reservation gets
+  only a host name.
+- F-LUCIKEA-02 held. Kea's lexer reads `<? include "x" ?>`, with blanks,
+  tabs and line ends inside, or with none (tried with `kea-dhcp4 -t`); the
+  check looked for `<?include` only. Every `<?` is now checked. The
+  masking for readers missed a secret behind a comment before the colon
+  or with an escaped name; it now reads the text as the lexer does.
+- F-LUCIKEA-03 held in part. A new file is created with mode 0600 and
+  existing ones keep theirs until the chmod, so the window for other
+  readers that the audit named did not exist. The lock in `/var/lock`,
+  which anyone can write to, the exit code of `apk audit` that was not
+  looked at, and the read of the lease file without a limit held.
+- F-LUCIKEA-04 held in part. The backend of the services reads no JSON.
+  The editor kept the entries of the interfaces it found, but wrote a
+  device it newly listened on by its name alone; it now writes it with
+  the interface's own address, as the generator does since `0.15.1`. The
+  missing reload trigger is in the init script of the Kea package of the
+  image, which the `ha-cluster` project maintains.
+- Not done: the audit's advice to write `hostname-char-set` into the
+  configuration the generator makes. Kea 3.0.4 uses that set by default
+  already.
+- The `ha-cluster` project tried the package of the pull request on its
+  bench of two nodes in hot standby, on the owner's word: the cluster's
+  switch to Kea, the move of the leases, "Reserve IP" on the standby, the
+  lock and the lease read all did what they should.
+- A second reading of the fixes by the same auditors (R-LUCIKEA-01) found
+  four more points, all checked here:
+  - Kea trims blanks, tabs and line ends off the path of a library
+    (`PathChecker::validatePath()`), the check did not: with
+    `"libdhcp_run_script.so "` and `/etc/shadow` as the script, Kea's
+    check ran and said whether the file was executable. The path is now
+    trimmed first.
+  - Kea's lexer quotes a string it cannot read as it is written
+    (`Bad escape in "..."`), and the output of the check went to readers
+    as it was. So did the log, where a daemon that failed to start writes
+    the same. Both now have the secrets of the files masked.
+  - Between the check of the lease file and its read, a file in `/tmp`
+    that anyone had made could become a pipe. Only a file of root's own,
+    which nobody else can replace there, is read now.
+  - The editor dropped the second entry of a device listed twice, such as
+    `br-lan/a` and `br-lan/b`. Fixed. The other point, that every `<?` is
+    taken for a directive also within strings and comments, stays: a check
+    that told strings and comments apart would have to agree with Kea's
+    lexer exactly, and the cost is a text refused with a clear reason.
+
 ## 2026-11-23: Release `v0.15.1`
 
 - The owner said to merge and release. The tag is on the merge commit on

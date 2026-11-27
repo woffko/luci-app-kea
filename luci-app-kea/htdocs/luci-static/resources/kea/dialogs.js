@@ -70,7 +70,7 @@ return baseclass.extend({
 				"style": "max-height: 28rem; overflow: auto; white-space: pre-wrap; tab-size: 2"
 			}, lines.map(function(line) {
 				return E("div", { "style": DIFF_STYLE[line.op] },
-					line.op === "@" ? "…" : line.op + " " + line.text);
+					[ line.op === "@" ? "…" : line.op + " " + line.text ]);
 			})) :
 			E("p", { "class": "kea-changes" }, _("There are no changes."));
 

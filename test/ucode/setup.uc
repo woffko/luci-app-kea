@@ -161,6 +161,9 @@ test('the file is the sample while apk finds it unchanged and owns it', () => {
 	equal(setup.file_state(ctx), 'own');
 	audit = 'U etc/kea/kea-dhcp6.conf\n';
 	equal(setup.file_state(ctx), 'sample', 'another file changed');
+	audit = null;
+	equal(setup.file_state(ctx), 'own', 'apk failed: nothing tells the file is the sample');
+	audit = '';
 
 	let other = config.context({ root, run_dir: root + '/run', apk_db: root + '/db/none', apk_audit: () => '' });
 

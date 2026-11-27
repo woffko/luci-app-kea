@@ -35,7 +35,6 @@
 'use strict';
 
 import { cursor } from 'uci';
-import * as fs from 'fs';
 import * as config from 'luci.kea.config';
 import * as service from 'luci.kea.service';
 import * as importer from 'luci.kea.importer';
@@ -65,14 +64,14 @@ if (options.leases) {
 	}
 
 	let file = options.leases_file ?? service.dnsmasq_lease_file(ctx);
-	let content = fs.readfile(file);
+	let leases = importer.read_lease_file(file);
 
-	if (content == null && options.leases_file != null) {
-		printf('%J\n', { result: false, reason: 'cannot read ' + file, added: 0, skipped: [] });
+	if (leases.error || (leases.content == null && options.leases_file != null)) {
+		printf('%J\n', { result: false, reason: leases.error ?? 'cannot read ' + file, added: 0, skipped: [] });
 		exit(1);
 	}
 
-	let moved = importer.move_leases(ctx, content ?? '', time());
+	let moved = importer.move_leases(ctx, leases.content ?? '', time());
 
 	printf('%J\n', moved);
 	exit(moved.result ? 0 : 1);

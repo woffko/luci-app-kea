@@ -858,7 +858,7 @@ test("a new subnet gets an ID that no subnet or shared network uses", () => {
 		"option-data": [ { name: "routers", data: "192.168.50.1" } ]
 	});
 	assert.deepEqual(subnets.slice(0, 2), config.Dhcp4.subnet4);
-	assert.deepEqual(result.config.Dhcp4["interfaces-config"].interfaces, [ "br-lan", "br-guest" ]);
+	assert.deepEqual(result.config.Dhcp4["interfaces-config"].interfaces, [ "br-lan", "br-guest/192.168.50.1" ]);
 });
 
 test("new subnet IDs skip the IDs already taken", () => {
@@ -986,7 +986,7 @@ test("interface entries the editor does not manage are preserved", () => {
 
 	/* Listening on br-guest is new, so the retries for the sockets come with it. */
 	assert.deepEqual(result.config.Dhcp4["interfaces-config"], {
-		interfaces: [ "*", "tun0", "br-guest" ],
+		interfaces: [ "*", "tun0", "br-guest/192.168.50.1" ],
 		"re-detect": false,
 		"service-sockets-max-retries": 60,
 		"service-sockets-retry-wait-time": 2000
@@ -1011,6 +1011,53 @@ function enableGuest(tabs) {
 	tabFor(tabs, "br-guest").subnet = "192.168.50.0/24";
 }
 
+/*
+ * With the device alone, Kea opens a socket for each IPv4 address of the
+ * device and answers every request once per socket. A device that is newly
+ * listened on therefore comes with the first address of its interface.
+ */
+test("a new DHCPv4 interface is listened on with its own address", () => {
+	const both = roundTrip("dhcp4", { Dhcp4: {} }, (tabs) => {
+		tabFor(tabs, "br-lan").enabled = true;
+		tabFor(tabs, "br-lan").subnet = "192.168.1.0/24";
+		enableGuest(tabs);
+	});
+
+	assert.deepEqual(both.config.Dhcp4["interfaces-config"].interfaces,
+		[ "br-lan/192.168.1.1", "br-guest/192.168.50.1" ]);
+
+	/* An entry already in the file stays as it is written. */
+	assert.deepEqual(roundTrip("dhcp4", listening(), enableGuest).config.Dhcp4["interfaces-config"].interfaces,
+		[ "br-lan", "br-guest/192.168.50.1" ]);
+
+	/* Two addresses of one device, written by hand, both stay. */
+	const two = roundTrip("dhcp4", {
+		Dhcp4: {
+			"interfaces-config": { interfaces: [ "br-lan/192.168.1.1", "br-lan/192.168.1.2" ] },
+			subnet4: [ { id: 1, subnet: "192.168.1.0/24", "interface": "br-lan" } ]
+		}
+	}, enableGuest);
+
+	assert.deepEqual(two.config.Dhcp4["interfaces-config"].interfaces,
+		[ "br-lan/192.168.1.1", "br-lan/192.168.1.2", "br-guest/192.168.50.1" ]);
+
+	/* No static address: the device alone. */
+	const wan = roundTrip("dhcp4", { Dhcp4: {} }, (tabs) => {
+		tabFor(tabs, "eth1").enabled = true;
+		tabFor(tabs, "eth1").subnet = "192.0.2.0/24";
+	});
+
+	assert.deepEqual(wan.config.Dhcp4["interfaces-config"].interfaces, [ "eth1" ]);
+
+	/* DHCPv6: an address after the device would mean unicast. */
+	const six = roundTrip("dhcp6", { Dhcp6: {} }, (tabs) => {
+		tabFor(tabs, "br-lan").enabled = true;
+		tabFor(tabs, "br-lan").subnet = "fd00:1::/64";
+	});
+
+	assert.deepEqual(six.config.Dhcp6["interfaces-config"].interfaces, [ "br-lan" ]);
+});
+
 test("making Kea listen on an interface adds retries for the sockets", () => {
 	const fresh = roundTrip("dhcp4", { Dhcp4: {} }, (tabs) => {
 		tabFor(tabs, "br-lan").enabled = true;
@@ -1018,7 +1065,7 @@ test("making Kea listen on an interface adds retries for the sockets", () => {
 	});
 
 	assert.deepEqual(fresh.config.Dhcp4["interfaces-config"], {
-		interfaces: [ "br-lan" ],
+		interfaces: [ "br-lan/192.168.1.1" ],
 		"service-sockets-max-retries": 60,
 		"service-sockets-retry-wait-time": 2000
 	});
@@ -1026,7 +1073,7 @@ test("making Kea listen on an interface adds retries for the sockets", () => {
 	const second = roundTrip("dhcp4", listening(), enableGuest);
 
 	assert.deepEqual(second.config.Dhcp4["interfaces-config"], {
-		interfaces: [ "br-lan", "br-guest" ],
+		interfaces: [ "br-lan", "br-guest/192.168.50.1" ],
 		"service-sockets-max-retries": 60,
 		"service-sockets-retry-wait-time": 2000
 	});
@@ -1053,7 +1100,7 @@ test("the retries are added only with a new interface, and only when the file sa
 		const result = roundTrip("dhcp4", listening(extra), enableGuest);
 
 		assert.deepEqual(result.config.Dhcp4["interfaces-config"],
-			Object.assign({ interfaces: [ "br-lan", "br-guest" ] }, extra));
+			Object.assign({ interfaces: [ "br-lan", "br-guest/192.168.50.1" ] }, extra));
 	}
 });
 
@@ -1102,7 +1149,7 @@ test("what the user sets for the retries is not overruled by the form", () => {
 		enableGuest(tabs);
 	});
 
-	assert.deepEqual(cleared.config.Dhcp4["interfaces-config"], { interfaces: [ "br-lan", "br-guest" ] });
+	assert.deepEqual(cleared.config.Dhcp4["interfaces-config"], { interfaces: [ "br-lan", "br-guest/192.168.50.1" ] });
 
 	/* One of the two set by hand: the other is not filled in behind the user's back. */
 	const one = roundTrip("dhcp4", listening(), (tabs, settings) => {
@@ -1111,7 +1158,7 @@ test("what the user sets for the retries is not overruled by the form", () => {
 	});
 
 	assert.deepEqual(one.config.Dhcp4["interfaces-config"],
-		{ interfaces: [ "br-lan", "br-guest" ], "service-sockets-max-retries": 3 });
+		{ interfaces: [ "br-lan", "br-guest/192.168.50.1" ], "service-sockets-max-retries": 3 });
 });
 
 test("a tab knows whether OpenWrt serves DHCP on its interface", () => {
