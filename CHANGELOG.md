@@ -12,7 +12,8 @@ versions are alpha.
 ## 0.15.2-r1 (2026-11-26)
 
 After an external audit of `0.15.1` (findings F-LUCIKEA-01 to 04), each
-finding checked against the code and against Kea 3.0.4 first.
+finding checked against the code and against Kea 3.0.4 first, and a
+second reading of the fixes (R-LUCIKEA-01).
 
 ### Security
 
@@ -30,11 +31,15 @@ finding checked against the code and against Kea 3.0.4 first.
 - An include directive written with blanks or line ends inside it, such as
   `<? include "/etc/shadow" ?>`, was not checked; Kea accepts it. Every
   `<?` of a text is now checked as a directive. An escape such as `\u0069`
-  no longer hides the run_script hook in a text with an include.
+  no longer hides the run_script hook in a text with an include, nor does
+  a blank around the path of the library, which Kea trims.
 - A reader got a secret unmasked when a comment stood between its name and
   the colon, or when its name was written with escapes. The masking now
   reads the text as Kea's lexer does, and also masks secrets written out
   in comments.
+- Kea's check and log quote a string they cannot read as it is written,
+  also a password. For readers, the output of the check and the log lines
+  have every secret of the files in `/etc/kea` masked.
 - The lock around changes of the Kea files is now
   `/var/run/luci-app-kea/config.lock`, in a directory only root can
   change. In `/var/lock`, which anyone can write to, another user could
@@ -48,13 +53,14 @@ finding checked against the code and against Kea 3.0.4 first.
 - The Setup page and `setup-from-dnsmasq` took a file for the unchanged
   example when `apk audit` failed, since it then prints nothing. A failure
   now counts as a file of the user's own, which is not replaced.
-- The lease file of dnsmasq is read only when it is a plain file of at
-  most 4 MiB, so that a pipe or a huge file in its place cannot block
-  rpcd.
+- The lease file of dnsmasq is read only when it is a plain file of root's
+  own, no link, of at most 4 MiB, so that a pipe or a huge file in its
+  place cannot block rpcd.
 - The DHCPv4 editor listed an interface it newly makes Kea listen on by its
   device alone, like the generator before `0.15.1`. It now lists it with
   the interface's own address, such as `br-lan/192.168.1.1`. Entries
-  already in the file stay as they are written.
+  already in the file stay as they are written; before, a second entry of
+  one device, such as `br-lan/192.168.1.2`, was dropped on a save.
 
 ## 0.15.1-r1 (2026-11-23)
 

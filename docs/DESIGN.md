@@ -537,8 +537,11 @@ leased already, so a second run, or a run on both nodes of a pair, adds
 nothing twice. dnsmasq 2.93 kept its lease file when it was restarted
 without any DHCPv4 range (measured); a caller that wants to be sure can
 save a copy before and pass it with `--leases-file`. The lease file is
-read only when it is a plain file of at most 4 MiB: it lies in `/tmp`,
-where a pipe in its place would block rpcd.
+read only when it is a plain file of root's own, no link, of at most
+4 MiB: it lies in `/tmp`, where a pipe in its place would block rpcd. The
+init script of dnsmasq creates it as root, and in `/tmp` a file of root's
+can be replaced by root alone, so it cannot become a pipe between the
+check and the read.
 
 ### Who may see and do what
 
@@ -563,8 +566,17 @@ and `0.13.0` showed what that split did not cover; since `0.14.0`:
   `/usr/share/kea/scripts`; both are refused before Kea sees the text.
   Kea's lexer allows blanks and line ends inside a directive
   (`<? include "x" ?>`), so every `<?` of a text is checked as one, also
-  within a string or a comment. In a text with an include, which is not
-  JSON, the run_script hook is looked for with escapes decoded.
+  within a string or a comment. That refuses a text with a `<?` that Kea
+  would not take for a directive; a string can write it `\u003c?`. It is
+  kept so, because any difference between this check and Kea's lexer in
+  telling strings and comments apart would open the hole again. In a text
+  with an include, which is not JSON, the run_script hook is looked for
+  with escapes decoded, and the path of a library is trimmed as Kea trims
+  it.
+- Kea's check and its log quote a string they cannot read as it is
+  written, a password too ("Bad escape in ..."). What `getConfig`,
+  `validate` and `getLog` return has every secret of the files in
+  `/etc/kea` that can be included replaced by the mask.
   `validate`, a read-level method, checks only the files on disk.
 - A writer may change the Kea files and run Kea; it may not stop the DNS
   of the router. dnsmasq and odhcpd are therefore no longer stopped or

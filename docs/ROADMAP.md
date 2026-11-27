@@ -385,6 +385,10 @@ by the `ha-cluster` project on 2026-11-26 with the owner's go. All in
       dnsmasq.
 - [x] F-LUCIKEA-04, the part of this application: a device newly listened
       on is written with its own address.
+- [x] R-LUCIKEA-01, the second reading of these fixes: the library path
+      trimmed as Kea trims it; Kea's quotes of secrets masked in the
+      check output and the log; only a lease file of root's own; every
+      entry of a device kept by the editor.
 
 ## Decisions
 

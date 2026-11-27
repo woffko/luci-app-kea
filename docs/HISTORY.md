@@ -42,6 +42,29 @@ landed.
 - Not done: the audit's advice to write `hostname-char-set` into the
   configuration the generator makes. Kea 3.0.4 uses that set by default
   already.
+- The `ha-cluster` project tried the package of the pull request on its
+  bench of two nodes in hot standby, on the owner's word: the cluster's
+  switch to Kea, the move of the leases, "Reserve IP" on the standby, the
+  lock and the lease read all did what they should.
+- A second reading of the fixes by the same auditors (R-LUCIKEA-01) found
+  four more points, all checked here:
+  - Kea trims blanks, tabs and line ends off the path of a library
+    (`PathChecker::validatePath()`), the check did not: with
+    `"libdhcp_run_script.so "` and `/etc/shadow` as the script, Kea's
+    check ran and said whether the file was executable. The path is now
+    trimmed first.
+  - Kea's lexer quotes a string it cannot read as it is written
+    (`Bad escape in "..."`), and the output of the check went to readers
+    as it was. So did the log, where a daemon that failed to start writes
+    the same. Both now have the secrets of the files masked.
+  - Between the check of the lease file and its read, a file in `/tmp`
+    that anyone had made could become a pipe. Only a file of root's own,
+    which nobody else can replace there, is read now.
+  - The editor dropped the second entry of a device listed twice, such as
+    `br-lan/a` and `br-lan/b`. Fixed. The other point, that every `<?` is
+    taken for a directive also within strings and comments, stays: a check
+    that told strings and comments apart would have to agree with Kea's
+    lexer exactly, and the cost is a text refused with a clear reason.
 
 ## 2026-11-23: Release `v0.15.1`
 
