@@ -1435,7 +1435,7 @@ msgstr ""
 msgid "The text is not valid JSON, nothing was saved"
 msgstr ""
 
-#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:1863
+#: applications/luci-app-kea/htdocs/luci-static/resources/kea/model.js:1865
 msgid "The texts are too large to compare line by line."
 msgstr ""
 
