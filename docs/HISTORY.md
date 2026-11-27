@@ -7,6 +7,22 @@ Section dates are the days the work was done, taken from those notes. Work was
 often committed later; the [commit table](#commits) shows where each part
 landed.
 
+## 2026-11-27: Release `v0.15.2`
+
+- The owner said to merge and release. The pull request was merged with a
+  merge commit, so the commit the image of the `ha-cluster` project had
+  pinned stays in the history of `main`; the tag is on the merge commit.
+- The release workflow passed, with 187 backend tests and eight browser
+  tests. The attached file holds the same files as a package built from
+  the merged `main` by hand (compared with `apk adbdump`); its checksum is
+  in the release text and matched the public download. Published as a
+  pre-release.
+- Before the merge, the `ha-cluster` project ran the head of the pull
+  request on its bench twice: once with the package alone (the switch to
+  Kea, the move of the leases, "Reserve IP" on the standby), once in a
+  router image, upgraded from the previous one on both nodes of a pair.
+  Neither run found a problem.
+
 ## 2026-11-26: After the audit of `0.15.1` (`0.15.2-r1`)
 
 - An external audit of `0.15.1`, made for the image w0w6 of the owner, was

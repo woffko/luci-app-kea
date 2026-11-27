@@ -263,6 +263,14 @@ the router and six browser tests. By hand on that machine:
   and not after "enable". The call of the application returned in 0.01
   seconds each time.
 
+The package file of `v0.15.2` was built by the release workflow from the
+tagged commit and passed the 187 backend tests and eight browser tests in
+that run, on OpenWrt 25.12.6 under QEMU with Kea 3.0.4. It holds the same
+files as a package built from the same commit by hand. It was not
+installed on the second machine. The image of the `ha-cluster` project
+that ran on its bench carried the head of the pull request, with the same
+files.
+
 The package file of `v0.15.1` was built by the release workflow from the
 tagged commit and passed the 174 backend tests and eight browser tests in
 that run, on OpenWrt 25.12.6 under QEMU with Kea 3.0.4. It holds the same
