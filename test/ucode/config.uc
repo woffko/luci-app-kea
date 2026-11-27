@@ -602,6 +602,46 @@ test('an escape does not hide the run_script hook', () => {
 		'the run_script hook in a file the application cannot read', 'in a text with an include');
 });
 
+// Kea trims blanks, tabs and line ends off the path of a hook library
+// (PathChecker::validatePath() in Kea 3.0.4).
+test('a blank around the path of the library does not hide the run_script hook', () => {
+	const refused = 'the script of the run_script hook: Kea runs scripts from /usr/share/kea/scripts only';
+
+	for (let library in [ '/usr/lib/kea/hooks/libdhcp_run_script.so ', '\t/usr/lib/kea/hooks/libdhcp_run_script.so\n',
+	                      '/usr/lib/kea/hooks/libdhcp_run_script.so\\u0020' ])
+		equal(config.forbidden(ctx, 'dhcp4', sprintf('{ "Dhcp4": { "hooks-libraries": [ { "library": "%s", "parameters": { "name": "/etc/shadow" } } ] } }',
+			replace(replace(library, '\t', '\\t'), '\n', '\\n'))), refused, library);
+});
+
+// Kea's check and log quote what they could not read, as it is written:
+// "Bad escape in "hunter\q2"".
+test('what Kea quotes from the files reaches a reader masked', () => {
+	let echo = config.context({ ...ctx, validator: (name, file) => ({ valid: false, output: 'Bad escape in ' + fs.readfile(file) }) });
+	let ddns = config.path(ctx, 'dhcp_ddns');
+	let before = fs.readfile(ddns);
+	let extra = ctx.conf_dir + '/peers.json';
+
+	fs.writefile(ddns, '{ "DhcpDdns": { "tsig-keys": [ { "name": "k", "secret": "hunter\\q2" } ], "user-context": { "password": "top\\u0073ecret" } } }');
+	fs.writefile(extra, '"basic-auth-password": "included-pw"');
+
+	let reply = config.read_masked(echo, 'dhcp_ddns');
+
+	equal(index(reply.validation, 'hunter'), -1, 'as written');
+	ok(index(reply.validation, '"secret": "' + config.MASK + '"') > 0);
+	equal(index(config.validate_all(echo).dhcp_ddns.output, 'hunter'), -1, 'in validate');
+	equal(config.mask_known(ctx, 'a line with hunter\\q2, top\\u0073ecret, topsecret and included-pw'),
+		sprintf('a line with %s, %s, %s and %s', config.MASK, config.MASK, config.MASK, config.MASK),
+		'as written, as read, and from a file it may include');
+	equal(config.mask_known(ctx, null), null);
+
+	fs.unlink(extra);
+
+	if (before == null)
+		fs.unlink(ddns);
+	else
+		fs.writefile(ddns, before);
+});
+
 /* ---- the lock around changes of a file ------------------------------------ */
 
 test('the lock is taken for a save and given back afterwards', () => {

@@ -798,6 +798,9 @@ test('the lease file of dnsmasq is read only when it is a plain file of a sensib
 	fs.writefile(leases, '1 02:00:00:00:00:aa 192.168.1.101 laptop *\n');
 	equal(importer.read_lease_file(leases), { content: '1 02:00:00:00:00:aa 192.168.1.101 laptop *\n' });
 	equal(importer.read_lease_file(root), { error: root + ' is not a plain file' });
+	fs.symlink(leases, root + '/linked.leases');
+	equal(importer.read_lease_file(root + '/linked.leases'), { error: root + '/linked.leases is not a plain file' }, 'nor a link');
+	fs.unlink(root + '/linked.leases');
 
 	let big = fs.open(leases, 'w');
 

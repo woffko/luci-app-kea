@@ -482,73 +482,6 @@ export function log_outputs(ctx, name, content) {
 	return result;
 };
 
-export function validate_all(ctx) {
-	let result = {};
-
-	for (let name in CONFIG_ORDER) {
-		let file = path(ctx, name);
-		let bin = binary(ctx, name);
-		let installed = !!fs.access(bin, 'x');
-		let exists = is_file(file);
-		let check = (installed && exists) ?
-			validate_file(ctx, name, file) :
-			{ valid: false, output: 'binary or config file is missing' };
-
-		result[name] = {
-			config: file,
-			installed,
-			exists,
-			valid: check.valid,
-			output: check.output,
-			warnings: check.valid ? warnings(ctx, name, fs.readfile(file)) : []
-		};
-	}
-
-	return result;
-};
-
-export function list(ctx) {
-	return map(CONFIG_ORDER, name => {
-		let file = path(ctx, name);
-		let st = fs.stat(file);
-
-		return {
-			name,
-			title: CONFIGS[name].title,
-			path: file,
-			exists: st?.type == 'file',
-			size: st?.type == 'file' ? st.size : 0
-		};
-	});
-};
-
-export function read(ctx, name) {
-	if (!CONFIGS[name])
-		return { result: false, error: 'invalid config name' };
-
-	let file = path(ctx, name);
-
-	if (!is_file(file))
-		return { result: false, error: 'config file does not exist', path: file };
-
-	let content = fs.readfile(file);
-
-	if (content == null)
-		return { result: false, error: 'failed to read the config file', path: file };
-
-	let check = validate_file(ctx, name, file);
-
-	return {
-		result: true,
-		name,
-		path: file,
-		content,
-		valid: check.valid,
-		validation: check.output,
-		warnings: check.valid ? warnings(ctx, name, content) : []
-	};
-};
-
 // ---- what a reader sees, and what a writer may write ------------------------
 
 // The value that stands for a secret in what a user with read access gets.
@@ -668,8 +601,118 @@ function holds_mask(content) {
 	return false;
 }
 
+// The values of the secrets of a configuration text, as written between
+// their quotes and as Kea reads them. An error of Kea's lexer quotes a
+// string as it is written ("Bad escape in ..."), other messages as read.
+function secret_texts(content) {
+	let found = [];
+
+	for (let token in secret_values(content, jsonc.tokens(content))) {
+		push(found, substr(content, token.start + 1, max(0, token.end - token.start - 2)));
+		push(found, string_value(content, token));
+	}
+
+	return found;
+}
+
+// A text from Kea, its check or its log, with every value of a secret of
+// the files Kea may read (those in the configuration directory that can be
+// included) replaced by MASK. What Kea quotes there, a user with read
+// access must not see either.
+export function mask_known(ctx, text) {
+	let secrets = [];
+
+	if (type(text) != 'string' || text == '')
+		return text;
+
+	for (let entry in (fs.lsdir(ctx.conf_dir) ?? [])) {
+		let file = ctx.conf_dir + '/' + entry;
+
+		if (match(entry, /\.(json|conf)$/) && fs.lstat(file)?.type == 'file')
+			for (let secret in secret_texts(fs.readfile(file) ?? ''))
+				push(secrets, secret);
+	}
+
+	// The longest first, so that a secret that holds another one goes whole.
+	for (let secret in sort(uniq(filter(secrets, s => s != '' && s != MASK)), (a, b) => length(b) - length(a)))
+		text = join(MASK, split(text, secret));
+
+	return text;
+};
+
+// ---- checking and reading the files -----------------------------------------
+
+export function validate_all(ctx) {
+	let result = {};
+
+	for (let name in CONFIG_ORDER) {
+		let file = path(ctx, name);
+		let bin = binary(ctx, name);
+		let installed = !!fs.access(bin, 'x');
+		let exists = is_file(file);
+		let check = (installed && exists) ?
+			validate_file(ctx, name, file) :
+			{ valid: false, output: 'binary or config file is missing' };
+
+		// A method for readers: what Kea quotes from the files is masked.
+		result[name] = {
+			config: file,
+			installed,
+			exists,
+			valid: check.valid,
+			output: mask_known(ctx, check.output),
+			warnings: check.valid ? warnings(ctx, name, fs.readfile(file)) : []
+		};
+	}
+
+	return result;
+};
+
+export function list(ctx) {
+	return map(CONFIG_ORDER, name => {
+		let file = path(ctx, name);
+		let st = fs.stat(file);
+
+		return {
+			name,
+			title: CONFIGS[name].title,
+			path: file,
+			exists: st?.type == 'file',
+			size: st?.type == 'file' ? st.size : 0
+		};
+	});
+};
+
+export function read(ctx, name) {
+	if (!CONFIGS[name])
+		return { result: false, error: 'invalid config name' };
+
+	let file = path(ctx, name);
+
+	if (!is_file(file))
+		return { result: false, error: 'config file does not exist', path: file };
+
+	let content = fs.readfile(file);
+
+	if (content == null)
+		return { result: false, error: 'failed to read the config file', path: file };
+
+	let check = validate_file(ctx, name, file);
+
+	return {
+		result: true,
+		name,
+		path: file,
+		content,
+		valid: check.valid,
+		validation: check.output,
+		warnings: check.valid ? warnings(ctx, name, content) : []
+	};
+};
+
 // What read() returns to a user who may read the Kea pages but not change
-// them: the same, with the secrets masked.
+// them: the same, with the secrets masked, also in the output of Kea's
+// check.
 export function read_masked(ctx, name) {
 	let reply = read(ctx, name);
 
@@ -678,6 +721,7 @@ export function read_masked(ctx, name) {
 
 		reply.content = masked.content;
 		reply.masked = masked.masked;
+		reply.validation = mask_known(ctx, reply.validation);
 	}
 
 	return reply;
@@ -737,7 +781,9 @@ export function forbidden(ctx, name, content) {
 		return 'the run_script hook in a file the application cannot read';
 
 	for (let hook in (type(root?.['hooks-libraries']) == 'array' ? root['hooks-libraries'] : [])) {
-		if (type(hook) != 'object' || !match(`${hook.library ?? ''}`, /(^|\/)libdhcp_run_script\.so$/))
+		// Kea trims blanks, tabs and line ends off the path of a library
+		// (PathChecker::validatePath()), and so does this check.
+		if (type(hook) != 'object' || !match(trim(`${hook.library ?? ''}`, ' \t\r\n'), /(^|\/)libdhcp_run_script\.so$/))
 			continue;
 
 		let script = hook.parameters?.name;

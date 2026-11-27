@@ -928,15 +928,22 @@ const MAX_LEASE_FILE = 4 * 1024 * 1024;
 
 // The text of a lease file of dnsmasq: { content }, null when there is no
 // such file, or { error } for one that is not a plain file (a pipe would
-// block the reader) or is too large.
+// block the reader), is a link, belongs to another user or is too large.
+// The file lies in /tmp, where anyone may create files. The init script of
+// dnsmasq creates it as root; a file of root's own there can be replaced
+// by root alone, so it cannot turn into a pipe between this check and the
+// read.
 export function read_lease_file(path) {
-	let stat = fs.stat(path);
+	let stat = fs.lstat(path);
 
 	if (!stat)
 		return { content: null };
 
 	if (stat.type != 'file')
 		return { error: path + ' is not a plain file' };
+
+	if (stat.uid != fs.stat('/proc/self')?.uid)
+		return { error: path + ' belongs to another user' };
 
 	let too_large = sprintf('%s is larger than %d bytes', path, MAX_LEASE_FILE);
 

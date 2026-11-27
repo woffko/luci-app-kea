@@ -265,6 +265,27 @@ test('a line that procd passed on is split as well', () => {
 		'INFO');
 });
 
+test('a secret of the configuration that Kea logs is masked', () => {
+	let conf = root + '/etc/kea/kea-dhcp4.conf';
+	let before = fs.readfile(conf);
+	let line = 'Thu Nov 19 19:54:19 2026 daemon.err kea-dhcp4[4262]: 2026-11-19 19:54:19.811 ERROR  ' +
+		'[kea-dhcp4.dhcp4/4262.140602355344912] DHCP4_CONFIG_LOAD_FAIL configuration error using file: ' +
+		'/etc/kea/kea-dhcp4.conf: Bad escape in "s3cr\\qet"';
+
+	config.mkdir_p(root + '/etc/kea', 0o755);
+	fs.writefile(conf, '{ "Dhcp4": { "user-context": { "password": "s3cr\\qet" } } }');
+
+	let reply = runtime.log(config.context({ root, log_reader: () => line }), 30);
+
+	equal(length(reply.lines), 1);
+	equal(index(sprintf('%J', reply.lines), 's3cr'), -1);
+
+	if (before == null)
+		fs.unlink(conf);
+	else
+		fs.writefile(conf, before);
+});
+
 test('the last Kea messages are returned, oldest first, and nothing else', () => {
 	let logctx = config.context({ root, log_reader: () => join('\n', LOG) });
 	let reply = runtime.log(logctx, 30);
