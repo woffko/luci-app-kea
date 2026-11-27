@@ -1030,6 +1030,17 @@ test("a new DHCPv4 interface is listened on with its own address", () => {
 	assert.deepEqual(roundTrip("dhcp4", listening(), enableGuest).config.Dhcp4["interfaces-config"].interfaces,
 		[ "br-lan", "br-guest/192.168.50.1" ]);
 
+	/* Two addresses of one device, written by hand, both stay. */
+	const two = roundTrip("dhcp4", {
+		Dhcp4: {
+			"interfaces-config": { interfaces: [ "br-lan/192.168.1.1", "br-lan/192.168.1.2" ] },
+			subnet4: [ { id: 1, subnet: "192.168.1.0/24", "interface": "br-lan" } ]
+		}
+	}, enableGuest);
+
+	assert.deepEqual(two.config.Dhcp4["interfaces-config"].interfaces,
+		[ "br-lan/192.168.1.1", "br-lan/192.168.1.2", "br-guest/192.168.50.1" ]);
+
 	/* No static address: the device alone. */
 	const wan = roundTrip("dhcp4", { Dhcp4: {} }, (tabs) => {
 		tabFor(tabs, "eth1").enabled = true;

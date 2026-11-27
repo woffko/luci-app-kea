@@ -1692,6 +1692,7 @@ function applyInterfaces(family, root, tabs, global) {
 	var current = array(isObject(config) ? config.interfaces : null);
 	var managed = {};
 	var wanted = {};
+	var listed = {};
 	var result, added, untouched;
 
 	tabs.forEach(function(tab) {
@@ -1705,6 +1706,7 @@ function applyInterfaces(family, root, tabs, global) {
 			wanted[tab.device] = true;
 	});
 
+	/* Every entry of a wanted device stays, "br-lan/a" and "br-lan/b" alike. */
 	result = current.filter(function(entry) {
 		var name = text(entry).split("/")[0];
 
@@ -1714,14 +1716,14 @@ function applyInterfaces(family, root, tabs, global) {
 		if (!wanted[name])
 			return false;
 
-		delete wanted[name];
+		listed[name] = true;
 		return true;
 	});
 
 	tabs.forEach(function(tab) {
-		if (wanted[tab.device]) {
+		if (wanted[tab.device] && !listed[tab.device]) {
 			result.push(listenEntry(family, tab));
-			delete wanted[tab.device];
+			listed[tab.device] = true;
 		}
 	});
 
